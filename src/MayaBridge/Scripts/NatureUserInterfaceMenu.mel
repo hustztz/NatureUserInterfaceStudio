@@ -1,0 +1,96 @@
+
+source NuiMayaPointCloudShapeSetup;
+source NuiMayaSkeletonSetup;
+
+//	Callback routine for the menu item created in pointCloudEditorMenu
+global proc setupDeviceGrabberNode ()
+{
+	string $extracts[] = `lsType("natureUserInterfaceGrabber")`;
+	if( size( $extracts ) > 1)
+		return;
+
+	createNode natureUserInterfaceGrabber -n deviceGrabberNode1;
+	connectAttr time1.outTime deviceGrabberNode1.time;
+}
+
+global proc setupCamera ()
+{
+	// Turn off the grid.
+	grid -toggle false;
+
+	// Set up the camera environment.
+	string $curPanel = `getPanel -withFocus`;
+	string $curModelPanel = $curPanel;
+	if(`getPanel -typeOf $curPanel` != "modelPanel")
+		$curModelPanel = "modelPanel4";
+	string $camera[] =`camera -centerOfInterest 3
+			-focalLength 40
+			-lensSqueezeRatio 1
+			-cameraScale 1
+			-horizontalFilmAperture 1.41732 
+			-horizontalFilmOffset 0 
+			-verticalFilmAperture 0.94488 
+			-verticalFilmOffset 0 
+			-filmFit Fill -overscan 1 
+			-motionBlur 0 
+			-shutterAngle 144 
+			-nearClipPlane 0.1 
+			-farClipPlane 10000 
+			-orthographic 0 
+			-orthographicWidth 30 
+			-panZoomEnabled 0 
+			-horizontalPan 0 
+			-verticalPan 0 
+			-zoom 1`;
+	cameraMakeNode 2 $camera[0];
+	setAttr ($camera[0] + "_aim.translateZ") 0.0;
+	//setAttr ($camera[0] + ".rotateY") 180;
+	//setAttr ($camera[0] + ".translateZ") -5;
+	lookThroughModelPanel $camera[0] $curModelPanel;
+
+	string $grabber = "";
+	string $nodeNames[] = `lsType( "natureUserInterfaceGrabber" )`;
+	string  $name;
+	for ( $name in $nodeNames )
+	{
+		if ( $name != "<done>" ){
+			$grabber = $name;
+			break;
+		}
+	}
+	if ($grabber == "")
+		return;
+
+	select -r $grabber ;
+
+	connectAttr ($grabber + ".cameraTranslate") ($camera[0] + ".translate");
+	//connectAttr ($grabber + ".cameraRotate") ($camera[0] + ".rotate");
+}
+
+global proc natureUserInterfaceMenu ()
+{
+	// The global string variable gMainWindow contains the name of top
+	// Level Maya window.  Using this as the parent in a menu command
+	// will create a new menu at the same level as "File", "Edit", etc.
+	global string $gMainWindow;
+
+	// Create a top level menu called "Nature User Interface".
+	menu -parent $gMainWindow -tearOff true -label "Nature User Interface" natureUserInterfaceMenu;
+		menuItem -label "Setup Device Grabber"
+			-command "setupDeviceGrabberNode" deviceGrabberItem;
+		menuItem -label "Setup Camera"
+			-command "setupCamera" setupCameraItem;
+		menuItem -label "Grabber To Point Cloud"
+			-command "grabberToPointCloudShape" grabberToPointCloudItem;
+		menuItem -label "Point Cloud To Mesh"
+			-command "pointCloudToMesh" pointCloudToMeshItem;
+		menuItem -label "Grabber To Skeleton"
+			-command "setupSkeleton" skeletonSetupItem;
+		menuItem -label "Build Skeleton"
+			-command "buildSkeleton" buildSkeletonItem;
+		menuItem -label "Build Hands"
+			-command "buildHand" buildHandItem;
+}
+
+// Run natureUserInterfaceMenu to add "Nature User Interface" to the top level Maya menu list.
+natureUserInterfaceMenu;

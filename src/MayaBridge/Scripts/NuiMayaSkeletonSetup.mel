@@ -1,0 +1,250 @@
+global proc setupSkeleton ()
+{
+	string $grabber = "";
+	string $selectedGrabbers[] = `ls -sl`;
+	int $ii;
+	for ( $ii = 0; $ii < size($selectedGrabbers); $ii++ ) {
+		string $type = `nodeType $selectedGrabbers[$ii]`;
+		if ( $type == "natureUserInterfaceGrabber" ) {
+			$grabber = $selectedGrabbers[$ii];
+			break;
+		}
+	}
+
+	if ($grabber == "")
+	{
+		string $nodeNames[] = `lsType( "natureUserInterfaceGrabber" )`;
+		string  $name;
+		for ( $name in $nodeNames )
+		{
+			if ( $name != "<done>" ){
+				$grabber = $name;
+				break;
+			}
+		}
+	}
+	
+	if ($grabber == "")
+		return;
+
+	print $grabber;
+	
+	createNode skeletonDriver -n skeletonDriver1;
+	connectAttr ($grabber + ".outputSkeleton") skeletonDriver1.inputSkeletonData ;
+	connectAttr ($grabber + ".outputGesture") skeletonDriver1.inputGestureData ;
+}
+
+global proc buildSkeleton ()
+{
+	string $driver = "";
+	string $selectedDrivers[] = `ls -sl`;
+	int $ii;
+	for ( $ii = 0; $ii < size($selectedDrivers); $ii++ ) {
+		string $type = `nodeType $selectedDrivers[$ii]`;
+		if ( $type == "skeletonDriver" ) {
+			$driver = $selectedDrivers[$ii];
+			break;
+		}
+	}
+
+	if ($driver == "")
+	{
+		string $nodeNames[] = `lsType( "skeletonDriver" )`;
+		string  $name;
+		for ( $name in $nodeNames )
+		{
+			if ( $name != "<done>" ){
+				$driver = $name;
+				break;
+			}
+		}
+	}
+	
+	if ($driver == "")
+		return;
+
+	print $driver;
+
+	// build a body skeleton
+	source ChaSkeletonsMenu;
+	select -d;
+	joint -p 0 0 0 -n "center";
+	retargetingLimbLabel "Root";
+	joint -p 0 0 0 -n "spine";
+	retargetingLimbLabel "Spine";
+	joint -p 0 0 0 -n "neck";
+	retargetingLimbLabel "Neck";
+	joint -p 0 0 0 -n "head";
+	retargetingLimbLabel "Head";
+	select -d;
+	joint -p 0 0 0 -n "leftHip";
+	retargetingSideLabel "Left";
+	retargetingLimbLabel "Hip";
+	joint -p 0 0 0 -n "leftKnee";
+	retargetingSideLabel "Left";
+	retargetingLimbLabel "Knee";
+	joint -p 0 0 0 -n "leftFoot";
+	retargetingSideLabel "Left";
+	retargetingLimbLabel "Foot";
+	select -d;
+	joint -p 0 0 0 -n "leftShoulder";
+	retargetingSideLabel "Left";
+	retargetingLimbLabel "Shoulder";
+	joint -p 0 0 0 -n "leftElbow";
+	retargetingSideLabel "Left";
+	retargetingLimbLabel "Elbow";
+	joint -p 0 0 0 -n "leftHand";
+	retargetingSideLabel "Left";
+	retargetingLimbLabel "Hand";
+	select -d;
+	joint -p 0 0 0 -n "rightHip";
+	retargetingSideLabel "Right";
+	retargetingLimbLabel "Hip";
+	joint -p 0 0 0 -n "rightKnee";
+	retargetingSideLabel "Right";
+	retargetingLimbLabel "Knee";
+	joint -p 0 0 0 -n "rightFoot";
+	retargetingSideLabel "Right";
+	retargetingLimbLabel "Foot";
+	select -d;
+	joint -p 0 0 0 -n "rightShoulder";
+	retargetingSideLabel "Right";
+	retargetingLimbLabel "Shoulder";
+	joint -p 0 0 0 -n "rightElbow";
+	retargetingSideLabel "Right";
+	retargetingLimbLabel "Elbow";
+	joint -p 0 0 0 -n "rightHand";
+	retargetingSideLabel "Right";
+	retargetingLimbLabel "Hand";
+
+	// Parents
+	select -d;
+	parent "leftHip" "center";
+	parent "rightHip" "center";
+	parent "leftShoulder" "neck";
+	parent "rightShoulder" "neck";
+
+	// Show labels
+	select -r "center" ;
+	displayJointLabels 4;
+
+	
+	// Connect the driver to the skeleton
+	string $plusMinusAverage = `createNode plusMinusAverage`;
+	connectAttr ($driver + ".centerMassTranslate") ($plusMinusAverage + ".input3D[0]");
+	connectAttr ($plusMinusAverage + ".output3D")	("center" + ".translate");
+	/*spaceLocator -p 0 0 0 -n skeletonLocation;
+	setAttr "skeletonLocation.visibility" 0;
+	connectAttr skeletonLocation.translate ($plusMinusAverage + ".input3D[1]");*/
+	connectAttr ($driver + ".centerMassValid") ("center" + ".visibility");
+
+	connectAttr ($driver + ".torsoRelativeTranslate") ("spine" + ".translate");
+	connectAttr ($driver + ".torsoValid") ("spine" + ".visibility");
+	connectAttr ($driver + ".neckRelativeTranslate") ("neck" + ".translate");
+	connectAttr ($driver + ".neckValid") ("neck" + ".visibility");
+	connectAttr ($driver + ".headRelativeTranslate") ("head" + ".translate");
+	connectAttr ($driver + ".headValid") ("head" + ".visibility");
+
+	connectAttr ($driver + ".leftHipRelativeTranslate") ("leftHip" + ".translate");
+	connectAttr ($driver + ".leftHipValid") ("leftHip" + ".visibility");
+	connectAttr ($driver + ".leftKneeRelativeTranslate") ("leftKnee" + ".translate");
+	connectAttr ($driver + ".leftKneeValid") ("leftKnee" + ".visibility");
+	connectAttr ($driver + ".leftFootRelativeTranslate") ("leftFoot" + ".translate");
+	connectAttr ($driver + ".leftFootValid") ("leftFoot" + ".visibility");
+
+	connectAttr ($driver + ".rightHipRelativeTranslate") ("rightHip" + ".translate");
+	connectAttr ($driver + ".rightHipValid") ("rightHip" + ".visibility");
+	connectAttr ($driver + ".rightKneeRelativeTranslate") ("rightKnee" + ".translate");
+	connectAttr ($driver + ".rightKneeValid") ("rightKnee" + ".visibility");
+	connectAttr ($driver + ".rightFootRelativeTranslate") ("rightFoot" + ".translate");
+	connectAttr ($driver + ".rightFootValid") ("rightFoot" + ".visibility");
+
+	connectAttr ($driver + ".leftShoulderRelativeTranslate") ("leftShoulder" + ".translate");
+	connectAttr ($driver + ".leftShoulderValid") ("leftShoulder" + ".visibility");
+	connectAttr ($driver + ".leftElbowRelativeTranslate") ("leftElbow" + ".translate");
+	connectAttr ($driver + ".leftElbowValid") ("leftElbow" + ".visibility");
+	connectAttr ($driver + ".leftHandRelativeTranslate") ("leftHand" + ".translate");
+	connectAttr ($driver + ".leftHandValid") ("leftHand" + ".visibility");
+
+	connectAttr ($driver + ".rightShoulderRelativeTranslate") ("rightShoulder" + ".translate");
+	connectAttr ($driver + ".rightShoulderValid") ("rightShoulder" + ".visibility");
+	connectAttr ($driver + ".rightElbowRelativeTranslate") ("rightElbow" + ".translate");
+	connectAttr ($driver + ".rightElbowValid") ("rightElbow" + ".visibility");
+	connectAttr ($driver + ".rightHandRelativeTranslate") ("rightHand" + ".translate");
+	connectAttr ($driver + ".rightHandValid") ("rightHand" + ".visibility");
+
+	select -r $driver ;
+}
+
+global proc buildHand ()
+{
+	string $driver = "";
+	string $selectedDrivers[] = `ls -sl`;
+	int $ii;
+	for ( $ii = 0; $ii < size($selectedDrivers); $ii++ ) {
+		string $type = `nodeType $selectedDrivers[$ii]`;
+		if ( $type == "skeletonDriver" ) {
+			$driver = $selectedDrivers[$ii];
+			break;
+		}
+	}
+
+	if ($driver == "")
+	{
+		string $nodeNames[] = `lsType( "skeletonDriver" )`;
+		string  $name;
+		for ( $name in $nodeNames )
+		{
+			if ( $name != "<done>" ){
+				$driver = $name;
+				break;
+			}
+		}
+	}
+	
+	if ($driver == "")
+		return;
+
+	print $driver;
+
+	//polySphere -r 4 -n sphereInLeft;
+	//polyCube -w 4 -h 4 -d 4 -n cubeInRight;
+
+	string $emitterName = "handEmitter";
+	emitter -n $emitterName -pos 0 0 0 -type direction -r 100 -sro 0 -nuv 0 -cye none -cyi 1 -spd 1 -srn 0 -nsp 1 -tsp 0 -mxd 50 -mnd 1 -dx 1 -dy 0 -dz 0 -sp 0.2;
+	string $particleName = "handParticle";
+	particle -n $particleName;
+	connectDynamic -em $emitterName $particleName;
+	string $particleShapeName = $particleName + "Shape";
+	setAttr ($particleShapeName + ".lifespanMode") 2;
+	setAttr ($particleShapeName + ".lifespan") 50;
+	setAttr ($particleShapeName + ".lifespanRandom") 5;
+
+	setAttr ($particleShapeName + ".particleRenderType") 6;
+	addAttr -is true -ln "lineWidth" -at long -min 1 -max 20 -dv 2 $particleShapeName;
+	addAttr -is true -ln "tailFade" -at "float" -min -1 -max 1 -dv 0 $particleShapeName;
+	addAttr -is true -ln "tailSize" -at "float" -min -100 -max 100 -dv 100 $particleShapeName;
+	addAttr -is true -ln "colorRed" -dv 1.0 -at double $particleShapeName;
+	setAttr -keyable true handParticleShape.colorRed;
+	addAttr -is true -ln "colorGreen" -dv 0.0 -at double $particleShapeName;
+	setAttr -keyable true handParticleShape.colorGreen;
+	addAttr -is true -ln "colorBlue" -dv 0.0 -at double $particleShapeName;
+	setAttr -keyable true handParticleShape.colorBlue;
+
+	connectAttr ($driver + ".leftHandTranslate") ($emitterName + ".translate");
+	connectAttr ($driver + ".leftHandState") ($particleName + ".visibility");
+
+	string $plusMinusAverage = `createNode plusMinusAverage`;
+	setAttr ($plusMinusAverage + ".operation") 2;
+	connectAttr ($driver + ".leftHandTranslate") ($plusMinusAverage + ".input3D[0]");
+	connectAttr ($driver + ".leftElbowTranslate") ($plusMinusAverage + ".input3D[1]");
+	connectAttr ($plusMinusAverage + ".output3Dx")	($emitterName + ".dx");
+	connectAttr ($plusMinusAverage + ".output3Dy")	($emitterName + ".dy");
+	connectAttr ($plusMinusAverage + ".output3Dz")	($emitterName + ".dz");
+
+	//connectAttr ($driver + ".rightHandTranslate") ("cubeInRight" + ".translate");
+	//connectAttr ($driver + ".rightHandState") ("cubeInRight" + ".visibility");
+
+	select -r $driver ;
+}
+

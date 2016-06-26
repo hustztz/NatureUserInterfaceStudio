@@ -1,0 +1,84 @@
+
+global proc grabberToPointCloudShape ()
+{
+	string $grabber = "";
+	string $selectedGrabbers[] = `ls -sl`;
+	int $ii;
+	for ( $ii = 0; $ii < size($selectedGrabbers); $ii++ ) {
+		string $type = `nodeType $selectedGrabbers[$ii]`;
+		if ( $type == "natureUserInterfaceGrabber" ) {
+			$grabber = $selectedGrabbers[$ii];
+			break;
+		}
+	}
+
+	if ($grabber == "")
+	{
+		string $nodeNames[] = `lsType( "natureUserInterfaceGrabber" )`;
+		string  $name;
+		for ( $name in $nodeNames )
+		{
+			if ( $name != "<done>" ){
+				$grabber = $name;
+				break;
+			}
+		}
+	}
+	
+	if ($grabber == "")
+		return;
+
+	print $grabber;
+
+	createNode pointCloudShape -n pointCloudShape1;
+	connectAttr ($grabber + ".outputPointCloud") pointCloudShape1.inputPointCloud ;
+}
+
+global proc pointCloudToMesh ()
+{
+	string $grabber = "";
+	string $selectedGrabbers[] = `ls -sl`;
+	int $ii;
+	for ( $ii = 0; $ii < size($selectedGrabbers); $ii++ ) {
+		string $type = `nodeType $selectedGrabbers[$ii]`;
+		if ( $type == "natureUserInterfaceGrabber" ) {
+			$grabber = $selectedGrabbers[$ii];
+			break;
+		}
+	}
+
+	if ($grabber == "")
+	{
+		string $nodeNames[] = `lsType( "natureUserInterfaceGrabber" )`;
+		string  $name;
+		for ( $name in $nodeNames )
+		{
+			if ( $name != "<done>" ){
+				$grabber = $name;
+				break;
+			}
+		}
+	}
+	
+	if ($grabber == "")
+		return;
+
+	print $grabber;
+
+	string $toMeshs[] = `lsType("pointCloudToMesh")`;
+	string	$newToMeshName = "pointCloudToMesh" + size( $toMeshs );
+
+	string $meshs[] = `lsType("mesh")`;
+	string	$newMeshName = "mesh" + size( $meshs );
+
+	//createNode pointCloudToMesh -n $newToMeshName;
+	createNode mesh -n $newMeshName;
+	
+	//connectAttr ($grabber + ".outputPointCloud") ($newToMeshName + ".inputPointCloud");
+	connectAttr ($grabber + ".outputMesh") ($newMeshName + ".inMesh");
+
+	hyperShade -assign lambert1;
+	sets -e -forceElement initialShadingGroup;
+
+	//disconnectAttr ($grabber + ".outputMesh") ($newMeshName + ".inMesh");
+}
