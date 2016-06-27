@@ -8,11 +8,11 @@ class NuiCompositeFrame;
 class NuiFrameSaveManager;
 class NuiKinfuManager;
 
-class NuiMainController
+class NuiGuiController
 {
 public:
-	NuiMainController();
-	~NuiMainController();
+	NuiGuiController();
+	~NuiGuiController();
 
 	void launch();
 

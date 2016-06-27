@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 
-#include "NuiMainController.h"
+#include "GUI/NuiGuiController.h"
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -23,7 +23,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 	}
 	
-	NuiMainController mainController;
+	NuiGuiController mainController;
 	mainController.launch();
 	
 	return 0;

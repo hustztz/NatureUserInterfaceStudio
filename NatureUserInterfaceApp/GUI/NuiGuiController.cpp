@@ -1,11 +1,11 @@
-#include "NuiMainController.h"
+#include "NuiGuiController.h"
 
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 #include "DeviceManager/NuiRGBDDeviceController.h"
 
-#include "GUI\NuiPangoVis.h"
-#include "GUI\NuiGuiOpenCLUtilities.h"
+#include "NuiPangoVis.h"
+#include "NuiGuiOpenCLUtilities.h"
 
 #include "SLAM/NuiKinfuManager.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
@@ -14,7 +14,7 @@
 #include "Frame/NuiFrameUtilities.h"
 #include "Foundation/NuiTimeLog.h"
 
-NuiMainController::NuiMainController()
+NuiGuiController::NuiGuiController()
 	: m_pCache(NULL)
 	, m_pDevice(NULL)
 	, m_gui(NULL)
@@ -26,7 +26,7 @@ NuiMainController::NuiMainController()
 	m_pDevice = new NuiRGBDDeviceController();
 }
 
-NuiMainController::~NuiMainController()
+NuiGuiController::~NuiGuiController()
 {
 	SafeDelete(m_pDevice);
 	SafeDelete(m_pCache);
@@ -35,12 +35,12 @@ NuiMainController::~NuiMainController()
 	SafeDelete(m_pKinfu);
 }
 
-void NuiMainController::resetCache()
+void NuiGuiController::resetCache()
 {
 	m_pCache->clear();
 }
 
-void NuiMainController::handleGuiChanged()
+void NuiGuiController::handleGuiChanged()
 {
 	//assert(m_gui);
 
@@ -141,7 +141,7 @@ void NuiMainController::handleGuiChanged()
 	}	
 }
 
-void NuiMainController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
+void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 {
 	//assert(m_gui);
 	if(!pCompositeFrame)
@@ -178,7 +178,7 @@ void NuiMainController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 	m_gui->a_trackerSpeed = strsf.str();*/
 }
 
-void NuiMainController::readGuiStatus(NuiCompositeFrame* pCompositeFrame)
+void NuiGuiController::readGuiStatus(NuiCompositeFrame* pCompositeFrame)
 {
 	//assert(m_gui);
 	if(!pCompositeFrame)
@@ -195,7 +195,7 @@ void NuiMainController::readGuiStatus(NuiCompositeFrame* pCompositeFrame)
 
 }
 
-void NuiMainController::launch()
+void NuiGuiController::launch()
 {
 	assert(m_gui);
 
