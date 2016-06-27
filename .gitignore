@@ -27,3 +27,19 @@
 *.exe
 *.out
 *.app
+
+# visual studio
+*.sln
+*.sdf
+*.suo
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.opensdf
+x64/
+
+# Maya
+Maya.env
+
+# Other
+NatureUserInterfaceToMaya/
