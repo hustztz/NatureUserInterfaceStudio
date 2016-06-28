@@ -20,17 +20,10 @@ NuiKinfuManager::~NuiKinfuManager()
 	SafeDelete(m_tsdf_volume);
 }
 
-void	NuiKinfuManager::updateVolume(const Vector3i& resolution, const Vector3f& size)
+void	NuiKinfuManager::resetVolume()
 {
 	SafeDelete(m_tsdf_volume);
-	if(0 != resolution[0] && 0 != resolution[1] && 0 != resolution[2] && size[0] > 0.f && size[1] > 0.f && size[2] > 0.f)
-	{
-		bool has_color_volume = true;
-		m_tsdf_volume = new NuiKinfuVolume(resolution, size, has_color_volume);
-	}
-
-	float default_tranc_dist = 0.03f; //meters
-	m_tsdf_volume->setTsdfTruncDist (default_tranc_dist);
+	m_tsdf_volume = new NuiKinfuVolume(m_volumeConfig);
 }
 
 bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
@@ -123,10 +116,9 @@ bool	NuiKinfuManager::process ()
 
 	if( !m_tracker.isInit() )
 	{
-		NuiICPConfig trackerConfig;
 		const UINT nImageWidth = pCompositeFrame->m_colorFrame.GetWidth();
 		const UINT nImageHeight = pCompositeFrame->m_colorFrame.GetHeight();
-		m_tracker.initialize(trackerConfig, nPointWidth, nPointHeight, nImageWidth, nImageHeight);
+		m_tracker.initialize(m_trackerConfig, nPointWidth, nPointHeight, nImageWidth, nImageHeight);
 	}
 
 	NuiTimeLog::instance().tick(sTrackerName);

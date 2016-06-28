@@ -3,6 +3,7 @@
 #include "Foundation\NuiThreadObject.h"
 
 #include "NuiKinfuTracker.h"
+#include "NuiKinfuVolumeConfig.h"
 #include "Frame/Buffer/NuiFrameCircleBuffer.h"
 
 class NuiMeshShape;
@@ -16,7 +17,7 @@ public:
 	virtual ~NuiKinfuManager();
 
 	virtual void	reset() override;
-	void	updateVolume(const Vector3i& resolution, const Vector3f& size);
+	void	resetVolume();
 	bool	pushbackFrame(std::shared_ptr<NuiCompositeFrame> pFrame) { return m_buffer.pushbackCompositeFrame(pFrame); }
 	bool	getCLData(NuiCLMappableData* pCLData, bool bIsMesh);
 	bool	getMesh(NuiMeshShape* pMesh);
@@ -29,6 +30,10 @@ public:
 	void	setAutoReset(bool autoReset) { m_bAutoReset = autoReset; }
 	void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
 	void	setIntegrationMetricThreshold(float threshold) { m_tracker.setIntegrationMetricThreshold(threshold); }
+
+public:
+	NuiICPConfig						m_trackerConfig;
+	NuiKinfuVolumeConfig				m_volumeConfig;
 
 private:
 	virtual bool process() override;

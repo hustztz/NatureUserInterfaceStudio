@@ -13,9 +13,8 @@
 
 static const std::string sVolume2Vertices("Volume2Vertices");
 
-NuiKinfuVolume::NuiKinfuVolume(const Vector3i& resolution, const Vector3f& dimensions, bool bHas_color_volume)
-	: m_resolution(resolution)
-	, m_dimensions(dimensions)
+NuiKinfuVolume::NuiKinfuVolume(const NuiKinfuVolumeConfig& config)
+	: m_config(config)
 	, m_volumeCL(NULL)
 	, m_colorVolumeCL(NULL)
 	, m_volume_paramsCL(NULL)
@@ -25,27 +24,22 @@ NuiKinfuVolume::NuiKinfuVolume(const Vector3i& resolution, const Vector3f& dimen
 	, m_MB_triTableCL(NULL)
 	, m_mutexCL(NULL)
 	, m_vertexSumCL(NULL)
-	, m_max_color_weight(128)
 	, m_max_output_vertex_size(3000000)
 	, m_dirty(true)
-	, m_bIsDynamic(false)
-	, m_voxel_shift(15)
-	, m_translateBasis(Vector3f::Zero())
 {
-	const float    default_tranc_dist  = 0.03f; //meters
-	m_max_output_vertex_size = 5 * 3 * m_resolution(0) * m_resolution(1);
-	m_tsdf_params.resolution[0] = (float)m_resolution(0);
-	m_tsdf_params.resolution[1] = (float)m_resolution(1);
-	m_tsdf_params.resolution[2] = (float)m_resolution(2);
-	m_tsdf_params.dimension[0] = m_dimensions(0);
-	m_tsdf_params.dimension[1] = m_dimensions(1);
-	m_tsdf_params.dimension[2] = m_dimensions(2);
-	m_tsdf_params.cell_size[0] = m_dimensions(0)/m_resolution(0);
-	m_tsdf_params.cell_size[1] = m_dimensions(1)/m_resolution(1);
-	m_tsdf_params.cell_size[2] = m_dimensions(2)/m_resolution(2);
-	m_tsdf_params.tranc_dist = default_tranc_dist;
+	m_max_output_vertex_size = 5 * 3 * m_config.resolution(0) * m_config.resolution(1);
+	m_tsdf_params.resolution[0] = (float)m_config.resolution(0);
+	m_tsdf_params.resolution[1] = (float)m_config.resolution(1);
+	m_tsdf_params.resolution[2] = (float)m_config.resolution(2);
+	m_tsdf_params.dimension[0] = m_config.dimensions(0);
+	m_tsdf_params.dimension[1] = m_config.dimensions(1);
+	m_tsdf_params.dimension[2] = m_config.dimensions(2);
+	m_tsdf_params.cell_size[0] = m_config.dimensions(0)/m_config.resolution(0);
+	m_tsdf_params.cell_size[1] = m_config.dimensions(1)/m_config.resolution(1);
+	m_tsdf_params.cell_size[2] = m_config.dimensions(2)/m_config.resolution(2);
+	m_tsdf_params.tranc_dist = std::max (m_config.tranc_dist, 2.1f * std::max (m_tsdf_params.cell_size[0], std::max (m_tsdf_params.cell_size[1], m_tsdf_params.cell_size[2])));
 
-	AcquireBuffer(bHas_color_volume);
+	AcquireBuffer(m_config.bHas_color_volume);
 	reset();
 }
 
@@ -54,39 +48,19 @@ NuiKinfuVolume::~NuiKinfuVolume()
 	ReleaseBuffer();
 }
 
-void NuiKinfuVolume::setTsdfTruncDist (float distance)
-{
-	float cx = m_dimensions(0) / m_resolution(0);
-	float cy = m_dimensions(1) / m_resolution(1);
-	float cz = m_dimensions(2) / m_resolution(2);
-
-	m_tsdf_params.tranc_dist = std::max (distance, 2.1f * std::max (cx, std::max (cy, cz)));  
-
-	/*if (tranc_dist_ != distance)
-		PCL_WARN ("Tsdf truncation distance can't be less than 2 * voxel_size. Passed value '%f', but setting minimal possible '%f'.\n", distance, tranc_dist_);*/
-}
-
-void NuiKinfuVolume::setDynamicOffset (bool bIsDynamic, int voxel_shift)
-{
-	m_bIsDynamic = bIsDynamic;
-	m_voxel_shift = voxel_shift;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 const Vector3f& NuiKinfuVolume::getDimensions() const
 {
-    return m_dimensions;
+    return m_config.dimensions;
 }
 
 const Vector3i& NuiKinfuVolume::getResolution() const
 {
-	return m_resolution;
+	return m_config.resolution;
 }
 
 const Vector3f NuiKinfuVolume::getVoxelSize() const
 {    
-	return m_dimensions.array () / m_resolution.array().cast<float>();
+	return m_config.dimensions.array () / m_config.resolution.array().cast<float>();
 }
 
 float NuiKinfuVolume::getTsdfTruncDist () const
@@ -109,11 +83,11 @@ Vector3i NuiKinfuVolume::getVoxelWrap() const
 	Vector3i voxelWrap = m_voxel_offset;
 
 	if(voxelWrap(0) < 0)
-		voxelWrap(0) = m_resolution(0) - ((-voxelWrap(0)) % m_resolution(0));
+		voxelWrap(0) = m_config.resolution(0) - ((-voxelWrap(0)) % m_config.resolution(0));
 	if(voxelWrap(1) < 0)
-		voxelWrap(1) = m_resolution(1) - ((-voxelWrap(1)) % m_resolution(1));
+		voxelWrap(1) = m_config.resolution(1) - ((-voxelWrap(1)) % m_config.resolution(1));
 	if(voxelWrap(2) < 0)
-		voxelWrap(2) = m_resolution(2) - ((-voxelWrap(2)) % m_resolution(2));
+		voxelWrap(2) = m_config.resolution(2) - ((-voxelWrap(2)) % m_config.resolution(2));
 
 	return voxelWrap;
 }
@@ -159,7 +133,7 @@ void NuiKinfuVolume::reset()
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
-	size_t kernelGlobalSize[3] = { m_resolution(0), m_resolution(1), m_resolution(2) };
+	size_t kernelGlobalSize[3] = { m_config.resolution(0), m_config.resolution(1), m_config.resolution(2) };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		initializeKernel,
@@ -182,11 +156,11 @@ void NuiKinfuVolume::AcquireBuffer(bool bHas_color_volume)
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
 	
-	m_volumeCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_resolution[0]*m_resolution[1]*m_resolution[2]*sizeof(cl_short2), NULL, &err);
+	m_volumeCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_config.resolution[0]*m_config.resolution[1]*m_config.resolution[2]*sizeof(cl_short2), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	if(bHas_color_volume)
 	{
-		m_colorVolumeCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_resolution[0]*m_resolution[1]*m_resolution[2]*sizeof(cl_char4), NULL, &err);
+		m_colorVolumeCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_config.resolution[0]*m_config.resolution[1]*m_config.resolution[2]*sizeof(cl_char4), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
 	}
 
@@ -445,9 +419,9 @@ void NuiKinfuVolume::fetchAndClearX(int xVoxelTrans)
 	int offsetX = m_voxel_offset(0);
 	if(xVoxelTrans < 0)
 		offsetX += xVoxelTrans;
-	offsetX = (offsetX > 0) ? (offsetX % m_resolution(0)) : (m_resolution(0) - (-offsetX) % m_resolution(0));
+	offsetX = (offsetX > 0) ? (offsetX % m_config.resolution(0)) : (m_config.resolution(0) - (-offsetX) % m_config.resolution(0));
 	Vector3i voxelWrap(offsetX, 0, 0);
-	Vector3i voxelTranslation(abs(xVoxelTrans), m_resolution(1), m_resolution(2));
+	Vector3i voxelTranslation(abs(xVoxelTrans), m_config.resolution(1), m_config.resolution(2));
 	fetchSlice(voxelWrap, voxelTranslation);
 	clearSlice(voxelWrap, voxelTranslation);
 
@@ -459,9 +433,9 @@ void NuiKinfuVolume::fetchAndClearY(int yVoxelTrans)
 	int offsetY = m_voxel_offset(1);
 	if(yVoxelTrans < 0)
 		offsetY += yVoxelTrans;
-	offsetY = (offsetY > 0) ? (offsetY % m_resolution(1)) : (m_resolution(1) - (-offsetY) % m_resolution(1));
+	offsetY = (offsetY > 0) ? (offsetY % m_config.resolution(1)) : (m_config.resolution(1) - (-offsetY) % m_config.resolution(1));
 	Vector3i voxelWrap(0, offsetY, 0);
-	Vector3i voxelTranslation(m_resolution(0), abs(yVoxelTrans), m_resolution(2));
+	Vector3i voxelTranslation(m_config.resolution(0), abs(yVoxelTrans), m_config.resolution(2));
 	fetchSlice(voxelWrap, voxelTranslation);
 	clearSlice(voxelWrap, voxelTranslation);
 
@@ -473,9 +447,9 @@ void NuiKinfuVolume::fetchAndClearZ(int zVoxelTrans)
 	int offsetZ = m_voxel_offset(2);
 	if(zVoxelTrans < 0)
 		offsetZ += zVoxelTrans;
-	offsetZ = (offsetZ > 0) ? (offsetZ % m_resolution(2)) : (m_resolution(2) - (-offsetZ) % m_resolution(2));
+	offsetZ = (offsetZ > 0) ? (offsetZ % m_config.resolution(2)) : (m_config.resolution(2) - (-offsetZ) % m_config.resolution(2));
 	Vector3i voxelWrap(0, 0, offsetZ);
-	Vector3i voxelTranslation(m_resolution(0), m_resolution(1), abs(zVoxelTrans));
+	Vector3i voxelTranslation(m_config.resolution(0), m_config.resolution(1), abs(zVoxelTrans));
 	fetchSlice(voxelWrap, voxelTranslation);
 	clearSlice(voxelWrap, voxelTranslation);
 
@@ -484,11 +458,11 @@ void NuiKinfuVolume::fetchAndClearZ(int zVoxelTrans)
 
 Vector3f NuiKinfuVolume::shiftVolume(const Vector3f& translation)
 {
-	if(!m_bIsDynamic)
+	if(!m_config.bIsDynamic)
 		return translation;
 
 	const Vector3f& voxelSizeMeters = getVoxelSize();
-	Vector3f shiftTranslation = translation - m_translateBasis;
+	Vector3f shiftTranslation = translation - m_config.translateBasis;
 
 	int xVoxelTrans = 0;
 	int yVoxelTrans = 0;
@@ -496,48 +470,48 @@ Vector3f NuiKinfuVolume::shiftVolume(const Vector3f& translation)
 
 	if((int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)) < 0)
 	{
-		xVoxelTrans = std::max(-m_voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
+		xVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
 	}
 	else
 	{
-		xVoxelTrans = std::min(m_voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
+		xVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
 	}
 
 	if((int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)) < 0)
 	{
-		yVoxelTrans = std::max(-m_voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
+		yVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
 	}
 	else
 	{
-		yVoxelTrans = std::min(m_voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
+		yVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
 	}
 
 	if((int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)) < 0)
 	{
-		zVoxelTrans = std::max(-m_voxel_shift, (int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)));
+		zVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)));
 	}
 	else
 	{
-		zVoxelTrans = std::min(m_voxel_shift, (int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)));
+		zVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)));
 	}
 
-	if(abs(xVoxelTrans) >= m_voxel_shift)
+	if(abs(xVoxelTrans) >= m_config.voxel_shift)
 	{
 		fetchAndClearX(xVoxelTrans);
 		shiftTranslation(0) -= xVoxelTrans * voxelSizeMeters(0);
 	}
-	if(abs(yVoxelTrans) >= m_voxel_shift)
+	if(abs(yVoxelTrans) >= m_config.voxel_shift)
 	{
 		fetchAndClearY(yVoxelTrans);
 		shiftTranslation(1) -= yVoxelTrans * voxelSizeMeters(1);
 	}
-	if(abs(zVoxelTrans) >= m_voxel_shift)
+	if(abs(zVoxelTrans) >= m_config.voxel_shift)
 	{
 		fetchAndClearZ(zVoxelTrans);
 		shiftTranslation(2) -= zVoxelTrans * voxelSizeMeters(2);
 	}
 
-	return shiftTranslation + m_translateBasis;
+	return shiftTranslation + m_config.translateBasis;
 }
 
 bool NuiKinfuVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
@@ -555,13 +529,13 @@ bool NuiKinfuVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	// Set bounding box
 	const Vector3f& voxelSizeMeters = getVoxelSize();
 	pCLData->SetBoundingBox(SgVec3f(
-		m_voxel_offset(0)*voxelSizeMeters(0)-m_dimensions[0]/2,
-		m_voxel_offset(1)*voxelSizeMeters(1)-m_dimensions[1]/2,
-		m_voxel_offset(2)*voxelSizeMeters(2)-m_dimensions[2]/2),
+		m_voxel_offset(0)*voxelSizeMeters(0)-m_config.dimensions[0]/2,
+		m_voxel_offset(1)*voxelSizeMeters(1)-m_config.dimensions[1]/2,
+		m_voxel_offset(2)*voxelSizeMeters(2)-m_config.dimensions[2]/2),
 		SgVec3f(
-		m_voxel_offset(0)*voxelSizeMeters(0)+m_dimensions[0]/2,
-		m_voxel_offset(1)*voxelSizeMeters(1)+m_dimensions[1]/2,
-		m_voxel_offset(2)*voxelSizeMeters(2)+m_dimensions[2]/2));
+		m_voxel_offset(0)*voxelSizeMeters(0)+m_config.dimensions[0]/2,
+		m_voxel_offset(1)*voxelSizeMeters(1)+m_config.dimensions[1]/2,
+		m_voxel_offset(2)*voxelSizeMeters(2)+m_config.dimensions[2]/2));
 
 	cl_kernel fetchKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_FETCH_VOLUME);
@@ -617,7 +591,7 @@ bool NuiKinfuVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_resolution(2));
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_config.resolution(2));
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int3), &voxelWrap);
 	NUI_CHECK_CL_ERR(err);
@@ -639,7 +613,7 @@ bool NuiKinfuVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	cl_ulong time_start, time_end;
 #endif
 	// Run kernel to calculate 
-	size_t kernelGlobalSize[2] = { (size_t)m_resolution(0), (size_t)m_resolution(1) };
+	size_t kernelGlobalSize[2] = { (size_t)m_config.resolution(0), (size_t)m_config.resolution(1) };
 	size_t local_ws[2] = {1, 1};
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -764,7 +738,7 @@ bool NuiKinfuVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 		return true;
 
 	// Set bounding box
-	pCLData->SetBoundingBox(SgVec3f(-m_dimensions[0]/2, -m_dimensions[1]/2, -m_dimensions[2]/2), SgVec3f(m_dimensions[0]/2, m_dimensions[1]/2, m_dimensions[2]/2));
+	pCLData->SetBoundingBox(SgVec3f(-m_config.dimensions[0]/2, -m_config.dimensions[1]/2, -m_config.dimensions[2]/2), SgVec3f(m_config.dimensions[0]/2, m_config.dimensions[1]/2, m_config.dimensions[2]/2));
 
 	cl_kernel marchingCubeKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_MARCHING_CUBE);
@@ -835,7 +809,7 @@ bool NuiKinfuVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	cl_ulong time_start, time_end;
 #endif
 	// Run kernel to calculate 
-	size_t kernelGlobalSize[2] = { (size_t)(m_resolution(0)-1), (size_t)(m_resolution(1)-1) };
+	size_t kernelGlobalSize[2] = { (size_t)(m_config.resolution(0)-1), (size_t)(m_config.resolution(1)-1) };
 	size_t local_ws[2] = {1, 1};
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -946,9 +920,9 @@ bool NuiKinfuVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 SgVec3f NuiKinfuVolume::getNodeCoo (int x, int y, int z)
 {
 	return SgVec3f(
-		((float)x + 0.5f - m_resolution[0]/2.0f) * m_tsdf_params.cell_size[0],
-		((float)(-y) - 0.5f + m_resolution[1]/2.0f) * m_tsdf_params.cell_size[1],
-		((float)z + 0.5f - m_resolution[2]/2.0f) * m_tsdf_params.cell_size[2]
+		((float)x + 0.5f - m_config.resolution[0]/2.0f) * m_tsdf_params.cell_size[0],
+		((float)(-y) - 0.5f + m_config.resolution[1]/2.0f) * m_tsdf_params.cell_size[1],
+		((float)z + 0.5f - m_config.resolution[2]/2.0f) * m_tsdf_params.cell_size[2]
 	);
 }
 
@@ -970,7 +944,7 @@ bool	NuiKinfuVolume::Volume2Mesh(NuiMeshShape* pMesh)
 	if(!m_volumeCL)
 		return false;
 
-	cl_short2* pVolumeData = new cl_short2[m_resolution[0]*m_resolution[1]*m_resolution[2]];
+	cl_short2* pVolumeData = new cl_short2[m_config.resolution[0]*m_config.resolution[1]*m_config.resolution[2]];
 
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
@@ -980,7 +954,7 @@ bool	NuiKinfuVolume::Volume2Mesh(NuiMeshShape* pMesh)
 		m_volumeCL,
 		CL_TRUE,//blocking
 		0,
-		m_resolution[0]*m_resolution[1]*m_resolution[2] * sizeof(cl_short2),
+		m_config.resolution[0]*m_config.resolution[1]*m_config.resolution[2] * sizeof(cl_short2),
 		pVolumeData,
 		0,
 		NULL,
@@ -990,16 +964,16 @@ bool	NuiKinfuVolume::Volume2Mesh(NuiMeshShape* pMesh)
 
 	std::map<INT64, int> indexMap;
 	int nVertexIndex = 0;
-	for (int y = 0; y < m_resolution[1]-1; ++y)
+	for (int y = 0; y < m_config.resolution[1]-1; ++y)
 	{
-		for (int x = 0; x < m_resolution[0]-1; ++x)
+		for (int x = 0; x < m_config.resolution[0]-1; ++x)
 		{
-			const int voxel_id_base0 = ((y * m_resolution[0]) + x) * m_resolution[2];
-			const int voxel_id_base1 = voxel_id_base0 + m_resolution[2];
-			const int voxel_id_base3 = voxel_id_base0 + m_resolution[0] * m_resolution[2];
-			const int voxel_id_base2 = voxel_id_base3 + m_resolution[2];
+			const int voxel_id_base0 = ((y * m_config.resolution[0]) + x) * m_config.resolution[2];
+			const int voxel_id_base1 = voxel_id_base0 + m_config.resolution[2];
+			const int voxel_id_base3 = voxel_id_base0 + m_config.resolution[0] * m_config.resolution[2];
+			const int voxel_id_base2 = voxel_id_base3 + m_config.resolution[2];
 
-			for (int z = 0; z < m_resolution[2]-1; ++z)
+			for (int z = 0; z < m_config.resolution[2]-1; ++z)
 			{
 				int voxel_id[8];
 				voxel_id[0] = voxel_id_base0 + z;

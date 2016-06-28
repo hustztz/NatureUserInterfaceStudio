@@ -109,11 +109,12 @@ void NuiGuiController::handleGuiChanged()
 			}
 
 			m_pKinfu->pauseThread();
-			Vector3f volumeSize = Vector3f::Constant(m_gui->a_volumeSize);
-			Vector3i volumeResolution = Vector3i::Constant(m_gui->a_volumeResolution);
-			m_pKinfu->updateVolume(volumeResolution, volumeSize);
 			m_pKinfu->setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
 			m_pKinfu->setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
+			m_pKinfu->m_volumeConfig.dimensions = Vector3f::Constant(m_gui->a_volumeSize);
+			m_pKinfu->m_volumeConfig.resolution = Vector3i::Constant(m_gui->a_volumeResolution);
+			m_pKinfu->resetVolume();
+
 			m_pKinfu->startThread();
 		}
 		else
@@ -269,6 +270,11 @@ void NuiGuiController::launch()
 	std::string fileName = pathName;
 	fileName.append("timeLog");
 	fileName.append(".txt");
+
+	if(m_pKinfu)
+	{
+		m_pKinfu->m_trackerConfig.log(fileName);
+	}
 
 	NuiTimeLog::instance().toFile(fileName);
 }

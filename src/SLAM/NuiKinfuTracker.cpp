@@ -15,7 +15,7 @@
 #define KINFU_DEFAULT_DEPTH_FOCAL_X 370.f
 #define KINFU_DEFAULT_DEPTH_FOCAL_Y 370.f
 
-NuiKinfuTracker::NuiKinfuTracker(NuiICPConfig icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+NuiKinfuTracker::NuiKinfuTracker(NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 	: m_icp(NULL)
 	, m_positionsGL(NULL)
 	, m_rawDepthsCL(NULL)
@@ -62,7 +62,7 @@ NuiKinfuTracker::~NuiKinfuTracker()
 	ReleaseGLBuffer();
 }
 
-void NuiKinfuTracker::initialize(NuiICPConfig icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+void NuiKinfuTracker::initialize(NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 {
 	if(nWidth != m_nWidth || nHeight != m_nHeight || nColorWidth != m_nColorWidth || nColorHeight != m_nColorHeight)
 	{

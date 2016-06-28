@@ -1,17 +1,12 @@
 #pragma once
 
 #include "stdafx.h"
+#include "NuiKinfuVolumeConfig.h"
 #include "NuiKinfuPointCloud.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 #include "Kernels/gpu_def.h"
 
 #include <atomic>
-
-#include <Eigen/Core>
-#include <Eigen/Geometry>
-
-typedef Eigen::Vector3f Vector3f;
-typedef Eigen::Vector3i Vector3i;
 
 //Forwards
 class NuiCLMappableData;
@@ -20,17 +15,8 @@ class NuiMeshShape;
 class NuiKinfuVolume
 {
 public:
-	NuiKinfuVolume(const Vector3i& resolution, const Vector3f& dimensions, bool bHas_color_volume);
+	NuiKinfuVolume(const NuiKinfuVolumeConfig& config);
 	~NuiKinfuVolume();
-
-    /** \brief Sets Tsdf truncation distance. Must be greater than 2 * volume_voxel_size
-    * \param[in] distance TSDF truncation distance 
-    */
-    void setTsdfTruncDist (float distance);
-
-	void setDynamicOffset (bool bIsDynamic, int voxel_shift);
-
-	void setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
 
 	/** \brief Returns volume size in meters */
 	const Vector3f&	getDimensions() const;
@@ -45,7 +31,7 @@ public:
 	float	getTsdfTruncDist () const;
 
 	/** \brief Returns running average length */
-	unsigned char	getMaxColorWeight() const { return m_max_color_weight; }
+	unsigned char	getMaxColorWeight() const { return m_config.max_color_weight; }
 
 	Vector3i getVoxelWrap() const;
 	Vector3f getVoxelOffsetSize() const;
@@ -101,21 +87,12 @@ private:
 
 	TsdfParams	m_tsdf_params;
 
-	/** \brief tsdf volume size in meters */
-	Vector3f	m_dimensions;
+	NuiKinfuVolumeConfig m_config;
 
-	/** \brief tsdf volume resolution */
-	Vector3i	m_resolution;
+	Vector3i			m_voxel_offset;
+	int					m_max_output_vertex_size;
 
-	Vector3i	m_voxel_offset;
-	Vector3f	m_translateBasis;
+	NuiKinfuPointCloud	m_cachedPointCloud;
 
-	unsigned char m_max_color_weight;
-	int m_max_output_vertex_size;
-	bool m_bIsDynamic;
-	int	 m_voxel_shift;
-
-	NuiKinfuPointCloud m_cachedPointCloud;
-
-	std::atomic<bool> m_dirty;
+	std::atomic<bool>	m_dirty;
 };

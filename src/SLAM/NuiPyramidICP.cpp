@@ -14,7 +14,7 @@
 
 using Eigen::AngleAxisf;
 
-NuiPyramidICP::NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeight)
+NuiPyramidICP::NuiPyramidICP(NuiICPConfig& config, UINT nWidth, UINT nHeight)
 	: m_configuration(config)
 	, m_gaussianCL(NULL)
 	, m_corespsCL(NULL)
@@ -24,12 +24,13 @@ NuiPyramidICP::NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeig
 	, m_error(0.0f)
 	, m_count(0.0f)
 {
-	m_depthsArrCL.resize(m_configuration.iterations.size());
-	m_verticesArrCL.resize(m_configuration.iterations.size());
-	m_normalsArrCL.resize(m_configuration.iterations.size());
-	m_verticesPrevArrCL.resize(m_configuration.iterations.size());
-	m_normalsPrevArrCL.resize(m_configuration.iterations.size());
-	for (UINT i = 0; i < m_configuration.iterations.size(); ++i)
+	m_iterations = config.iterations;
+	m_depthsArrCL.resize(m_iterations.size());
+	m_verticesArrCL.resize(m_iterations.size());
+	m_normalsArrCL.resize(m_iterations.size());
+	m_verticesPrevArrCL.resize(m_iterations.size());
+	m_normalsPrevArrCL.resize(m_iterations.size());
+	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		m_depthsArrCL[i] = NULL;
 		m_verticesArrCL[i] = NULL;
@@ -51,7 +52,7 @@ void NuiPyramidICP::AcquireBuffers()
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
 
-	for (UINT i = 0; i < m_configuration.iterations.size(); ++i)
+	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		m_depthsArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(cl_float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
@@ -81,7 +82,7 @@ void NuiPyramidICP::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_gaussianCL = NULL;
 	}
-	for (UINT i = 0; i < m_configuration.iterations.size(); ++i)
+	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		if (m_depthsArrCL[i]) {
 			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_depthsArrCL[i]);
@@ -272,7 +273,7 @@ void NuiPyramidICP::PyrDown()
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	for (UINT i = 1; i < m_configuration.iterations.size(); ++i)
+	for (UINT i = 1; i < m_iterations.size(); ++i)
 	{
 		// Set kernel arguments
 		cl_uint idx = 0;
@@ -327,7 +328,7 @@ void NuiPyramidICP::NormalEst(float intr_fx, float intr_fy, float intr_cx, float
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	for (UINT i = 0; i < m_configuration.iterations.size(); ++i)
+	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		int div = 1 << i; 
 		float fx_inv = div / intr_fx;
@@ -443,7 +444,7 @@ bool NuiPyramidICP::IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] * KINFU_ICP_CORESPS_NUM / WORK_GROUP_SIZE]);
 
 	/** \brief array with IPC iteration numbers for each pyramid level */
-	int LEVELS = (int)m_configuration.iterations.size();
+	int LEVELS = (int)m_iterations.size();
 
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
@@ -456,7 +457,7 @@ bool NuiPyramidICP::IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f
 		cl_uint width = m_nWidth >> level_index;
 		cl_uint height = m_nHeight >> level_index;
 
-		int iter_num = m_configuration.iterations[level_index];
+		int iter_num = m_iterations[level_index];
 		for (int iter = 0; iter < iter_num; ++iter)
 		{
 			idx = 0;
@@ -653,7 +654,7 @@ void    NuiPyramidICP::ResizePrevMaps()
 	cl_uint idx = 0;
 	size_t kernelGlobalSize[2];
 
-	for (UINT i = 1; i < m_configuration.iterations.size(); ++i)
+	for (UINT i = 1; i < m_iterations.size(); ++i)
 	{
 		idx = 0;
 		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
@@ -708,7 +709,7 @@ void NuiPyramidICP::TransformPrevMaps(const Matrix3frm& Rcurr, const Vector3f& t
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	for (UINT i = 0; i < m_configuration.iterations.size(); ++i)
+	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		cl_uint idx = 0;
 		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
@@ -748,7 +749,7 @@ void NuiPyramidICP::CopyPrevMaps()
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	for (UINT i = 0; i < m_configuration.iterations.size(); ++i)
+	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		const UINT nPointsNum = (m_nWidth >> i) * (m_nHeight >> i);
 
@@ -827,7 +828,7 @@ bool NuiPyramidICP::ColorIterativeClosestPoint(NuiCameraParams* pPos, Eigen::Aff
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] / WORK_GROUP_SIZE * KINFU_ICP_CORESPS_NUM]);
 
 	/** \brief array with IPC iteration numbers for each pyramid level */
-	int LEVELS = (int)m_configuration.iterations.size();
+	int LEVELS = (int)m_iterations.size();
 
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
@@ -840,7 +841,7 @@ bool NuiPyramidICP::ColorIterativeClosestPoint(NuiCameraParams* pPos, Eigen::Aff
 		cl_uint width = m_nWidth >> level_index;
 		cl_uint height = m_nHeight >> level_index;
 
-		int iter_num = m_configuration.iterations[level_index];
+		int iter_num = m_iterations[level_index];
 		for (int iter = 0; iter < iter_num; ++iter)
 		{
 			idx = 0;

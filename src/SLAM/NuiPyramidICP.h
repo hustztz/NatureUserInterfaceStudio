@@ -14,7 +14,7 @@ class NuiCameraParams;
 class NuiPyramidICP
 {
 public:
-	NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeight);
+	NuiPyramidICP(NuiICPConfig& config, UINT nWidth, UINT nHeight);
 	~NuiPyramidICP();
 
 	void	input(cl_mem floatDepthsCL, const NuiCameraParams& pos);
@@ -54,7 +54,8 @@ private:
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 
-	NuiICPConfig m_configuration;
+	NuiICPConfig& m_configuration;
+	std::vector<UINT> m_iterations;
 	UINT m_nWidth, m_nHeight;
 
 	float m_error;
