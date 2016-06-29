@@ -16,5 +16,6 @@ namespace NuiFileIOUtilities
 	bool		writeCamera (const std::string& fileName, float intr_fx, float intr_fy, float intr_cx, float intr_cy);
 	bool		readCamera (const std::string& fileName, float* intr_fx, float* intr_fy, float* intr_cx, float* intr_cy);
 
-	bool		writeTime (const std::string& fileName, const std::map<std::string, NuiTimeStamp>& timeMap, double timeFreq);
+	bool		writeTimeLog (const std::string& fileName, const std::map<std::string, NuiTimeStamp>& timeMap);
+	bool		writeDayTime (const std::string& fileName);
 }

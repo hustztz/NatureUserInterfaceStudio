@@ -20,7 +20,7 @@ public:
 	double	avgFPS(const std::string& name) const;
 
 	void	print() const;
-	void	toFile(const std::string& fileName) const;
+	void	log(const std::string& fileName) const;
 
 private:
 	bool				m_bEnable;

@@ -14,6 +14,8 @@
 #include "Frame/NuiFrameUtilities.h"
 #include "Foundation/NuiTimeLog.h"
 
+static std::string sTestDataFolder = getenv("NUI_TESTDATA") ? getenv("NUI_TESTDATA") : "G:\\tmp\\";
+
 NuiGuiController::NuiGuiController()
 	: m_pCache(NULL)
 	, m_pDevice(NULL)
@@ -50,7 +52,7 @@ void NuiGuiController::handleGuiChanged()
 		{
 			DWORD deviceMode = NuiRGBDDeviceController::EDeviceMode_VertexColorCamera;
 			if(m_gui->a_fileToFrame)
-				m_pDevice->startFileLoader(deviceMode, "G:\\tmp\\");
+				m_pDevice->startFileLoader(deviceMode, sTestDataFolder);
 			else
 				m_pDevice->startDevice(deviceMode);
 		}
@@ -64,7 +66,7 @@ void NuiGuiController::handleGuiChanged()
 		if(m_gui->a_frameToFile)
 		{
 			if(!m_pFrameToFile)
-				m_pFrameToFile = new NuiFrameSaveManager("G:\\tmp\\");
+				m_pFrameToFile = new NuiFrameSaveManager(sTestDataFolder);
 			m_pFrameToFile->startThread();
 		}
 		else
@@ -266,16 +268,16 @@ void NuiGuiController::launch()
 
 	NuiTimeLog::instance().print();
 
-	std::string pathName = "G:\\tmp\\";
-	std::string fileName = pathName;
-	fileName.append("timeLog");
+	std::string fileName = sTestDataFolder + "\\Log\\";
+	fileName.append("log");
 	fileName.append(".txt");
 
+	NuiFileIOUtilities::writeDayTime(fileName);
 	if(m_pKinfu)
 	{
 		m_pKinfu->m_trackerConfig.log(fileName);
+		m_pKinfu->m_volumeConfig.log(fileName);
 	}
-
-	NuiTimeLog::instance().toFile(fileName);
+	NuiTimeLog::instance().log(fileName);
 }
 

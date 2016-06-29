@@ -3,6 +3,7 @@
 #include "NuiTimeStamp.h"
 
 #include <fstream>
+#include <ctime>
 
 namespace NuiFileIOUtilities
 {
@@ -112,7 +113,7 @@ namespace NuiFileIOUtilities
 		return true;
 	}
 
-	bool		writeTime (const std::string& fileName, const std::map<std::string, NuiTimeStamp>& timeMap, double timeFreq)
+	bool		writeTimeLog (const std::string& fileName, const std::map<std::string, NuiTimeStamp>& timeMap)
 	{
 		// Open file
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);
@@ -126,11 +127,30 @@ namespace NuiFileIOUtilities
 		for(iter = timeMap.begin();iter != timeMap.end(); ++iter)
 		{
 			
-			fpout << iter->first << " timeStamp:" << double(iter->second.m_sumTime) / (timeFreq + 0.05) << std::endl;
+			fpout << iter->first << " timeStamp:" << iter->second.m_sumTime << std::endl;
 			fpout << iter->first << " count:" << iter->second.m_count << std::endl;
-			fpout << iter->first << " fps:" << timeFreq * iter->second.m_count / (double(iter->second.m_sumTime) + 0.05) << std::endl;
+			fpout << iter->first << " fps:" << iter->second.m_count / iter->second.m_sumTime << std::endl;
 		}
 		
+		// Close file
+		fpout.close ();
+		return true;
+	}
+
+	bool		writeDayTime (const std::string& fileName)
+	{
+		// Open file
+		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);
+		if( !fpout.is_open() )
+		{
+			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
+			return false;
+		}
+
+		time_t timep;
+		time (&timep);
+		fpout << ctime(&timep) << std::endl;
+
 		// Close file
 		fpout.close ();
 		return true;

@@ -35,35 +35,35 @@ bool	NuiICPConfig::load(const std::string& fileName)
 			continue;
 
 		std::string tmpKey = line.substr(0, pos);
-		if("filter_radius" == tmpKey)
+		if("icp_filter_radius" == tmpKey)
 		{
 			filter_radius = (UINT)atoi(line.substr(pos+1).c_str());
 		}
-		else if("sigma_space2_inv_half" == tmpKey) 
+		else if("icp_sigma_space2_inv_half" == tmpKey) 
 		{
 			sigma_space2_inv_half = (float)atof(line.substr(pos+1).c_str());
 		}
-		else if("sigma_depth2_inv_half" == tmpKey) 
+		else if("icp_sigma_depth2_inv_half" == tmpKey) 
 		{
 			sigma_depth2_inv_half = (float)atof(line.substr(pos+1).c_str());
 		}
-		else if("depth_threshold" == tmpKey) 
+		else if("icp_depth_threshold" == tmpKey) 
 		{
 			depth_threshold = (float)atof(line.substr(pos+1).c_str());
 		}
-		else if("dist_threshold" == tmpKey)
+		else if("icp_dist_threshold" == tmpKey)
 		{
 			dist_threshold = (float)atof(line.substr(pos+1).c_str());
 		}
-		else if("normal_threshold" == tmpKey) 
+		else if("icp_normal_threshold" == tmpKey) 
 		{
 			normal_threshold = (float)atof(line.substr(pos+1).c_str());
 		}
-		else if("track_threshold" == tmpKey) 
+		else if("icp_track_threshold" == tmpKey) 
 		{
 			track_threshold = (float)atof(line.substr(pos+1).c_str());
 		}
-		else if("iteration" == tmpKey) 
+		else if("icp_iteration" == tmpKey) 
 		{
 			UINT iter = (UINT)atoi(line.substr(pos+1).c_str());
 			if(iter > 0)
@@ -86,16 +86,16 @@ bool	NuiICPConfig::log(const std::string& fileName)
 		return false;
 	}
 
-	fpout << "filter_radius=" << filter_radius << std::endl;
-	fpout << "sigma_space2_inv_half=" << sigma_space2_inv_half << std::endl;
-	fpout << "sigma_depth2_inv_half=" << sigma_depth2_inv_half << std::endl;
-	fpout << "depth_threshold=" << depth_threshold << std::endl;
-	fpout << "dist_threshold=" << dist_threshold << std::endl;
-	fpout << "normal_threshold=" << normal_threshold << std::endl;
-	fpout << "track_threshold=" << track_threshold << std::endl;
+	fpout << "icp_filter_radius=" << filter_radius << std::endl;
+	fpout << "icp_sigma_space2_inv_half=" << sigma_space2_inv_half << std::endl;
+	fpout << "icp_sigma_depth2_inv_half=" << sigma_depth2_inv_half << std::endl;
+	fpout << "icp_depth_threshold=" << depth_threshold << std::endl;
+	fpout << "icp_dist_threshold=" << dist_threshold << std::endl;
+	fpout << "icp_normal_threshold=" << normal_threshold << std::endl;
+	fpout << "icp_track_threshold=" << track_threshold << std::endl;
 	for (UINT i = 0; i < iterations.size(); i ++)
 	{
-		fpout << " iteration=" << iterations[i] << std::endl;
+		fpout << "icp_iteration=" << iterations[i] << std::endl;
 	}
 
 	// Close file

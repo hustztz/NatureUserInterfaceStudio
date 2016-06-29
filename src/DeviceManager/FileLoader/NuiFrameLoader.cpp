@@ -43,30 +43,35 @@ bool NuiFrameLoader::process()
 	ssTime >> timeStamp;
 
 	std::string imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".depth");
 	if( pCompositeFrame->m_depthFrame.loadFrame(imageFileName) )
 		bLoadSucceed = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".color");
 	if( pCompositeFrame->m_colorFrame.loadFrame(imageFileName) )
 		bLoadSucceed = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".cmap");
 	if( pCompositeFrame->m_colorMapFrame.loadFrame(imageFileName) )
 		bLoadSucceed = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".vertex");
 	if( pCompositeFrame->m_cameraMapFrame.loadFrame(imageFileName) )
 		bLoadSucceed = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".camIntri");
 	if( pCompositeFrame->m_cameraParams.load(imageFileName) )

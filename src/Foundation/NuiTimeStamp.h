@@ -2,7 +2,7 @@
 
 struct NuiTimeStamp
 {
-	long long			m_currentTime;
-	long long			m_sumTime;
-	unsigned int		m_count;
+	double			m_previousTime;
+	double			m_sumTime;
+	unsigned int	m_count;
 };

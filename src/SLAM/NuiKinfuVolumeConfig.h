@@ -24,15 +24,8 @@ struct NuiKinfuVolumeConfig
 	int			voxel_shift;
 	Vector3f	translateBasis;
 
-	NuiKinfuVolumeConfig()
-	{
-		dimensions = Vector3f::Constant(3.0f);
-		resolution = Vector3i::Constant(256);
-		tranc_dist = 0.03f;
-		bHas_color_volume = true;
-		max_color_weight = 128;
-		bIsDynamic = false;
-		voxel_shift = 15;
-		translateBasis = Vector3f::Zero();
-	}
+	NuiKinfuVolumeConfig();
+
+	bool	load(const std::string& fileName);
+	bool	log(const std::string& fileName);
 };

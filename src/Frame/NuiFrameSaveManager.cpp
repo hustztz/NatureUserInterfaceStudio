@@ -37,30 +37,35 @@ bool	NuiFrameSaveManager::process ()
 	ssTime >> timeStamp;
 
 	std::string imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".depth");
 	if( pCompositeFrame->m_depthFrame.saveFrame(imageFileName) )
 		bSaved = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".color");
 	if( pCompositeFrame->m_colorFrame.saveFrame(imageFileName) )
 		bSaved = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".cmap");
 	if( pCompositeFrame->m_colorMapFrame.saveFrame(imageFileName) )
 		bSaved = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".vertex");
 	if( pCompositeFrame->m_cameraMapFrame.saveFrame(imageFileName) )
 		bSaved = true;
 
 	imageFileName = m_fileName;
+	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".camIntri");
 	if( pCompositeFrame->m_cameraParams.save(imageFileName) )

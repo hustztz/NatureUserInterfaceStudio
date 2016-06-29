@@ -193,7 +193,7 @@ bool NuiOpenCLGlobal::initializeOpenCL()
 		}
 
 		// Set kernel dir
-		std::string kernelsFolder = getenv("NUI_LOCATION");
+		std::string kernelsFolder = getenv("NUI_LOCATION") ? getenv("NUI_LOCATION") : "\\src";
 		kernelsFolder += "\\Kernels";
 		kernelDir(kernelsFolder.c_str());
 

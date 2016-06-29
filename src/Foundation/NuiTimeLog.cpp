@@ -43,7 +43,7 @@ void	NuiTimeLog::reset()
 	{
 		NuiTimeStamp timeStamp;
 		timeStamp.m_count = 0;
-		timeStamp.m_currentTime = tTimeStamp.QuadPart;
+		timeStamp.m_previousTime = (double)tTimeStamp.QuadPart / m_timeFreq;
 		timeStamp.m_sumTime = 0;
 		iter->second = timeStamp;
 	}
@@ -62,13 +62,13 @@ void	NuiTimeLog::tick(const std::string& name)
 	{
 		NuiTimeStamp defaultTimeStamp;
 		defaultTimeStamp.m_count = 0;
-		defaultTimeStamp.m_currentTime = tProcessStartTimeStamp.QuadPart;
-		defaultTimeStamp.m_sumTime = 0;
+		defaultTimeStamp.m_previousTime = (double)tProcessStartTimeStamp.QuadPart / m_timeFreq;
+		defaultTimeStamp.m_sumTime = 0.0;
 		m_timeMap.insert(std::make_pair(name, defaultTimeStamp));
 	}
 	else
 	{
-		iter->second.m_currentTime = tProcessStartTimeStamp.QuadPart;
+		iter->second.m_previousTime = (double)tProcessStartTimeStamp.QuadPart / m_timeFreq;
 	}
 }
 
@@ -84,9 +84,10 @@ void	NuiTimeLog::tock(const std::string& name)
 	LARGE_INTEGER tProcessEndTimeStamp = {0};
 	QueryPerformanceCounter(&tProcessEndTimeStamp);
 
-	iter->second.m_sumTime += tProcessEndTimeStamp.QuadPart - iter->second.m_currentTime;
+	double currentTime = (double)tProcessEndTimeStamp.QuadPart / m_timeFreq;
+	iter->second.m_sumTime += currentTime - iter->second.m_previousTime;
 	iter->second.m_count ++;
-	iter->second.m_currentTime = tProcessEndTimeStamp.QuadPart;
+	iter->second.m_previousTime = currentTime;
 }
 
 double	NuiTimeLog::avgFPS(const std::string& name) const
@@ -95,7 +96,7 @@ double	NuiTimeLog::avgFPS(const std::string& name) const
 	if(iter == m_timeMap.end())
 		return 0.0;
 
-	return m_timeFreq * iter->second.m_count / (double(iter->second.m_sumTime) + 0.05);
+	return iter->second.m_count / (iter->second.m_sumTime + 0.05);
 }
 
 void	NuiTimeLog::print() const
@@ -103,14 +104,14 @@ void	NuiTimeLog::print() const
 	TimeStampMap::const_iterator iter;
 	for(iter = m_timeMap.begin();iter != m_timeMap.end(); ++iter)
 	{
-		std::cout << iter->first << " fps:" << m_timeFreq * iter->second.m_count / (double(iter->second.m_sumTime) + 0.05)  << std::endl;
+		std::cout << iter->first << " fps:" << iter->second.m_count / (double(iter->second.m_sumTime) + 0.05)  << std::endl;
 		std::cout << iter->first << " count:" << iter->second.m_count  << std::endl;
 	}
 }
 
-void	NuiTimeLog::toFile(const std::string& fileName) const
+void	NuiTimeLog::log(const std::string& fileName) const
 {
-	if ( !NuiFileIOUtilities::writeTime(fileName, m_timeMap, m_timeFreq) )
+	if ( !NuiFileIOUtilities::writeTimeLog(fileName, m_timeMap) )
 	{
 		std::cout << "Failed to log time to file." << std::endl;
 	}
