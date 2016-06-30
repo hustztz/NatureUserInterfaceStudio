@@ -46,7 +46,7 @@ __kernel void allocBlock(int3			pos,
 	}
 
 
-#ifdef _HANDLE_COLLISIONS
+//#ifdef _HANDLE_COLLISIONS
 	//updated variables as after the loop
 	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;	//get last index of bucket
 	uint i = idxLastEntryInBucket;											//start with the last entry of the current bucket
@@ -57,8 +57,7 @@ __kernel void allocBlock(int3			pos,
 	//int k = 0;
 
 	unsigned int maxIter = 0;
-	uint g_MaxLoopIterCount = hashMaxCollisionLinkedListSize
-	while (maxIter < g_MaxLoopIterCount)
+	while (maxIter < hashMaxCollisionLinkedListSize)
 	{
 		//offset = curr.offset;
 		curr = vload(i, d_hash);	//TODO MATTHIAS do by reference
@@ -73,7 +72,7 @@ __kernel void allocBlock(int3			pos,
 
 		maxIter++;
 	}
-#endif
+//#endif
 
 	if (firstEmpty != -1) {	//if there is an empty entry and we haven't allocated the current entry before
 		//int prevValue = 0;
@@ -89,13 +88,13 @@ __kernel void allocBlock(int3			pos,
 		return;
 	}
 
-#ifdef _HANDLE_COLLISIONS
+//#ifdef _HANDLE_COLLISIONS
 	//if (i != idxLastEntryInBucket) return;
 	int offset = 0;
 	//linear search for free entry
 
 	maxIter = 0; 
-	while (maxIter < g_MaxLoopIterCount) {
+	while (maxIter < hashMaxCollisionLinkedListSize) {
 		offset++;
 		i = (idxLastEntryInBucket + offset) % (HASH_BUCKET_SIZE * hashNumBuckets);	//go to next hash element
 		if ((offset % HASH_BUCKET_SIZE) == 0) continue;			//cannot insert into a last bucket element (would conflict with other linked lists)
@@ -129,5 +128,5 @@ __kernel void allocBlock(int3			pos,
 
 		maxIter++;
 	}
-#endif
+//#endif
 }

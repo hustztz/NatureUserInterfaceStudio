@@ -5,16 +5,9 @@ __kernel void alloc_SDFs_kernel(
 			const float		maxIntegrationDistance,
 			const float		truncation,
 			const float		truncScale,
-			const float		virtualVoxelSize
-			const float		intr_fx,
-            const float		intr_fy,
-			const float		intr_cx,
-            const float		intr_cy,
-			const float8	Rcurr1,
-            const float		Rcurr2,
-			const float8	Rcurr_inv1,
-            const float		Rcurr_inv2,
-			const float3	tcurr
+			const float		virtualVoxelSize,
+			__constant struct CameraParams* cameraParams,
+			__global struct RigidTransform* matrix
         )
 {
     const int gidx = get_global_id(0);
@@ -32,11 +25,12 @@ __kernel void alloc_SDFs_kernel(
 	float maxDepth = fmin(maxIntegrationDistance, Dp+t);
 	if (minDepth >= maxDepth) return;
 
-	float3 screenToWorld = float3((gidx-intr_cx)/intr_fx, (gidy-intr_cy)/intr_fy, 1);
+	struct CameraParams camParams = *cameraParams;
+	float3 screenToWorld = float3((gidx-camParams.cx)*camParams.fx_inv, (gidy-camParams.cy)*camParams.fy_inv, 1.0);
 	float3 rayMin = screenToWorld * minDepth;
-	rayMin = rotate3( rayMin, Rcurr1, Rcurr2 ) + tcurr;
+	rayMin = transform( rayMin, matrix );
 	float3 rayMax = screenToWorld * maxDepth;
-	rayMax = rotate3( rayMax, Rcurr1, Rcurr2 ) + tcurr;
+	rayMax = transform( rayMax, matrix );
 
 	float3 rayDir = normalize(rayMax - rayMin);
 	
@@ -69,7 +63,7 @@ __kernel void alloc_SDFs_kernel(
 	while(iter < g_MaxLoopIterCount)
 	{
 		//check if it's in the frustum and not checked out
-		if (hashData.isSDFBlockInCameraFrustumApprox(cameraData, idCurrentVoxel) && !isSDFBlockStreamedOut(idCurrentVoxel, hashData, d_bitMask)) {		
+		if (hashData.isSDFBlockInCameraFrustumApprox(idCurrentVoxel, virtualVoxelSize, camParams, matrix) && !isSDFBlockStreamedOut(idCurrentVoxel, hashData, d_bitMask)) {		
 			hashData.allocBlock(idCurrentVoxel);
 		}
 

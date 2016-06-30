@@ -36,7 +36,19 @@ inline static void atomicAdd(__global volatile float* address, const float opera
 
 static float3 rotate3(float3 vec, float8 R1, float R2)
 {
-    return (float3)(dot(R1.s012, vec), dot(R1.s345, vec), dot((float3)(R1.s67,R2), vec));
+	return (float3)(dot(R1.s012, vec), dot(R1.s345, vec), dot((float3)(R1.s67,R2), vec));
+}
+
+static float3 transform(float3 vec, __global struct RigidTransform* matrix)
+{
+	struct RigidTransform mat = *matrix;
+    return (float3)(dot((float3)(mat.R[0], mat.R[1], mat.R[2]), vec), dot((float3)(mat.R[3], mat.R[4], mat.R[5]), vec), dot((float3)(mat.R[6], mat.R[7], mat.R[8]), vec)) + (float3)(mat.t[0], mat.t[1], mat.t[0]);
+}
+
+static float3 transformInverse(float3 vec, __global struct RigidTransform* matrix)
+{
+	struct RigidTransform mat = *matrix;
+    return (float3)(dot((float3)(mat.R_inv[0], mat.R_inv[1], mat.R_inv[2]), vec), dot((float3)(mat.R_inv[3], mat.R_inv[4], mat.R_inv[5]), vec), dot((float3)(mat.R_inv[6], mat.R_inv[7], mat.R_inv[8]), vec)) - (float3)(mat.t[0], mat.t[1], mat.t[0]);
 }
 
 static inline short2 pack_tsdf (float tsdf, short weight)

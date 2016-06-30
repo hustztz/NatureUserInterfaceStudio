@@ -7,3 +7,26 @@ struct TsdfParams
 	float cell_size[3];
 	float tranc_dist;
 };
+
+struct CameraParams
+{
+	float fx;
+	float fy;
+	float fx_inv;
+	float fy_inv;
+	float cx;
+	float cy;
+
+	unsigned int depthImageWidth;
+	unsigned int depthImageHeight;
+
+	float sensorDepthWorldMin;
+	float sensorDepthWorldMax;
+};
+
+struct RigidTransform
+{
+	float R[9];
+	float R_inv[9];
+	float t[3];
+};
