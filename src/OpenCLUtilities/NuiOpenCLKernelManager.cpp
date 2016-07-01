@@ -54,7 +54,13 @@ static const char * const KernelNames[] =
 	"reset_heap_kernel",						  "hashingReset.cl",
 	"reset_hash_kernel",						  "hashingReset.cl",
 	"reset_hash_bucket_mutex_kernel",			  "hashingReset.cl",
-	"allocBlock",								  "hashingBlock.cl",
+	"alloc_SDFs_kernel",						  "hashingSDF.cl",
+	"fillDecisionArrayKernel",					  "hashingSDF.cl",
+	"compactifyHashKernel",						  "hashingSDF.cl",
+	"integrateDepthMapKernel",					  "hashingSDF.cl",
+	"starveVoxelsKernel",						  "hashingSDF.cl",
+	"garbageCollectIdentifyKernel",				  "hashingSDF.cl",
+	"garbageCollectFreeKernel",					  "hashingSDF.cl",
 };
 
 NuiOpenCLKernelManager::NuiOpenCLKernelManager()

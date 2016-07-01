@@ -8,22 +8,16 @@
 
 inline static void deleteVoxel(uint idx, __global struct NuiVoxel*	d_SDFBlocks)
 {
-	struct NuiVoxel voxel;
-	voxel.sdf = 0.0f;
-	voxel.weight = 0;
-	voxel.color[0] = voxel.color[1] = voxel.color[2] = 0;
-
-	d_SDFBlocks[idx] = voxel;
+	d_SDFBlocks[idx].sdf = 0.0f;
+	d_SDFBlocks[idx].weight = 0;
+	d_SDFBlocks[idx].color[0] = d_SDFBlocks[idx].color[1] = d_SDFBlocks[idx].color[2] = 0;
 }
 
 inline static void deleteHashEntry(uint idx, __global struct NuiHashEntry*	d_hash)
 {
-	struct NuiHashEntry hashEntry;
-	hashEntry.ptr = FREE_ENTRY;
-	hashEntry.offset = 0;
-	hashEntry.pos[0] = hashEntry.pos[1] = hashEntry.pos[2] = 0;
-
-	d_hash[idx] = hashEntry;
+	d_hash[idx].ptr = FREE_ENTRY;
+	d_hash[idx].offset = 0;
+	d_hash[idx].pos[0] = d_hash[idx].pos[1] = d_hash[idx].pos[2] = 0;
 }
 
 inline static int3 worldToSDFBlock(float3 pos, float virtualVoxelSize)
@@ -73,17 +67,73 @@ inline static float3 cameraToKinectProj(
 	return pImage;
 }
 
+inline static float cameraToKinectProjZ(
+	float z,
+	__constant struct CameraParams* cameraParams)
+{
+	struct CameraParams camParams = *cameraParams;
+	return (z - camParams.sensorDepthWorldMin)/(camParams.sensorDepthWorldMax - camParams.sensorDepthWorldMin);
+}
+
+inline static float3 kinectDepthToSkeleton(uint ux, uint uy, float depth, __constant struct CameraParams* cameraParams)
+{
+	struct CameraParams camParams = *cameraParams;
+	const float x = ((float)ux-camParams.mx) / camParams.fx;
+	const float y = ((float)uy-camParams.my) / camParams.fy;
+	//const float y = (c_depthCameraParams.my-(float)uy) / c_depthCameraParams.fy;
+	return (float3)(depth*x, depth*y, depth);
+}
+
+inline static float kinectProjToCameraZ(float z, __constant struct CameraParams* cameraParams)
+{
+	struct CameraParams camParams = *cameraParams;
+	return z * (camParams.sensorDepthWorldMax - camParams.sensorDepthWorldMin) + camParams.sensorDepthWorldMin;
+}
+
+inline static float3 kinectProjToCamera(uint ux, uint uy, float z, __constant struct CameraParams* cameraParams)
+{
+	float fSkeletonZ = kinectProjToCameraZ(z);
+	return kinectDepthToSkeleton(ux, uy, fSkeletonZ);
+}
+
 inline static bool isSDFBlockInCameraFrustumApprox(
 			int3			sdfBlock,
 			float			virtualVoxelSize,
 			__constant struct CameraParams* cameraParams,
 			__global struct RigidTransform* matrix)
 {
-	int3 pos = sdfBlock * SDF_BLOCK_SIZE + virtualVoxelSize * 0.5f * (SDF_BLOCK_SIZE - 1.0f);
-	float3 p = convert_float3(pos) * virtualVoxelSize;
-	float3 pCamera = transformInverse( p, matrix );
+	int3 virtualVoxelPos = sdfBlock * SDF_BLOCK_SIZE;
+	float3 posWorld = convert_float3(virtualVoxelPos) * virtualVoxelSize;
+	posWorld = posWorld + virtualVoxelSize * 0.5f * (SDF_BLOCK_SIZE - 1.0f);
+	float3 pCamera = transformInverse( posWorld, matrix );
 	float3 pProj = cameraToKinectProj(pCamera, cameraParams);
 	//pProj *= 1.5f;	//TODO THIS IS A HACK FIX IT :)
-	pProj *= 0.95;
+	pProj *= 0.95f;
 	return !(pProj.x < -1.0f || pProj.x > 1.0f || pProj.y < -1.0f || pProj.y > 1.0f || pProj.z < 0.0f || pProj.z > 1.0f);
+}
+
+inline static bool isSDFBlockStreamedOut(
+			int3			sdfBlock,
+			const float		virtualVoxelSize,
+			const float3	streamingVoxelExtents,
+			const int3		minGridPos,
+			const int3		gridDimensions,
+			__global uint*	d_bitMask)
+{
+	int3 virtualVoxelPos = sdfBlock * SDF_BLOCK_SIZE;
+	float3 posWorld = convert_float3(virtualVoxelPos) * virtualVoxelSize;
+	posWorld = posWorld / streamingVoxelExtents;
+	float3 signPosWorld;
+	signPosWorld.x = convert_float(sign(posWorld.x));
+	signPosWorld.y = convert_float(sign(posWorld.y));
+	signPosWorld.z = convert_float(sign(posWorld.z));
+	int3 chunkPos = convert_int3(posWorld + signPosWorld * 0.5f);
+
+	chunkPos = chunkPos - minGridPos;
+	uint index = chunkPos.z * gridDimensions.x * gridDimensions.y +
+			chunkPos.y * gridDimensions.x +
+			chunkPos.x;
+
+	uint nBitsInT = 32;
+	return ((d_bitMask[index/nBitsInT] & (0x1 << (index%nBitsInT))) != 0x0);
 }

@@ -1,3 +1,5 @@
+#include "gpu_def.h"
+
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 
 #define LOCK(a) atom_cmpxchg(a, 0, 1)
@@ -37,6 +39,12 @@ inline static void atomicAdd(__global volatile float* address, const float opera
 static float3 rotate3(float3 vec, float8 R1, float R2)
 {
 	return (float3)(dot(R1.s012, vec), dot(R1.s345, vec), dot((float3)(R1.s67,R2), vec));
+}
+
+static float3 rotate(float3 vec, __global struct RigidTransform* matrix)
+{
+	struct RigidTransform mat = *matrix;
+    return (float3)(dot((float3)(mat.R[0], mat.R[1], mat.R[2]), vec), dot((float3)(mat.R[3], mat.R[4], mat.R[5]), vec), dot((float3)(mat.R[6], mat.R[7], mat.R[8]), vec));
 }
 
 static float3 transform(float3 vec, __global struct RigidTransform* matrix)

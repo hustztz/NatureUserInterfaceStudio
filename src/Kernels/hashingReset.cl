@@ -3,7 +3,7 @@
 __kernel void reset_heap_kernel(
             __global uint*	d_heap,
 			__global uint*	d_heapCounter,
-			__global struct NuiVoxel*	d_SDFBlocks,
+			__global struct NuiVoxel*	d_SDFBlocks
         )
 {
     const uint gidx = get_global_id(0);
