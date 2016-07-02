@@ -6,45 +6,13 @@
 #define LOCK(a) atom_cmpxchg(a, 0, 1)
 #define UNLOCK(a) atom_xchg(a, 0)
 
-inline static void deleteVoxel(uint idx, __global struct NuiVoxel*	d_SDFBlocks)
-{
-	d_SDFBlocks[idx].sdf = 0.0f;
-	d_SDFBlocks[idx].weight = 0;
-	d_SDFBlocks[idx].color[0] = d_SDFBlocks[idx].color[1] = d_SDFBlocks[idx].color[2] = 0;
-}
 
-inline static void deleteHashEntry(uint idx, __global struct NuiHashEntry*	d_hash)
-{
-	d_hash[idx].ptr = FREE_ENTRY;
-	d_hash[idx].offset = 0;
-	d_hash[idx].pos[0] = d_hash[idx].pos[1] = d_hash[idx].pos[2] = 0;
-}
-
-inline static int3 worldToSDFBlock(float3 pos, float virtualVoxelSize)
-{
-	float3 p = pos / virtualVoxelSize;
-	int3 virtualVoxelPos = convert_int3(p + sign(p)*0.5f);
-
-	if (virtualVoxelPos.x < 0) virtualVoxelPos.x -= SDF_BLOCK_SIZE-1;
-	if (virtualVoxelPos.y < 0) virtualVoxelPos.y -= SDF_BLOCK_SIZE-1;
-	if (virtualVoxelPos.z < 0) virtualVoxelPos.z -= SDF_BLOCK_SIZE-1;
-
-	return (int3)(
-		virtualVoxelPos.x/SDF_BLOCK_SIZE,
-		virtualVoxelPos.y/SDF_BLOCK_SIZE,
-		virtualVoxelPos.z/SDF_BLOCK_SIZE);
-}
-
-inline static float3 SDFBlockToWorld(int3 sdfBlock, float virtualVoxelSize)
-{
-	return convert_float3(sdfBlock * SDF_BLOCK_SIZE) * virtualVoxelSize;
-}
 
 inline static float2 cameraToKinectScreen(
 			float3			pos,
-			__constant struct CameraParams* cameraParams)
+			__constant struct NuiCLCameraParams* cameraParams)
 {
-	struct CameraParams camParams = *cameraParams;
+	struct NuiCLCameraParams camParams = *cameraParams;
 	return (float2)(
 			pos.x*camParams.fx/pos.z + camParams.cx,			
 			pos.y*camParams.fy/pos.z + camParams.cy);
@@ -52,13 +20,13 @@ inline static float2 cameraToKinectScreen(
 
 inline static float3 cameraToKinectProj(
 			float3			pos,
-			__constant struct CameraParams* cameraParams)
+			__constant struct NuiCLCameraParams* cameraParams)
 {
 	float2 proj = cameraToKinectScreen(pos, cameraParams);
 
 	float3 pImage = (float3)(proj.x, proj.y, pos.z);
 
-	struct CameraParams camParams = *cameraParams;
+	struct NuiCLCameraParams camParams = *cameraParams;
 	pImage.x = (2.0f*pImage.x - (camParams.depthImageWidth- 1.0f))/(camParams.depthImageWidth- 1.0f);
 	//pImage.y = (2.0f*pImage.y - (c_depthCameraParams.m_imageHeight-1.0f))/(c_depthCameraParams.m_imageHeight-1.0f);
 	pImage.y = ((camParams.depthImageHeight-1.0f) - 2.0f*pImage.y)/(camParams.depthImageHeight-1.0f);
@@ -69,38 +37,38 @@ inline static float3 cameraToKinectProj(
 
 inline static float cameraToKinectProjZ(
 	float z,
-	__constant struct CameraParams* cameraParams)
+	__constant struct NuiCLCameraParams* cameraParams)
 {
-	struct CameraParams camParams = *cameraParams;
+	struct NuiCLCameraParams camParams = *cameraParams;
 	return (z - camParams.sensorDepthWorldMin)/(camParams.sensorDepthWorldMax - camParams.sensorDepthWorldMin);
 }
 
-inline static float3 kinectDepthToSkeleton(uint ux, uint uy, float depth, __constant struct CameraParams* cameraParams)
+inline static float3 kinectDepthToSkeleton(uint ux, uint uy, float depth, __constant struct NuiCLCameraParams* cameraParams)
 {
-	struct CameraParams camParams = *cameraParams;
-	const float x = ((float)ux-camParams.mx) / camParams.fx;
-	const float y = ((float)uy-camParams.my) / camParams.fy;
+	struct NuiCLCameraParams camParams = *cameraParams;
+	const float x = ((float)ux-camParams.cx) / camParams.fx;
+	const float y = ((float)uy-camParams.cy) / camParams.fy;
 	//const float y = (c_depthCameraParams.my-(float)uy) / c_depthCameraParams.fy;
 	return (float3)(depth*x, depth*y, depth);
 }
 
-inline static float kinectProjToCameraZ(float z, __constant struct CameraParams* cameraParams)
+inline static float kinectProjToCameraZ(float z, __constant struct NuiCLCameraParams* cameraParams)
 {
-	struct CameraParams camParams = *cameraParams;
+	struct NuiCLCameraParams camParams = *cameraParams;
 	return z * (camParams.sensorDepthWorldMax - camParams.sensorDepthWorldMin) + camParams.sensorDepthWorldMin;
 }
 
-inline static float3 kinectProjToCamera(uint ux, uint uy, float z, __constant struct CameraParams* cameraParams)
+inline static float3 kinectProjToCamera(uint ux, uint uy, float z, __constant struct NuiCLCameraParams* cameraParams)
 {
-	float fSkeletonZ = kinectProjToCameraZ(z);
-	return kinectDepthToSkeleton(ux, uy, fSkeletonZ);
+	float fSkeletonZ = kinectProjToCameraZ(z, cameraParams);
+	return kinectDepthToSkeleton(ux, uy, fSkeletonZ, cameraParams);
 }
 
 inline static bool isSDFBlockInCameraFrustumApprox(
 			int3			sdfBlock,
 			float			virtualVoxelSize,
-			__constant struct CameraParams* cameraParams,
-			__global struct RigidTransform* matrix)
+			__constant struct NuiCLCameraParams* cameraParams,
+			__global struct NuiCLRigidTransform* matrix)
 {
 	int3 virtualVoxelPos = sdfBlock * SDF_BLOCK_SIZE;
 	float3 posWorld = convert_float3(virtualVoxelPos) * virtualVoxelSize;

@@ -18,10 +18,8 @@ __kernel void mem_copy_kernel(
 __kernel void depth2vertex_kernel(
             __global float*			depths,
             __global float*			vertices,
-			float					intr_fx_inv,
-			float					intr_fy_inv,
-			float					intr_cx,
-			float					intr_cy
+			__constant struct NuiCLCameraParams* cameraParams,
+			const int				div
         )
 {
     const uint gidx = get_global_id(0);
@@ -33,6 +31,11 @@ __kernel void depth2vertex_kernel(
 	float3 vert = (float3)(0.0f, 0.0f, 0.0f);
 	if(dp > 0.0f)
 	{
+		struct NuiCLCameraParams camParams = *cameraParams;
+		const float intr_fx_inv = div * camParams.fx_inv;
+		const float intr_fy_inv = div * camParams.fy_inv;
+		const float intr_cx = camParams.cx / div;
+		const float intr_cy = camParams.cy / div;
 		vert = dp * (float3)((convert_float(gidx)-intr_cx)*intr_fx_inv, (convert_float(gidy)-intr_cy)*intr_fy_inv, 1.0f);
 	}
 	vstore3(vert, index, vertices);
@@ -88,11 +91,9 @@ __kernel void half_sample_kernel(
 __kernel void transform_maps_kernel(
             __global		float*	vertices,
             __global		float*	normals,
-			float8					Rcurr1,
-			float					Rcurr2,
-			float3					tcurr,
 			__global		float*	verticesDst,
-            __global		float*	normalsDst
+            __global		float*	normalsDst,
+			__global struct NuiCLRigidTransform* matrix
         )
 {
 	const uint gidx = get_global_id(0);
@@ -108,7 +109,7 @@ __kernel void transform_maps_kernel(
 		return;
 	}
 
-	float3 vmap_dst = rotate3(vmap_src, Rcurr1, Rcurr2) + tcurr;
+	float3 vmap_dst = transform(vmap_src, matrix);
 	vstore3(vmap_dst, id, verticesDst);
 
 	float3 nmap_src = vload3(id, normals);
@@ -119,7 +120,7 @@ __kernel void transform_maps_kernel(
 		return;
 	}
 
-	float3 nmap_dst = rotate3(nmap_src, Rcurr1, Rcurr2);
+	float3 nmap_dst = rotation(nmap_src, matrix);
 	vstore3(nmap_dst, id, normalsDst);
 }
 

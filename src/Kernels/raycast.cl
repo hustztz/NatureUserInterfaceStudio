@@ -126,18 +126,13 @@ static float interpolateTrilineary2 (float3 origin, float3 dir, float time,
 }
 
 __kernel void raycastKernel(
-                    __global short* volume,
-					__constant struct TsdfParams* params,
-                    float8 Rcurr1,
-                    float Rcurr2,
-					float3 tcurr,
-					float intr_fx_inv,
-                    float intr_fy_inv,
-					float intr_cx,
-                    float intr_cy,
-					int3  voxelWrap,
-                    __global float* vmap,
-					__global float* nmap
+                    __global	short* volume,
+					__constant	struct TsdfParams* params,
+                    __constant	struct  NuiCLCameraParams* cameraParams,
+					__global	struct	NuiCLRigidTransform* matrix,
+                    __global	float*	vmap,
+					__global	float*	nmap,
+					const		int3	voxelWrap
                     )
 {
 	const uint gidx = get_global_id(0);
@@ -150,9 +145,14 @@ __kernel void raycastKernel(
 	vstore3(NAN, id, vmap);
 	vstore3(NAN, id, nmap);
 	
-	float3 ray_start = tcurr;
-	float3 ray_next = (float3)((convert_float(gidx) - intr_cx) * intr_fx_inv, (convert_float(gidy) - intr_cy) * intr_fy_inv, 1);
-    ray_next = rotate3(ray_next, Rcurr1, Rcurr2) + tcurr;
+	struct NuiCLCameraParams camParams = *cameraParams;
+	struct NuiCLRigidTransform mat = *matrix;
+	float3 ray_start;
+	ray_start.x = mat.t[0];
+	ray_start.y = mat.t[1];
+	ray_start.z = mat.t[2];
+	float3 ray_next = (float3)((convert_float(gidx) - camParams.cx) * camParams.fx_inv, (convert_float(gidy) - camParams.cy) * camParams.fy_inv, 1);
+    ray_next = transform(ray_next, matrix);
 	float3 ray_dir = normalize (ray_next - ray_start);
 	
 	//ensure that it isn't a degenerate case

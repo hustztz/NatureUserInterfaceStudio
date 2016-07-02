@@ -750,7 +750,7 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 		plug == aCameraTranslateY || 
 		plug == aCameraTranslateZ)
 	{
-		NuiCameraParams cam;
+		NuiCameraPos cam;
 		bool received = false;
 		if(pCurrentFrame)
 		{

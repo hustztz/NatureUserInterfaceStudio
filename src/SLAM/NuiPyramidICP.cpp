@@ -1,7 +1,7 @@
 #include "NuiPyramidICP.h"
 
+#include "NuiKinfuTransform.h"
 #include "Foundation/NuiDebugMacro.h"
-#include "Shape\NuiCameraParams.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
@@ -110,13 +110,11 @@ void NuiPyramidICP::ReleaseBuffers()
 			m_normalsPrevArrCL[i] = NULL;
 		}
 	}
-
 	if (m_corespsBlocksCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_corespsBlocksCL);
 		NUI_CHECK_CL_ERR(err);
 		m_corespsBlocksCL = NULL;
 	}
-
 	if (m_corespsCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_corespsCL);
 		NUI_CHECK_CL_ERR(err);
@@ -124,27 +122,26 @@ void NuiPyramidICP::ReleaseBuffers()
 	}
 }
 
-void NuiPyramidICP::input(cl_mem floatDepthsCL, const NuiCameraParams& pos)
+void NuiPyramidICP::input(cl_mem floatDepthsCL, cl_mem cameraParamsCL)
 {
 	// filter the input depth map
 	SmoothDepths(floatDepthsCL);
 	// half sample the input depth maps into the pyramid levels
 	PyrDown();
-	const NuiCameraIntrinsics& intri = pos.getIntrinsics();
-	NormalEst(intri.m_fx, intri.m_fy, intri.m_cx, intri.m_cy);
+	NormalEst(cameraParamsCL);
 }
 
-bool NuiPyramidICP::run(NuiCameraParams* pPos, Eigen::Affine3f *hint)
+bool NuiPyramidICP::run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
 {
-	if(!pPos)
+	if(!cameraParamsCL || !pTransform)
 		return false;
 
-	return IterativeClosestPoint(pPos, hint);
+	return IterativeClosestPoint(cameraParamsCL, pTransform, hint);
 }
 
-void NuiPyramidICP::transformPrevs(const NuiCameraParams& pos)
+void NuiPyramidICP::transformPrevs(cl_mem transformCL)
 {
-	TransformPrevMaps(pos.getRotation(), pos.getTranslation());
+	TransformPrevMaps(transformCL);
 }
 
 void NuiPyramidICP::resizePrevs()
@@ -303,7 +300,7 @@ void NuiPyramidICP::PyrDown()
 	}
 }
 
-void NuiPyramidICP::NormalEst(float intr_fx, float intr_fy, float intr_cx, float intr_cy)
+void NuiPyramidICP::NormalEst(cl_mem cameraParamsCL)
 {
 	// Get the kernel
 	cl_kernel normalEstKernel =
@@ -331,24 +328,15 @@ void NuiPyramidICP::NormalEst(float intr_fx, float intr_fy, float intr_cx, float
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		int div = 1 << i; 
-		float fx_inv = div / intr_fx;
-		float fy_inv = div / intr_fy;
-		float cx = intr_cx / div;
-		float cy = intr_cy / div;
-
 		// Set kernel arguments
 		cl_uint idx = 0;
 		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(float), &fx_inv);
+		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(float), &fy_inv);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(float), &cx);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(float), &cy);
+		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(int), &div);
 		NUI_CHECK_CL_ERR(err);
 
 		// Run kernel to calculate 
@@ -395,9 +383,9 @@ void NuiPyramidICP::NormalEst(float intr_fx, float intr_fy, float intr_cx, float
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Iterative Closest Point
-bool NuiPyramidICP::IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f *hint)
+bool NuiPyramidICP::IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
 {
-	if(!pPos)
+	if(!cameraParamsCL || !pTransform)
 		return false;
 
 	// Get the kernel
@@ -419,22 +407,6 @@ bool NuiPyramidICP::IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f
 		return false;
 	}
 
-	Matrix3frm Rprev_inv = pPos->getRotation().inverse (); //Rprev.t();
-
-	const NuiCameraIntrinsics& intri = pPos->getIntrinsics();
-	Matrix3frm Rcurr; //  [Ri|ti] - pos of camera, i.e.
-	Vector3f tcurr;
-	if(hint)
-	{
-		Rcurr = hint->rotation().matrix();
-		tcurr = hint->translation().matrix();
-	}
-	else
-	{
-		Rcurr = pPos->getRotation(); // tranform to global coo for ith camera pose
-		tcurr = pPos->getTranslation(); //  tranfrom from camera to global coo space for (i-1)th camera pose
-	}
-
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
@@ -443,27 +415,34 @@ bool NuiPyramidICP::IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f
 	size_t local_ws[1] = {WORK_GROUP_SIZE};
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] * KINFU_ICP_CORESPS_NUM / WORK_GROUP_SIZE]);
 
+	Matrix3frm Rcurr;
+	Vector3f tcurr;
+	if(hint)
+	{
+		Rcurr = hint->rotation().matrix();
+		tcurr = hint->translation().matrix();
+	}
+	else
+	{
+		Rcurr = pTransform->getRotation(); // tranform to global coo for ith camera pose
+		tcurr = pTransform->getTranslation();
+	}
+	cl_mem previousTransform = pTransform->getTransformCL();
+
 	/** \brief array with IPC iteration numbers for each pyramid level */
 	int LEVELS = (int)m_iterations.size();
 
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
 	{
-		int div = 1 << level_index; 
-		float fx = intri.m_fx / div;
-		float fy = intri.m_fy / div;
-		float cx = intri.m_cx / div;
-		float cy = intri.m_cy / div;
-		cl_uint width = m_nWidth >> level_index;
-		cl_uint height = m_nHeight >> level_index;
-
+		int div = 1 << level_index;
 		int iter_num = m_iterations[level_index];
 		for (int iter = 0; iter < iter_num; ++iter)
 		{
 			idx = 0;
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_uint), &width);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_int), &div);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_uint), &height);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
@@ -479,19 +458,7 @@ bool NuiPyramidICP::IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*8, Rprev_inv.data());
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), Rprev_inv.data()+8);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*4, pPos->getTranslation().data());
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &fx);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &fy);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &cx);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &cy);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &previousTransform);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &m_configuration.dist_threshold);
 			NUI_CHECK_CL_ERR(err);
@@ -625,8 +592,7 @@ bool NuiPyramidICP::IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f
 		}
 	}
 
-	pPos->setRotation(Rcurr);
-	pPos->setTranslation(tcurr);
+	pTransform->setTransform(Rcurr, tcurr);
 
 #ifdef _DEBUG
 	//For debug
@@ -684,7 +650,7 @@ void    NuiPyramidICP::ResizePrevMaps()
 	}
 }
 
-void NuiPyramidICP::TransformPrevMaps(const Matrix3frm& Rcurr, const Vector3f& tcurr)
+void NuiPyramidICP::TransformPrevMaps(cl_mem transformCL)
 {
 	// Get the kernel
 	cl_kernel transformKernel =
@@ -695,15 +661,6 @@ void NuiPyramidICP::TransformPrevMaps(const Matrix3frm& Rcurr, const Vector3f& t
 		NUI_ERROR("Get kernel 'E_TRANSFORM_MAPS' failed!\n");
 		return;
 	}
-
-	/*if(1 < frameTime)
-	{
-		Matrix3frm Rprev = m_rmats[frameTime - 2];
-		Vector3f   tprev = m_tvecs[frameTime - 2];
-
-		Rcurr = Rcurr * Rprev.inverse ();
-		tcurr = tcurr - tprev;
-	}*/
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -716,15 +673,11 @@ void NuiPyramidICP::TransformPrevMaps(const Matrix3frm& Rcurr, const Vector3f& t
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(float)*8, Rcurr.data());
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(float), Rcurr.data()+8);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(float)*4, tcurr.data());
-		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &transformCL);
 		NUI_CHECK_CL_ERR(err);
 
 		// Run kernel to calculate
@@ -781,248 +734,248 @@ void NuiPyramidICP::CopyPrevMaps()
 	}
 }
 
-bool NuiPyramidICP::ColorIterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f *hint)
-{
-	// Get the kernel
-	cl_kernel colorIcpKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_COLOR_ICP_BLOCK);
-	assert(colorIcpKernel);
-	if (!colorIcpKernel)
-	{
-		NUI_ERROR("Get kernel 'E_COLOR_ICP_BLOCK' failed!\n");
-		return false;
-	}
-
-	cl_kernel sumKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_ICP_SUM);
-	assert(sumKernel);
-	if (!sumKernel)
-	{
-		NUI_ERROR("Get kernel 'E_ICP_SUM' failed!\n");
-		return false;
-	}
-
-	const NuiCameraIntrinsics& intri = pPos->getIntrinsics();
-	Matrix3frm Rprev_inv = pPos->getRotation().inverse (); //Rprev.t();
-
-	Matrix3frm Rcurr;
-	Vector3f tcurr;
-	if(hint)
-	{
-		Rcurr = hint->rotation().matrix();
-		tcurr = hint->translation().matrix();
-	}
-	else
-	{
-		Rcurr = pPos->getRotation(); // tranform to global coo for ith camera pose
-		tcurr = pPos->getTranslation();
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-	cl_uint idx = 0;
-	cl_short bBackgroundMask = false;
-	size_t kernelGlobalSize[1] = {m_nWidth * m_nHeight};
-	size_t local_ws[1] = {WORK_GROUP_SIZE};
-	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] / WORK_GROUP_SIZE * KINFU_ICP_CORESPS_NUM]);
-
-	/** \brief array with IPC iteration numbers for each pyramid level */
-	int LEVELS = (int)m_iterations.size();
-
-	//ScopeTime time("icp-all");
-	for (int level_index = LEVELS-1; level_index>=0; --level_index)
-	{
-		int div = 1 << level_index; 
-		float fx = intri.m_fx / div;
-		float fy = intri.m_fy / div;
-		float cx = intri.m_cx / div;
-		float cy = intri.m_cy / div;
-		cl_uint width = m_nWidth >> level_index;
-		cl_uint height = m_nHeight >> level_index;
-
-		int iter_num = m_iterations[level_index];
-		for (int iter = 0; iter < iter_num; ++iter)
-		{
-			idx = 0;
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_uint), &width);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_uint), &height);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[level_index]);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[level_index]);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*8, Rcurr.data());
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), Rcurr.data()+8);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*4, tcurr.data());
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[level_index]);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[level_index]);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*8, Rprev_inv.data());
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), Rprev_inv.data()+8);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*4, pPos->getTranslation().data());
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_short), &bBackgroundMask);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[level_index]);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &fx);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &fy);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &cx);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &cy);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &m_configuration.dist_threshold);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &m_configuration.normal_threshold);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_corespsBlocksCL);
-			NUI_CHECK_CL_ERR(err);
-
-			// Run kernel to calculate
-			kernelGlobalSize[0] = (m_nWidth >> level_index) * (m_nHeight >> level_index);
-			err = clEnqueueNDRangeKernel(
-				queue,
-				colorIcpKernel,
-				1,
-				nullptr,
-				kernelGlobalSize,
-				local_ws,
-				0,
-				NULL,
-				NULL
-				);
-			NUI_CHECK_CL_ERR(err);
-
-			UINT size = (UINT)(std::ceil( (float)kernelGlobalSize[0] / (float)local_ws[0] ));
-
-			idx = 0;
-			err = clSetKernelArg(sumKernel, idx++, sizeof(cl_mem), &m_corespsBlocksCL);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(sumKernel, idx++, sizeof(cl_mem), &m_corespsCL);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(sumKernel, idx++, sizeof(cl_uint), &size);
-			NUI_CHECK_CL_ERR(err);
-
-			// Run kernel to calculate
-			UINT nblocks = (UINT)( std::ceil( (float)size / (float)WORK_GROUP_SIZE) );
-			kernelGlobalSize[0] = nblocks * WORK_GROUP_SIZE;
-			err = clEnqueueNDRangeKernel(
-				queue,
-				sumKernel,
-				1,
-				nullptr,
-				kernelGlobalSize,
-				local_ws,
-				0,
-				NULL,
-				NULL
-				);
-			NUI_CHECK_CL_ERR(err);
-
-			err = clEnqueueReadBuffer(
-				queue,
-				m_corespsCL,
-				CL_TRUE,//blocking
-				0,
-				nblocks * KINFU_ICP_CORESPS_NUM * sizeof(float),
-				corespResult.get(),
-				0,
-				NULL,
-				NULL
-				);
-			NUI_CHECK_CL_ERR(err);
-
-			clFinish(queue);
-
-			float icpError = 0.0f;
-			float icpCount = 0.0f;
-			for(UINT n = 0; n < nblocks; ++n)
-			{
-				UINT stride = n * KINFU_ICP_CORESPS_NUM;
-				icpError += corespResult[stride + KINFU_ICP_CORESPS_NUM-2];
-				icpCount += corespResult[stride + KINFU_ICP_CORESPS_NUM-1];
-			}
-#ifdef _DEBUG
-			std::cout << "icpcount:" << icpCount << "\t" << "icperror:" << sqrt(icpError) / icpCount << std::endl;
-#endif
-			if((0 == icpCount) || (sqrt(icpError) / icpCount) < 1e-5f)
-			{
-				if(bBackgroundMask && (0 != level_index))
-				{
-					break;
-				}
-				else
-				{
-					bBackgroundMask = true;
-					continue;
-				}
-			}
-			if((0 == level_index) && (iter == iter_num-2))
-			{
-				bBackgroundMask = true;
-			}
-
-			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> A;
-			Eigen::Matrix<double, 6, 1> b;
-
-			int shift = 0;
-			for (int i = 0; i < 6; ++i)  //rows
-			{
-				for (int j = i; j < 7; ++j)    // cols + b
-				{
-					float value = 0.0f;
-					for(UINT n = 0; n < nblocks; ++n)
-					{
-						UINT stride = n * KINFU_ICP_CORESPS_NUM;
-						value +=  corespResult[stride + shift];
-					}
-					if (j == 6)       // vector b
-						b[i] = value;
-					else
-						A(j,i) = A(i,j) = value;
-					shift++;
-				}
-			}
-
-			//checking nullspace
-			double det = A.determinant ();
-
-			if (fabs (det) < 1e-15 || _isnan (det))
-			{
-				if (_isnan (det)) std::cout << "qnan" << std::endl;
-
-				return (false);
-			}
-			//float maxc = A.maxCoeff();
-
-			Eigen::Matrix<float, 6, 1> result = A.llt ().solve (b).cast<float>();
-			//Eigen::Matrix<float, 6, 1> result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
-
-			float alpha = result (0);
-			float beta  = result (1);
-			float gamma = result (2);
-
-			Eigen::Matrix3f Rinc = (Eigen::Matrix3f)AngleAxisf (gamma, Vector3f::UnitZ ()) * AngleAxisf (beta, Vector3f::UnitY ()) * AngleAxisf (alpha, Vector3f::UnitX ());
-			Vector3f tinc = result.tail<3> ();
-
-			//compose
-			tcurr = Rinc * tcurr + tinc;
-			Rcurr = Rinc * Rcurr;
-		}
-	}
-
-	pPos->setRotation(Rcurr);
-	pPos->setTranslation(tcurr);
-
-	return true;
-}
+//bool NuiPyramidICP::ColorIterativeClosestPoint(NuiCameraPos* pPos, Eigen::Affine3f *hint)
+//{
+//	// Get the kernel
+//	cl_kernel colorIcpKernel =
+//		NuiOpenCLKernelManager::instance().acquireKernel(E_COLOR_ICP_BLOCK);
+//	assert(colorIcpKernel);
+//	if (!colorIcpKernel)
+//	{
+//		NUI_ERROR("Get kernel 'E_COLOR_ICP_BLOCK' failed!\n");
+//		return false;
+//	}
+//
+//	cl_kernel sumKernel =
+//		NuiOpenCLKernelManager::instance().acquireKernel(E_ICP_SUM);
+//	assert(sumKernel);
+//	if (!sumKernel)
+//	{
+//		NUI_ERROR("Get kernel 'E_ICP_SUM' failed!\n");
+//		return false;
+//	}
+//
+//	const NuiCameraIntrinsics& intri = pPos->getIntrinsics();
+//	Matrix3frm Rprev_inv = pPos->getRotation().inverse (); //Rprev.t();
+//
+//	Matrix3frm Rcurr;
+//	Vector3f tcurr;
+//	if(hint)
+//	{
+//		Rcurr = hint->rotation().matrix();
+//		tcurr = hint->translation().matrix();
+//	}
+//	else
+//	{
+//		Rcurr = pPos->getRotation(); // tranform to global coo for ith camera pose
+//		tcurr = pPos->getTranslation();
+//	}
+//
+//	// OpenCL command queue and device
+//	cl_int           err = CL_SUCCESS;
+//	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+//	cl_uint idx = 0;
+//	cl_short bBackgroundMask = false;
+//	size_t kernelGlobalSize[1] = {m_nWidth * m_nHeight};
+//	size_t local_ws[1] = {WORK_GROUP_SIZE};
+//	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] / WORK_GROUP_SIZE * KINFU_ICP_CORESPS_NUM]);
+//
+//	/** \brief array with IPC iteration numbers for each pyramid level */
+//	int LEVELS = (int)m_iterations.size();
+//
+//	//ScopeTime time("icp-all");
+//	for (int level_index = LEVELS-1; level_index>=0; --level_index)
+//	{
+//		int div = 1 << level_index; 
+//		float fx = intri.m_fx / div;
+//		float fy = intri.m_fy / div;
+//		float cx = intri.m_cx / div;
+//		float cy = intri.m_cy / div;
+//		cl_uint width = m_nWidth >> level_index;
+//		cl_uint height = m_nHeight >> level_index;
+//
+//		int iter_num = m_iterations[level_index];
+//		for (int iter = 0; iter < iter_num; ++iter)
+//		{
+//			idx = 0;
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_uint), &width);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_uint), &height);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[level_index]);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[level_index]);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*8, Rcurr.data());
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), Rcurr.data()+8);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*4, tcurr.data());
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[level_index]);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[level_index]);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*8, Rprev_inv.data());
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), Rprev_inv.data()+8);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*4, pPos->getTranslation().data());
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_short), &bBackgroundMask);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[level_index]);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &fx);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &fy);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &cx);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &cy);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &m_configuration.dist_threshold);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float), &m_configuration.normal_threshold);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_corespsBlocksCL);
+//			NUI_CHECK_CL_ERR(err);
+//
+//			// Run kernel to calculate
+//			kernelGlobalSize[0] = (m_nWidth >> level_index) * (m_nHeight >> level_index);
+//			err = clEnqueueNDRangeKernel(
+//				queue,
+//				colorIcpKernel,
+//				1,
+//				nullptr,
+//				kernelGlobalSize,
+//				local_ws,
+//				0,
+//				NULL,
+//				NULL
+//				);
+//			NUI_CHECK_CL_ERR(err);
+//
+//			UINT size = (UINT)(std::ceil( (float)kernelGlobalSize[0] / (float)local_ws[0] ));
+//
+//			idx = 0;
+//			err = clSetKernelArg(sumKernel, idx++, sizeof(cl_mem), &m_corespsBlocksCL);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(sumKernel, idx++, sizeof(cl_mem), &m_corespsCL);
+//			NUI_CHECK_CL_ERR(err);
+//			err = clSetKernelArg(sumKernel, idx++, sizeof(cl_uint), &size);
+//			NUI_CHECK_CL_ERR(err);
+//
+//			// Run kernel to calculate
+//			UINT nblocks = (UINT)( std::ceil( (float)size / (float)WORK_GROUP_SIZE) );
+//			kernelGlobalSize[0] = nblocks * WORK_GROUP_SIZE;
+//			err = clEnqueueNDRangeKernel(
+//				queue,
+//				sumKernel,
+//				1,
+//				nullptr,
+//				kernelGlobalSize,
+//				local_ws,
+//				0,
+//				NULL,
+//				NULL
+//				);
+//			NUI_CHECK_CL_ERR(err);
+//
+//			err = clEnqueueReadBuffer(
+//				queue,
+//				m_corespsCL,
+//				CL_TRUE,//blocking
+//				0,
+//				nblocks * KINFU_ICP_CORESPS_NUM * sizeof(float),
+//				corespResult.get(),
+//				0,
+//				NULL,
+//				NULL
+//				);
+//			NUI_CHECK_CL_ERR(err);
+//
+//			clFinish(queue);
+//
+//			float icpError = 0.0f;
+//			float icpCount = 0.0f;
+//			for(UINT n = 0; n < nblocks; ++n)
+//			{
+//				UINT stride = n * KINFU_ICP_CORESPS_NUM;
+//				icpError += corespResult[stride + KINFU_ICP_CORESPS_NUM-2];
+//				icpCount += corespResult[stride + KINFU_ICP_CORESPS_NUM-1];
+//			}
+//#ifdef _DEBUG
+//			std::cout << "icpcount:" << icpCount << "\t" << "icperror:" << sqrt(icpError) / icpCount << std::endl;
+//#endif
+//			if((0 == icpCount) || (sqrt(icpError) / icpCount) < 1e-5f)
+//			{
+//				if(bBackgroundMask && (0 != level_index))
+//				{
+//					break;
+//				}
+//				else
+//				{
+//					bBackgroundMask = true;
+//					continue;
+//				}
+//			}
+//			if((0 == level_index) && (iter == iter_num-2))
+//			{
+//				bBackgroundMask = true;
+//			}
+//
+//			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> A;
+//			Eigen::Matrix<double, 6, 1> b;
+//
+//			int shift = 0;
+//			for (int i = 0; i < 6; ++i)  //rows
+//			{
+//				for (int j = i; j < 7; ++j)    // cols + b
+//				{
+//					float value = 0.0f;
+//					for(UINT n = 0; n < nblocks; ++n)
+//					{
+//						UINT stride = n * KINFU_ICP_CORESPS_NUM;
+//						value +=  corespResult[stride + shift];
+//					}
+//					if (j == 6)       // vector b
+//						b[i] = value;
+//					else
+//						A(j,i) = A(i,j) = value;
+//					shift++;
+//				}
+//			}
+//
+//			//checking nullspace
+//			double det = A.determinant ();
+//
+//			if (fabs (det) < 1e-15 || _isnan (det))
+//			{
+//				if (_isnan (det)) std::cout << "qnan" << std::endl;
+//
+//				return (false);
+//			}
+//			//float maxc = A.maxCoeff();
+//
+//			Eigen::Matrix<float, 6, 1> result = A.llt ().solve (b).cast<float>();
+//			//Eigen::Matrix<float, 6, 1> result = A.jacobiSvd(ComputeThinU | ComputeThinV).solve(b);
+//
+//			float alpha = result (0);
+//			float beta  = result (1);
+//			float gamma = result (2);
+//
+//			Eigen::Matrix3f Rinc = (Eigen::Matrix3f)AngleAxisf (gamma, Vector3f::UnitZ ()) * AngleAxisf (beta, Vector3f::UnitY ()) * AngleAxisf (alpha, Vector3f::UnitX ());
+//			Vector3f tinc = result.tail<3> ();
+//
+//			//compose
+//			tcurr = Rinc * tcurr + tinc;
+//			Rcurr = Rinc * Rcurr;
+//		}
+//	}
+//
+//	pPos->setRotation(Rcurr);
+//	pPos->setTranslation(tcurr);
+//
+//	return true;
+//}

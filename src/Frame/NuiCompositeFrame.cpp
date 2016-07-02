@@ -23,13 +23,13 @@ void NuiCompositeFrame::Clear()
 	m_compressedDepthBuffer.Clear();
 }
 
-void	NuiCompositeFrame::SetCameraParams(const NuiCameraParams& cam)
+void	NuiCompositeFrame::SetCameraParams(const NuiCameraPos& cam)
 {
 	//boost::mutex::scoped_lock buff_lock (m_bCameraMutex);
 	m_cameraParams = cam;
 }
 
-const NuiCameraParams&	NuiCompositeFrame::GetCameraParams() const
+const NuiCameraPos&	NuiCompositeFrame::GetCameraParams() const
 {
 	//boost::mutex::scoped_lock buff_lock (m_bCameraMutex);
 	return m_cameraParams;

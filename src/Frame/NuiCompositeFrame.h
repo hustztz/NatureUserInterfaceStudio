@@ -9,7 +9,7 @@
 #include "NuiFusionImageFrame.h"
 #include "NuiCompressedDepthFrame.h"
 
-#include "Shape/NuiCameraParams.h"
+#include "Shape/NuiCameraPos.h"
 
 // Forwards
 class NuiCLMappableData;
@@ -23,8 +23,8 @@ public:
 
 	void			Clear();
 
-	void			SetCameraParams(const NuiCameraParams& cam);
-	const NuiCameraParams&		GetCameraParams() const;
+	void			SetCameraParams(const NuiCameraPos& cam);
+	const NuiCameraPos&		GetCameraParams() const;
 
 public:
 	NuiDepthFrame			m_depthFrame;
@@ -40,7 +40,7 @@ public:
 	NuiPointCloudFrame		m_pointCloudFrame;
 
 	//boost::mutex			m_bCameraMutex;
-	NuiCameraParams			m_cameraParams;
+	NuiCameraPos			m_cameraParams;
 
 	// For KinectV1
 	NuiCompressedDepthFrame	m_compressedDepthBuffer;

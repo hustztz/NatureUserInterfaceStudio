@@ -3,9 +3,9 @@
 __kernel void alloc_SDFs_kernel(
             __global float* depths,
 			__global uint*	d_bitMask,
-			__constant struct CameraParams* cameraParams,
-			__global struct RigidTransform* matrix,
-			__global struct NuiHashEntry*	d_hash,
+			__constant struct NuiCLCameraParams* cameraParams,
+			__global struct NuiCLRigidTransform* matrix,
+			__global struct NuiCLHashEntry*	d_hash,
 			__global uint*	d_heap,
 			__global uint*	d_heapCounter,
 			__global int*	d_hashBucketMutex,
@@ -35,7 +35,7 @@ __kernel void alloc_SDFs_kernel(
 	float maxDepth = fmin(maxIntegrationDistance, Dp+t);
 	if (minDepth >= maxDepth) return;
 
-	struct CameraParams camParams = *cameraParams;
+	struct NuiCLCameraParams camParams = *cameraParams;
 	float3 screenToWorld = (float3)((gidx-camParams.cx)*camParams.fx_inv, (gidy-camParams.cy)*camParams.fy_inv, 1.0);
 	float3 rayMin = screenToWorld * minDepth;
 	rayMin = transform( rayMin, matrix );
@@ -102,9 +102,9 @@ __kernel void alloc_SDFs_kernel(
 
 __kernel void fillDecisionArrayKernel(
 	__global uint*	d_hashDecision,
-	__global struct NuiHashEntry*	d_hash,
-	__constant struct CameraParams* cameraParams,
-	__global struct RigidTransform* matrix,
+	__global struct NuiCLHashEntry*	d_hash,
+	__constant struct NuiCLCameraParams* cameraParams,
+	__global struct NuiCLRigidTransform* matrix,
 	const float		virtualVoxelSize
 	)
 {
@@ -122,9 +122,9 @@ __kernel void fillDecisionArrayKernel(
 }
 
 __kernel void compactifyHashKernel(
-	__global struct NuiHashEntry*	d_hashCompactified,
+	__global struct NuiCLHashEntry*	d_hashCompactified,
 	__global uint*	d_hashDecision,
-	__global struct NuiHashEntry*	d_hash,
+	__global struct NuiCLHashEntry*	d_hash,
 	__global int*	d_hashDecisionPrefix
 	)
 {
@@ -147,10 +147,10 @@ inline static int3 delinearizeVoxelIndex(uint idx)
 __kernel void integrateDepthMapKernel(
 	__global float*		depths,
 	__global uchar*		colors,
-	__global struct NuiVoxel*		d_SDFBlocks,
-	__global struct NuiHashEntry*	d_hashCompactified,
-	__constant struct CameraParams* cameraParams,
-	__global struct RigidTransform* matrix,
+	__global struct NuiCLVoxel*		d_SDFBlocks,
+	__global struct NuiCLHashEntry*	d_hashCompactified,
+	__constant struct NuiCLCameraParams* cameraParams,
+	__global struct NuiCLRigidTransform* matrix,
 	const float			virtualVoxelSize,
 	const float			maxIntegrationDistance,
 	const float			truncation,
@@ -162,7 +162,7 @@ __kernel void integrateDepthMapKernel(
 	const int gidx = get_global_id(0);
 
 	//TODO check if we should load this in shared memory
-	struct NuiHashEntry entry = d_hashCompactified[gidx];
+	struct NuiCLHashEntry entry = d_hashCompactified[gidx];
 	//if (entry.ptr == FREE_ENTRY) {
 	//	printf("invliad integrate");
 	//	return; //should never happen since we did the compactification before
@@ -176,7 +176,7 @@ __kernel void integrateDepthMapKernel(
 	float3 pCamera = transformInverse( pf, matrix );
 	uint2 screenPos = convert_uint2(cameraToKinectScreen(pCamera, cameraParams) + (float2)(0.5f, 0.5f));
 
-	struct CameraParams camParams = *cameraParams;
+	struct NuiCLCameraParams camParams = *cameraParams;
 	if(screenPos.x < camParams.depthImageWidth && screenPos.y < camParams.depthImageHeight)
 	{
 		const uint screenId = mul24(screenPos.y, camParams.depthImageWidth) + screenPos.x;
@@ -207,13 +207,13 @@ __kernel void integrateDepthMapKernel(
 			float weightUpdate = max(integrationWeightSample * 1.5f * (1.0f-depthZeroOne), 1.0f);
 
 			uint idx = entry.ptr + lidx;
-			struct NuiVoxel oldVoxel = d_SDFBlocks[idx];
+			struct NuiCLVoxel oldVoxel = d_SDFBlocks[idx];
 
 			float new_color_r = (convert_float(oldVoxel.color[0] * oldVoxel.weight) + convert_float(color.x*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
 			float new_color_g = (convert_float(oldVoxel.color[1] * oldVoxel.weight) + convert_float(color.y*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
 			float new_color_b = (convert_float(oldVoxel.color[2] * oldVoxel.weight) + convert_float(color.z*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
 			
-			struct NuiVoxel newVoxel;	//construct current voxel
+			struct NuiCLVoxel newVoxel;	//construct current voxel
 			newVoxel.sdf = (oldVoxel.sdf * convert_float(oldVoxel.weight) + sdf * convert_float(weightUpdate)) / (convert_float(oldVoxel.weight) + convert_float(weightUpdate));
 			newVoxel.weight = min(integrationWeightMax, convert_uchar(oldVoxel.weight + convert_uchar(weightUpdate)));
 			newVoxel.color[0] = convert_uchar( clamp(new_color_r, 0.0f, 255.f) );
@@ -226,13 +226,13 @@ __kernel void integrateDepthMapKernel(
 }
 
 __kernel void starveVoxelsKernel(
-	__global struct NuiVoxel*		d_SDFBlocks,
-	__global struct NuiHashEntry*	d_hashCompactified
+	__global struct NuiCLVoxel*		d_SDFBlocks,
+	__global struct NuiCLHashEntry*	d_hashCompactified
 	)
 {
 	const int gidx = get_global_id(0);
 	const int lidx = get_local_id(0);
-	struct NuiHashEntry entry = d_hashCompactified[gidx];
+	struct NuiCLHashEntry entry = d_hashCompactified[gidx];
 
 	//is typically exectued only every n'th frame
 	uchar weight = d_SDFBlocks[entry.ptr + lidx].weight;
@@ -241,10 +241,10 @@ __kernel void starveVoxelsKernel(
 }
 
 __kernel void garbageCollectIdentifyKernel(
-	__global struct NuiVoxel*		d_SDFBlocks,
-	__global struct NuiHashEntry*	d_hashCompactified,
+	__global struct NuiCLVoxel*		d_SDFBlocks,
+	__global struct NuiCLHashEntry*	d_hashCompactified,
 	__global uint*					d_hashDecision,
-	__constant struct CameraParams* cameraParams,
+	__constant struct NuiCLCameraParams* cameraParams,
 	const float						truncation,
 	const float						truncScale
 	)
@@ -255,7 +255,7 @@ __kernel void garbageCollectIdentifyKernel(
 	const int gidx = get_global_id(0);
 	const int lidx = get_local_id(0);
 	const uint lsizex = get_local_size(0);
-	struct NuiHashEntry entry = d_hashCompactified[gidx];
+	struct NuiCLHashEntry entry = d_hashCompactified[gidx];
 
 	//uint h = hashData.computeHashPos(entry.pos);
 	//hashData.d_hashDecision[hashIdx] = 1;
@@ -267,8 +267,8 @@ __kernel void garbageCollectIdentifyKernel(
 	const unsigned int idx0 = entry.ptr + 2*lidx+0;
 	const unsigned int idx1 = entry.ptr + 2*lidx+1;
 
-	struct NuiVoxel v0 = d_SDFBlocks[idx0];
-	struct NuiVoxel v1 = d_SDFBlocks[idx1];
+	struct NuiCLVoxel v0 = d_SDFBlocks[idx0];
+	struct NuiCLVoxel v1 = d_SDFBlocks[idx1];
 
 	shared_MinSDF[lidx] = min(fabs(v0.sdf), fabs(v1.sdf));	//init shared memory
 	shared_MaxWeight[lidx] = max(convert_uchar(v0.weight), convert_uchar(v1.weight));
@@ -287,7 +287,7 @@ __kernel void garbageCollectIdentifyKernel(
 		float minSDF = shared_MinSDF[lidx];
 		uchar maxWeight = shared_MaxWeight[lidx];
 
-		struct CameraParams camParams = *cameraParams;
+		struct NuiCLCameraParams camParams = *cameraParams;
 		float t = truncation + truncScale * camParams.sensorDepthWorldMax;	//MATTHIAS TODO check whether this is a reasonable metric
 
 		if (minSDF >= t || maxWeight == 0) {
@@ -299,9 +299,9 @@ __kernel void garbageCollectIdentifyKernel(
 }
 
 __kernel void garbageCollectFreeKernel(
-	__global struct NuiVoxel*		d_SDFBlocks,
-	__global struct NuiHashEntry*	d_hashCompactified,
-	__global struct NuiHashEntry*	d_hash,
+	__global struct NuiCLVoxel*		d_SDFBlocks,
+	__global struct NuiCLHashEntry*	d_hash,
+	__global struct NuiCLHashEntry*	d_hashCompactified,
 	__global uint*					d_hashDecision,
 	__global uint*					d_heap,
 	__global uint*					d_heapCounter,
@@ -314,7 +314,7 @@ __kernel void garbageCollectFreeKernel(
 
 	if (d_hashDecision[gidx] != 0) {	//decision to delete the hash entry
 
-		struct NuiHashEntry entry = d_hashCompactified[gidx];
+		struct NuiCLHashEntry entry = d_hashCompactified[gidx];
 		//if (entry.ptr == FREE_ENTRY) return; //should never happen since we did compactify before
 
 		int3 sdfBlock = (int3)(entry.pos[0], entry.pos[1], entry.pos[2]);
@@ -322,7 +322,7 @@ __kernel void garbageCollectFreeKernel(
 			const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 
 			for (uint i = 0; i < linBlockSize; i++) {	//clear sdf block: CHECK TODO another kernel?
-				deleteVoxel(entry.ptr + i, d_SDFBlocks);
+				deleteSDFVoxel(entry.ptr + i, d_SDFBlocks);
 			}
 		}
 	}

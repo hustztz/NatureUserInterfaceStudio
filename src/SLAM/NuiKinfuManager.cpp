@@ -32,7 +32,7 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 		return false;
 
 	// Camera
-	NuiCameraParams pos = m_tracker.getCameraPose();
+	NuiCameraPos pos = m_tracker.getCameraPose();
 	if(m_tsdf_volume)
 		pos.setTranslation( pos.getTranslation() - m_tsdf_volume->getDimensions() / 2.0f);
 	pCLData->SetCameraParams(pos);
@@ -50,7 +50,7 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	return returnStatus;
 }
 
-bool	NuiKinfuManager::getCameraPose (NuiCameraParams* cam) const
+bool	NuiKinfuManager::getCameraPose (NuiCameraPos* cam) const
 {
 	if(!cam)
 		return false;
@@ -67,6 +67,12 @@ bool	NuiKinfuManager::getMesh(NuiMeshShape* pMesh)
 		return false;
 
 	return m_tsdf_volume->Volume2Mesh(pMesh);
+}
+
+void	NuiKinfuManager::setIntegrationMetricThreshold(float threshold)
+{
+	if(m_tsdf_volume)
+		m_tsdf_volume->setIntegrationMetricThreshold(threshold);
 }
 
 /*virtual*/

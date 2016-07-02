@@ -1,7 +1,7 @@
 #include "hashingUtils.cl"
 #include "hashing_gpu_def.h"
 
-inline static uint computeHashPos(int3 virtualVoxelPos, uint hashNumBuckets)
+inline static uint computeHashPos(int3 virtualVoxelPos, const uint hashNumBuckets)
 { 
 	const int p0 = 73856093;
 	const int p1 = 19349669;
@@ -29,8 +29,111 @@ inline static void appendHeap(uint ptr,
 	d_heap[addr+1] = ptr;
 }
 
+inline static int3 virtualVoxelPosToSDFBlock(int3 virtualVoxelPos)
+{
+	if (virtualVoxelPos.x < 0) virtualVoxelPos.x -= SDF_BLOCK_SIZE-1;
+	if (virtualVoxelPos.y < 0) virtualVoxelPos.y -= SDF_BLOCK_SIZE-1;
+	if (virtualVoxelPos.z < 0) virtualVoxelPos.z -= SDF_BLOCK_SIZE-1;
+
+	return (int3)(
+		virtualVoxelPos.x/SDF_BLOCK_SIZE,
+		virtualVoxelPos.y/SDF_BLOCK_SIZE,
+		virtualVoxelPos.z/SDF_BLOCK_SIZE);
+}
+
+inline static float3 SDFBlockToWorld(int3 sdfBlock, const float virtualVoxelSize)
+{
+	return convert_float3(sdfBlock * SDF_BLOCK_SIZE) * virtualVoxelSize;
+}
+
+inline static int3 worldToVirtualVoxelPos(float3 pos, const float virtualVoxelSize)
+{
+	//const float3 p = pos*g_VirtualVoxelResolutionScalar;
+	const float3 p = pos / virtualVoxelSize;
+	return convert_int3(p + convert_float3(sign(p))*0.5f);
+}
+
+inline static int3 worldToSDFBlock(float3 worldPos, float virtualVoxelSize)
+{
+	return virtualVoxelPosToSDFBlock(worldToVirtualVoxelPos(worldPos, virtualVoxelSize));
+}
+
+//! returns the hash entry for a given sdf block id; if there was no hash entry the returned entry will have a ptr with FREE_ENTRY set
+inline static struct NuiCLHashEntry getHashEntryForSDFBlockPos(
+	int3			sdfBlock,
+	__global struct NuiCLHashEntry*	d_hash,
+	const uint		hashNumBuckets,
+	const uint		hashMaxCollisionLinkedListSize
+	)
+{
+	uint h = computeHashPos(sdfBlock, hashNumBuckets);			//hash bucket
+	uint hp = h * HASH_BUCKET_SIZE;	//hash position
+
+	struct NuiCLHashEntry entry;
+	entry.pos[0] = sdfBlock.x;
+	entry.pos[1] = sdfBlock.y;
+	entry.pos[2] = sdfBlock.z;
+	entry.offset = 0;
+	entry.ptr = FREE_ENTRY;
+
+	for (uint j = 0; j < HASH_BUCKET_SIZE; j++) {
+		uint i = j + hp;
+		struct NuiCLHashEntry curr = d_hash[i];
+		if (curr.pos[0] == entry.pos[0] && curr.pos[1] == entry.pos[1] && curr.pos[2] == entry.pos[2] && curr.ptr != FREE_ENTRY) {
+			return curr;
+		}
+	}
+
+//#ifdef HANDLE_COLLISIONS
+	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;
+	int i = idxLastEntryInBucket;	//start with the last entry of the current bucket
+	struct NuiCLHashEntry curr;
+	//traverse list until end: memorize idx at list end and memorize offset from last element of bucket to list end
+
+	unsigned int maxIter = 0;
+	uint g_MaxLoopIterCount = hashMaxCollisionLinkedListSize;
+	while (maxIter < g_MaxLoopIterCount) {
+		curr = d_hash[i];
+
+		if (curr.pos[0] == entry.pos[0] && curr.pos[1] == entry.pos[1] && curr.pos[2] == entry.pos[2] && curr.ptr != FREE_ENTRY) {
+			return curr;
+		}
+
+		if (curr.offset == 0) {	//we have found the end of the list
+			break;
+		}
+		i = idxLastEntryInBucket + curr.offset;						//go to next element in the list
+		i %= (HASH_BUCKET_SIZE * hashNumBuckets);	//check for overflow
+
+		maxIter++;
+	}
+//#endif
+	return entry;
+}
+
+//! returns the hash entry for a given worldPos; if there was no hash entry the returned entry will have a ptr with FREE_ENTRY set
+inline static struct NuiCLHashEntry getHashEntry(
+	float3 worldPos,
+	__global struct NuiCLHashEntry*	d_hash,
+	const float		virtualVoxelSize,
+	const uint		hashNumBuckets,
+	const uint		hashMaxCollisionLinkedListSize)
+{
+	//int3 blockID = worldToSDFVirtualVoxelPos(worldPos)/SDF_BLOCK_SIZE;	//position of sdf block
+	int3 blockID = worldToSDFBlock(worldPos, virtualVoxelSize);
+	return getHashEntryForSDFBlockPos(blockID, d_hash, hashNumBuckets, hashMaxCollisionLinkedListSize);
+}
+
+
+inline static void deleteHashEntry(uint idx, __global struct NuiCLHashEntry*	d_hash)
+{
+	d_hash[idx].ptr = FREE_ENTRY;
+	d_hash[idx].offset = 0;
+	d_hash[idx].pos[0] = d_hash[idx].pos[1] = d_hash[idx].pos[2] = 0;
+}
+
 inline static void allocBlock(int3			pos,
-						 __global struct NuiHashEntry*	d_hash,
+						 __global struct NuiCLHashEntry*	d_hash,
 						 __global uint*	d_heap,
 						 __global uint*	d_heapCounter,
 						 __global int*	d_hashBucketMutex,
@@ -43,7 +146,7 @@ inline static void allocBlock(int3			pos,
 	int firstEmpty = -1;
 	for (uint j = 0; j < HASH_BUCKET_SIZE; j++) {
 		uint i = j + hp;		
-		struct NuiHashEntry curr = d_hash[i];
+		struct NuiCLHashEntry curr = d_hash[i];
 
 		//in that case the SDF-block is already allocated and corresponds to the current position -> exit thread
 		if (curr.pos[0] == pos.x && curr.pos[1] == pos.y && curr.pos[2] == pos.z && curr.ptr != FREE_ENTRY) {
@@ -62,7 +165,7 @@ inline static void allocBlock(int3			pos,
 	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;	//get last index of bucket
 	uint i = idxLastEntryInBucket;											//start with the last entry of the current bucket
 	//int offset = 0;
-	struct NuiHashEntry curr;
+	struct NuiCLHashEntry curr;
 	curr.offset = 0;
 	//traverse list until end: memorize idx at list end and memorize offset from last element of bucket to list end
 	//int k = 0;
@@ -90,7 +193,7 @@ inline static void allocBlock(int3			pos,
 		//InterlockedExchange(d_hashBucketMutex[h], LOCK_ENTRY, prevValue);	//lock the hash bucket
 		int prevValue = atomic_xchg(&(d_hashBucketMutex[h]), LOCK_ENTRY);
 		if (prevValue != LOCK_ENTRY) {	//only proceed if the bucket has been locked
-			struct NuiHashEntry entry;
+			struct NuiCLHashEntry entry;
 			entry.pos[0] = pos.x;
 			entry.pos[1] = pos.y;
 			entry.pos[2] = pos.z;
@@ -120,12 +223,12 @@ inline static void allocBlock(int3			pos,
 			//InterlockedExchange(g_HashBucketMutex[h], LOCK_ENTRY, prevValue);	//lock the original hash bucket
 			int prevValue = atomic_xchg(&(d_hashBucketMutex[h]), LOCK_ENTRY);
 			if (prevValue != LOCK_ENTRY) {
-				struct NuiHashEntry lastEntryInBucket = d_hash[idxLastEntryInBucket];
+				struct NuiCLHashEntry lastEntryInBucket = d_hash[idxLastEntryInBucket];
 				h = i / HASH_BUCKET_SIZE;
 				//InterlockedExchange(g_HashBucketMutex[h], LOCK_ENTRY, prevValue);	//lock the hash bucket where we have found a free entry
 				prevValue = atomic_xchg(&d_hashBucketMutex[h], LOCK_ENTRY);
 				if (prevValue != LOCK_ENTRY) {	//only proceed if the bucket has been locked
-					struct NuiHashEntry entry;
+					struct NuiCLHashEntry entry;
 					entry.pos[0] = pos.x;
 					entry.pos[1] = pos.y;
 					entry.pos[2] = pos.z;
@@ -148,7 +251,7 @@ inline static void allocBlock(int3			pos,
 
 inline static bool deleteHashEntryElement(
 	int3			sdfBlock,
-	__global struct NuiHashEntry*	d_hash,
+	__global struct NuiCLHashEntry*	d_hash,
 	__global uint*	d_heap,
 	__global uint*	d_heapCounter,
 	__global int*	d_hashBucketMutex,
@@ -161,7 +264,7 @@ inline static bool deleteHashEntryElement(
 
 	for (uint j = 0; j < HASH_BUCKET_SIZE; j++) {
 		uint i = j + hp;
-		struct NuiHashEntry curr = d_hash[i];
+		struct NuiCLHashEntry curr = d_hash[i];
 		if (curr.pos[0] == sdfBlock.x && curr.pos[1] == sdfBlock.y && curr.pos[2] == sdfBlock.z && curr.ptr != FREE_ENTRY) {
 //#ifndef HANDLE_COLLISIONS
 			const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
@@ -199,7 +302,7 @@ inline static bool deleteHashEntryElement(
 //#ifdef HANDLE_COLLISIONS
 	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;
 	int i = idxLastEntryInBucket;
-	struct NuiHashEntry curr = d_hash[i];
+	struct NuiCLHashEntry curr = d_hash[i];
 	int prevIdx = i;
 	i = idxLastEntryInBucket + curr.offset;							//go to next element in the list
 	i %= (HASH_BUCKET_SIZE * hashNumBuckets);	//check for overflow
@@ -213,14 +316,14 @@ inline static bool deleteHashEntryElement(
 		if (curr.pos[0] == sdfBlock.x && curr.pos[1] == sdfBlock.y && curr.pos[2] == sdfBlock.z && curr.ptr != FREE_ENTRY) {
 			//int prevValue = 0;
 			//InterlockedExchange(bucketMutex[h], LOCK_ENTRY, prevValue);	//lock the hash bucket
-			int prevValue = atomic_exch(&(d_hashBucketMutex[h]), LOCK_ENTRY);
+			int prevValue = atomic_xchg(&(d_hashBucketMutex[h]), LOCK_ENTRY);
 			if (prevValue == LOCK_ENTRY)	return false;
 			if (prevValue != LOCK_ENTRY) {
 				const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 				appendHeap(curr.ptr / linBlockSize, d_heap, d_heapCounter);
 				//heapAppend.Append(curr.ptr / linBlockSize);
 				deleteHashEntry(i, d_hash);
-				struct NuiHashEntry prev = d_hash[prevIdx];				
+				struct NuiCLHashEntry prev = d_hash[prevIdx];				
 				prev.offset = curr.offset;
 				//setHashEntry(hash, prevIdx, prev);
 				d_hash[prevIdx] = prev;
@@ -239,4 +342,76 @@ inline static bool deleteHashEntryElement(
 	}
 //#endif	// HANDLE_COLLSISION
 	return false;
+}
+
+
+//! computes the linearized index of a local virtual voxel pos; pos in [0;7]^3
+inline static uint linearizeVoxelPos(int3 virtualVoxelPos)
+{
+	return  
+		virtualVoxelPos.z * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE +
+		virtualVoxelPos.y * SDF_BLOCK_SIZE +
+		virtualVoxelPos.x;
+}
+
+inline static int virtualVoxelPosToLocalSDFBlockIndex(int3 virtualVoxelPos)
+{
+	int3 localVoxelPos = (int3)(
+		virtualVoxelPos.x % SDF_BLOCK_SIZE,
+		virtualVoxelPos.y % SDF_BLOCK_SIZE,
+		virtualVoxelPos.z % SDF_BLOCK_SIZE);
+
+	if (localVoxelPos.x < 0) localVoxelPos.x += SDF_BLOCK_SIZE;
+	if (localVoxelPos.y < 0) localVoxelPos.y += SDF_BLOCK_SIZE;
+	if (localVoxelPos.z < 0) localVoxelPos.z += SDF_BLOCK_SIZE;
+
+	return linearizeVoxelPos(localVoxelPos);
+}
+
+inline static void deleteVoxel(struct NuiCLVoxel v)
+{
+	v.weight = 0;
+	v.sdf = 0.0f;
+	v.color[0] = v.color[1] = v.color[2] = 0;
+}
+
+inline static void deleteSDFVoxel(uint idx, __global struct NuiCLVoxel*	d_SDFBlocks)
+{
+	deleteVoxel(d_SDFBlocks[idx]);
+}
+
+inline static struct NuiCLVoxel getVoxel(
+	float3 worldPos,
+	__global struct NuiCLHashEntry*	d_hash,
+	__global struct NuiCLVoxel*		d_SDFBlocks,
+	const float						virtualVoxelSize,
+	const uint						hashNumBuckets,
+	const uint						hashMaxCollisionLinkedListSize)
+{
+	struct NuiCLHashEntry hashEntry = getHashEntry(worldPos, d_hash, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
+	struct NuiCLVoxel v;
+	if (hashEntry.ptr == FREE_ENTRY) {
+		deleteVoxel(v);			
+	} else {
+		int3 virtualVoxelPos = worldToVirtualVoxelPos(worldPos, virtualVoxelSize);
+		v = d_SDFBlocks[hashEntry.ptr + virtualVoxelPosToLocalSDFBlockIndex(virtualVoxelPos)];
+	}
+	return v;
+}
+
+inline static struct NuiCLVoxel getSDFVoxel(
+	int3 virtualVoxelPos,
+	__global struct NuiCLHashEntry*	d_hash,
+	__global struct NuiCLVoxel*		d_SDFBlocks,
+	const uint						hashNumBuckets,
+	const uint						hashMaxCollisionLinkedListSize)
+{
+	struct NuiCLHashEntry hashEntry = getHashEntryForSDFBlockPos(virtualVoxelPosToSDFBlock(virtualVoxelPos), d_hash, hashNumBuckets, hashMaxCollisionLinkedListSize);
+	struct NuiCLVoxel v;
+	if (hashEntry.ptr == FREE_ENTRY) {
+		deleteVoxel(v);			
+	} else {
+		v = d_SDFBlocks[hashEntry.ptr + virtualVoxelPosToLocalSDFBlockIndex(virtualVoxelPos)];
+	}
+	return v;
 }

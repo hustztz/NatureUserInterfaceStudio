@@ -190,24 +190,18 @@ static void reduce(	uint lid,
 }
 
 __kernel void icp_block_kernel(
-			const uint				width,
-			const uint				height,
+			const			int		div,
+			__constant		struct  NuiCLCameraParams* cameraParams,
             __global		float*	vertices,
             __global		float*	normals,
-			float8					Rcurr1,
-			float					Rcurr2,
-			float3					tcurr,
+			const			float8	Rcurr1,
+			const			float	Rcurr2,
+			const			float3	tcurr,
 			__global		float*	verticesPrev,
             __global		float*	normalsPrev,
-			float8					Rprev_inv1,
-			float					Rprev_inv2,
-			float3					tprev,
-			float					intr_fx,
-			float					intr_fy,
-			float					intr_cx,
-			float					intr_cy,
-			float					distThres,
-			float					angleThres,
+			__global		struct	NuiCLRigidTransform* previousMatrix,
+			const			float	distThres,
+			const			float	angleThres,
 			__global		float*	corespsSumBuffer
         )
 {
@@ -230,12 +224,19 @@ __kernel void icp_block_kernel(
 		if( !_isnan3(vcurr) )
 		{
 			float3 projectedVertex = rotate3(vcurr, Rcurr1, Rcurr2) + tcurr;
-			float3 projectedPos = rotate3((projectedVertex - tprev), Rprev_inv1, Rprev_inv2);         // prev camera coo space
+			float3 projectedPos = transformInverse(projectedVertex, previousMatrix);         // prev camera coo space
 
+			struct NuiCLCameraParams camParams = *cameraParams;
+			const float intr_fx = camParams.fx / div;
+			const float intr_fy = camParams.fy / div;
+			const float intr_cx = camParams.cx / div;
+			const float intr_cy = camParams.cy / div;
+			const int nImageWidth = camParams.depthImageWidth / div;
+			const int nImageHeight = camParams.depthImageHeight / div;
 			int2 projPixel = (int2)(round(projectedPos.x * intr_fx / projectedPos.z + intr_cx), round(projectedPos.y * intr_fy / projectedPos.z + intr_cy));
-			if(projPixel.x >= 0 && projPixel.x < width && projPixel.y >= 0 && projPixel.y < height)
+			if(projPixel.x >= 0 && projPixel.x < nImageWidth && projPixel.y >= 0 && projPixel.y < nImageHeight)
 			{
-				uint refPixel = mul24(convert_uint(projPixel.y), width)+convert_uint(projPixel.x);
+				int refPixel = mul24(projPixel.y, nImageWidth)+projPixel.x;
 				float3 referenceNormal = vload3(refPixel, normalsPrev);
 				if( !_isnan3(referenceNormal) )
 				{

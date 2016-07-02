@@ -1,6 +1,6 @@
 #include "NuiKinfuVolume.h"
-#include "NuiKinfuColorVolume.h"
 
+#include "NuiKinfuTransform.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "Foundation/NuiTimeLog.h"
 #include "NuiMarchingCubeTable.h"
@@ -26,6 +26,7 @@ NuiKinfuVolume::NuiKinfuVolume(const NuiKinfuVolumeConfig& config)
 	, m_vertexSumCL(NULL)
 	, m_max_output_vertex_size(3000000)
 	, m_dirty(true)
+	, m_integration_metric_threshold(0.15f)
 {
 	m_max_output_vertex_size = 5 * 3 * m_config.resolution(0) * m_config.resolution(1);
 	m_tsdf_params.resolution[0] = (float)m_config.resolution(0);
@@ -66,16 +67,6 @@ const Vector3f NuiKinfuVolume::getVoxelSize() const
 float NuiKinfuVolume::getTsdfTruncDist () const
 {
 	return m_tsdf_params.tranc_dist;
-}
-
-cl_mem NuiKinfuVolume::data () const
-{
-	return m_volumeCL;
-}
-
-cl_mem NuiKinfuVolume::colorData () const
-{
-	return m_colorVolumeCL;
 }
 
 Vector3i NuiKinfuVolume::getVoxelWrap() const
@@ -147,6 +138,8 @@ void NuiKinfuVolume::reset()
 		);
 	NUI_CHECK_CL_ERR(err);
 
+	m_lastIntegrationRotation.setIdentity();
+	m_lastIntegrationTranslation = Vector3f::Zero();
 	m_dirty = true;
 }
 
@@ -512,6 +505,276 @@ Vector3f NuiKinfuVolume::shiftVolume(const Vector3f& translation)
 	}
 
 	return shiftTranslation + m_config.translateBasis;
+}
+
+
+/** \brief Function that integrates volume if volume element contains: 2 bytes for round(tsdf*SHORT_MAX) and 2 bytes for integer weight.*/
+void    NuiKinfuVolume::Integrate(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem normalsCL, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight)
+{
+	if(!floatDepthsCL || !colorsCL)
+		return;
+
+	// Get the kernel
+	cl_kernel scaleDepthsKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_SCALE_DEPTHS);
+	assert(scaleDepthsKernel);
+	if (!scaleDepthsKernel)
+	{
+		NUI_ERROR("Get kernel 'E_SCALE_DEPTHS' failed!\n");
+		return;
+	}
+
+	cl_kernel integrateKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_INTEGRATE_TSDF_VOLUME);
+	assert(integrateKernel);
+	if (!integrateKernel)
+	{
+		NUI_ERROR("Get kernel 'E_INTEGRATE_TSDF_VOLUME' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(scaleDepthsKernel, idx++, sizeof(cl_mem), &floatDepthsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(scaleDepthsKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[2] = { nWidth, nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		scaleDepthsKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	Matrix3frm Rcurr_inv = currPos.getRotation().inverse();
+	Vector3i voxelWrap = getVoxelWrap();
+	cl_mem transformCL = currPos.getTransformCL();
+
+	// Set kernel arguments
+	idx = 0;
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &floatDepthsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &normalsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &colorsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_int3), voxelWrap.data());
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &m_volumeCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &m_colorVolumeCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_uchar), &m_config.max_color_weight);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _GPU_PROFILER
+	cl_event timing_event;
+	cl_ulong time_start, time_end;
+#endif
+
+	// Run kernel to calculate 
+	kernelGlobalSize[0] = (size_t)m_config.resolution[0];
+	kernelGlobalSize[1] = (size_t)m_config.resolution[1];
+	err = clEnqueueNDRangeKernel(
+		queue,
+		integrateKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+#ifdef _GPU_PROFILER
+		&timing_event
+#else
+		NULL
+#endif
+		);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _GPU_PROFILER
+	clFinish(queue);
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+	std::cout << "integration:" << (time_end - time_start) << std::endl;
+	clReleaseEvent(timing_event);
+#endif
+
+}
+
+
+void    NuiKinfuVolume::RayCast(cl_mem renderVertices, cl_mem renderNormals, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight)
+{
+	if(!renderVertices || !renderNormals)
+		return;
+
+	// Get the kernel
+	cl_kernel raycastKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_RAY_CAST);
+	assert(raycastKernel);
+	if (!raycastKernel)
+	{
+		NUI_ERROR("Get kernel 'E_RAY_CAST' failed!\n");
+		return;
+	}
+
+	Vector3i voxelWrap = getVoxelWrap();
+	cl_mem transformCL = currPos.getTransformCL();
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_volumeCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderVertices);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderNormals);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_int3), voxelWrap.data());
+	NUI_CHECK_CL_ERR(err);
+
+
+#ifdef _GPU_PROFILER
+	cl_event timing_event;
+	cl_ulong time_start, time_end;
+#endif
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[2] = { nWidth, nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		raycastKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+#ifdef _GPU_PROFILER
+		&timing_event
+#else
+		NULL
+#endif
+		);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _GPU_PROFILER
+	clFinish(queue);
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+	std::cout << "raycast:" << (time_end - time_start) << std::endl;
+	clReleaseEvent(timing_event);
+#endif
+}
+
+void	NuiKinfuVolume::incrementVolume(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem normalsCL, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight)
+{
+	Integrate(floatDepthsCL, colorsCL, normalsCL, cameraParamsCL, currPos, nWidth, nHeight);
+	m_lastIntegrationRotation = currPos.getRotation();
+	m_lastIntegrationTranslation = currPos.getTranslation();
+	setDirty();
+}
+
+Vector3f rodrigues2(const Eigen::Matrix3f& matrix)
+{
+	Eigen::JacobiSVD<Eigen::Matrix3f> svd(matrix, Eigen::ComputeFullV | Eigen::ComputeFullU);    
+	Eigen::Matrix3f R = svd.matrixU() * svd.matrixV().transpose();
+
+	double rx = R(2, 1) - R(1, 2);
+	double ry = R(0, 2) - R(2, 0);
+	double rz = R(1, 0) - R(0, 1);
+
+	double s = sqrt((rx*rx + ry*ry + rz*rz)*0.25);
+	double c = (R.trace() - 1) * 0.5;
+	c = c > 1. ? 1. : c < -1. ? -1. : c;
+
+	double theta = acos(c);
+
+	if( s < 1e-5 )
+	{
+		double t;
+
+		if( c > 0 )
+			rx = ry = rz = 0;
+		else
+		{
+			t = (R(0, 0) + 1)*0.5;
+			rx = sqrt( std::max(t, 0.0) );
+			t = (R(1, 1) + 1)*0.5;
+			ry = sqrt( std::max(t, 0.0) ) * (R(0, 1) < 0 ? -1.0 : 1.0);
+			t = (R(2, 2) + 1)*0.5;
+			rz = sqrt( std::max(t, 0.0) ) * (R(0, 2) < 0 ? -1.0 : 1.0);
+
+			if( fabs(rx) < fabs(ry) && fabs(rx) < fabs(rz) && (R(1, 2) > 0) != (ry*rz > 0) )
+				rz = -rz;
+			theta /= sqrt(rx*rx + ry*ry + rz*rz);
+			rx *= theta;
+			ry *= theta;
+			rz *= theta;
+		}
+	}
+	else
+	{
+		double vth = 1/(2*s);
+		vth *= theta;
+		rx *= vth; ry *= vth; rz *= vth;
+	}
+	return Eigen::Vector3d(rx, ry, rz).cast<float>();
+}
+
+bool	NuiKinfuVolume::evaluateVolume(
+	cl_mem floatDepthsCL,
+	cl_mem colorsCL,
+	cl_mem normalsCL,
+	cl_mem renderVertices,
+	cl_mem renderNormals,
+	cl_mem cameraParamsCL,
+	const NuiKinfuTransform& currPos,
+	UINT nWidth, UINT nHeight)
+{
+	// Shift
+	//currPos.setTranslation( shiftVolume(currPos.getTranslation()) );
+
+	///////////////////////////////////////////////////////////////////////////////////////////
+	// Integration check - We do not integrate volume if camera does not move.  
+	float rnorm = rodrigues2(currPos.getRotation().inverse() * m_lastIntegrationRotation).norm();
+	float tnorm = (currPos.getTranslation() - m_lastIntegrationTranslation).norm();
+	const float alpha = 1.f;
+	bool integrate = (rnorm + alpha * tnorm)/2 >= m_integration_metric_threshold;
+	// Integrate
+	if (integrate)
+	{
+		incrementVolume(floatDepthsCL, colorsCL, normalsCL, cameraParamsCL, currPos, nWidth, nHeight);
+	}
+	RayCast(renderVertices, renderNormals, cameraParamsCL, currPos, nWidth, nHeight);
+	return integrate;
 }
 
 bool NuiKinfuVolume::Volume2CLVertices(NuiCLMappableData* pCLData)

@@ -1,7 +1,8 @@
 #pragma once
 
 #include "NuiICPConfig.h"
-#include "Shape\NuiCameraParams.h"
+#include "NuiKinfuTransform.h"
+#include "Shape\NuiCameraPos.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 #include "Shape\NuiImageBuffer.h"
 
@@ -9,6 +10,7 @@
 class NuiCLMappableData;
 class NuiKinfuVolume;
 class NuiPyramidICP;
+struct NuiCLCameraParams;
 
 typedef Eigen::Vector3i Vector3i;
 
@@ -43,11 +45,9 @@ public:
         * \param[in] time Index of frame for which camera pose is returned.
         * \return camera pose
         */
-    const NuiCameraParams&  getCameraPose (int time = -1) const;
+    const NuiCameraPos&  getCameraPose (int time = -1) const;
 	float					getIcpError() const;
 	float					getIcpCount() const;
-
-	void setIntegrationMetricThreshold(float threshold) { m_integration_metric_threshold = threshold; }
 
 protected:
 	void	AcquireBuffers(bool bHasColor);
@@ -55,15 +55,14 @@ protected:
 	bool	AcquireGLBuffer(NuiCLMappableData* pCLData);
 	void	ReleaseGLBuffer();
 
-	void	WriteDepths(UINT16* pDepths, UINT nPositionsNum, UINT16 minDepth, UINT16 maxDepth);
 	void	PassingDepths(float nearPlane, float farPlane);
+	void	WriteDepths(UINT16* pDepths, UINT nPositionsNum, UINT16 minDepth, UINT16 maxDepth);
+	void	WriteCameraParams(const NuiCLCameraParams& camIntri);
 	void	WriteColors(ColorSpacePoint* pDepthToColor, const NuiColorImage& image, UINT nPointsNum);
-
-	void    IntegrateTsdfVolume(NuiKinfuVolume*	pVolume);
-	void    RayCast(NuiKinfuVolume*	pVolume);
 
 private:
 	NuiPyramidICP*	m_icp;
+	NuiKinfuTransform m_transform;
 
 	cl_mem m_positionsGL;
 	cl_mem m_rawDepthsCL;
@@ -71,14 +70,11 @@ private:
 	cl_mem m_colorUVsCL;
 	cl_mem m_colorImageCL;
 	cl_mem m_colorsCL;
+	cl_mem m_cameraParamsCL;
 
 	UINT m_nWidth, m_nHeight;
 	UINT m_nColorWidth, m_nColorHeight;
 
-	NuiCameraParams m_currPos;
+	std::vector<NuiCameraPos> m_frames;
 
-	std::vector<NuiCameraParams> m_frames;
-
-	UINT	m_lastIntegrationFrame;
-	float	m_integration_metric_threshold;
 };

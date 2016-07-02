@@ -8,7 +8,7 @@
 
 class NuiMeshShape;
 class NuiKinfuVolume;
-class NuiCameraParams;
+class NuiCameraPos;
 
 class NuiKinfuManager : public NuiThreadObject
 {
@@ -21,7 +21,7 @@ public:
 	bool	pushbackFrame(std::shared_ptr<NuiCompositeFrame> pFrame) { return m_buffer.pushbackCompositeFrame(pFrame); }
 	bool	getCLData(NuiCLMappableData* pCLData, bool bIsMesh);
 	bool	getMesh(NuiMeshShape* pMesh);
-    bool	getCameraPose (NuiCameraParams* cam) const;
+    bool	getCameraPose (NuiCameraPos* cam) const;
 	size_t	getLagFrames() { return m_buffer.size(); }
 
 	float	getTrackerError() const { return m_tracker.getIcpError(); }
@@ -29,7 +29,7 @@ public:
 
 	void	setAutoReset(bool autoReset) { m_bAutoReset = autoReset; }
 	void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
-	void	setIntegrationMetricThreshold(float threshold) { m_tracker.setIntegrationMetricThreshold(threshold); }
+	void	setIntegrationMetricThreshold(float threshold);
 
 public:
 	NuiICPConfig						m_trackerConfig;

@@ -40,15 +40,15 @@ void NuiHashingVolume::AcquireBuffers()
 	NUI_CHECK_CL_ERR(err);
 	m_heapCountCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_hashCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * m_params.m_hashBucketSize * sizeof(NuiHashEntry), NULL, &err);
+	m_hashCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * m_params.m_hashBucketSize * sizeof(NuiCLHashEntry), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_hashDecisionCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * m_params.m_hashBucketSize * sizeof(cl_int), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_hashDecisionPrefixCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * m_params.m_hashBucketSize * sizeof(cl_int), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_hashCompactified = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * m_params.m_hashBucketSize * sizeof(NuiHashEntry), NULL, &err);
+	m_hashCompactified = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * m_params.m_hashBucketSize * sizeof(NuiCLHashEntry), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_SDFBlocksCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_numSDFBlocks * m_params.m_SDFBlockSize*m_params.m_SDFBlockSize*m_params.m_SDFBlockSize*sizeof(NuiVoxel), NULL, &err);
+	m_SDFBlocksCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_numSDFBlocks * m_params.m_SDFBlockSize*m_params.m_SDFBlockSize*m_params.m_SDFBlockSize*sizeof(NuiCLVoxel), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_hashBucketMutexCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * sizeof(cl_char), NULL, &err);
 	NUI_CHECK_CL_ERR(err);

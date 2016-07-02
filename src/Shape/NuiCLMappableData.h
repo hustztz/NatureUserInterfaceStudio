@@ -2,7 +2,7 @@
 
 #include "stdafx.h"
 #include "NuiImageBuffer.h"
-#include "Shape/NuiCameraParams.h"
+#include "Shape/NuiCameraPos.h"
 #include "OpenCLUtilities/NuiMappable.h"
 
 class NuiCLMappableData
@@ -47,8 +47,8 @@ public:
 	void				SetColorImage(const NuiColorImage& image) { m_colorImage = image; }
 	const NuiColorImage&	GetColorImage() const { return m_colorImage; }
 
-	void				SetCameraParams(const NuiCameraParams& cam) { m_camParams = cam; }
-	const NuiCameraParams&	GetCameraParams() const { return m_camParams; }
+	void				SetCameraParams(const NuiCameraPos& cam) { m_camParams = cam; }
+	const NuiCameraPos&	GetCameraParams() const { return m_camParams; }
 
 	void				SetBoundingBox(const SgVec3f& min, const SgVec3f& max) { m_boundingBoxMin = min; m_boundingBoxMax = max; }
 	const SgVec3f&		GetBoundingBoxMin() const { return m_boundingBoxMin; }
@@ -74,7 +74,7 @@ private:
 	NuiMappable2f		m_patchUVStream;
 
 	NuiColorImage		m_colorImage;
-	NuiCameraParams		m_camParams;
+	NuiCameraPos		m_camParams;
 
 	SgVec3f				m_boundingBoxMin;
 	SgVec3f				m_boundingBoxMax;

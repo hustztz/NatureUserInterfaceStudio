@@ -8,7 +8,7 @@ struct TsdfParams
 	float tranc_dist;
 };
 
-struct CameraParams
+struct NuiCLCameraParams
 {
 	float fx;
 	float fy;
@@ -24,7 +24,7 @@ struct CameraParams
 	float sensorDepthWorldMax;
 };
 
-struct RigidTransform
+struct NuiCLRigidTransform
 {
 	float R[9];
 	float R_inv[9];

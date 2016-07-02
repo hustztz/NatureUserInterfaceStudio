@@ -1,9 +1,9 @@
-#include "hashingUtils.cl"
+#include "hashingBlock.cl"
 
 __kernel void reset_heap_kernel(
             __global uint*	d_heap,
 			__global uint*	d_heapCounter,
-			__global struct NuiVoxel*	d_SDFBlocks
+			__global struct NuiCLVoxel*		d_SDFBlocks
         )
 {
     const uint gidx = get_global_id(0);
@@ -18,13 +18,13 @@ __kernel void reset_heap_kernel(
 	uint base_idx = gidx * blockSize;
 	for (uint i = 0; i < blockSize; i++)
 	{
-		deleteVoxel(base_idx+i, d_SDFBlocks);
+		deleteSDFVoxel(base_idx+i, d_SDFBlocks);
 	}
 }
 
 __kernel void reset_hash_kernel(
-            __global struct NuiHashEntry*	d_hash,
-			__global struct NuiHashEntry*	d_hashCompactified
+            __global struct NuiCLHashEntry*	d_hash,
+			__global struct NuiCLHashEntry*	d_hashCompactified
         )
 {
     const uint gidx = get_global_id(0);
@@ -33,7 +33,7 @@ __kernel void reset_hash_kernel(
 }
 
 __kernel void reset_hash_bucket_mutex_kernel(
-            __global char*	d_hashBucketMutex
+            __global int*	d_hashBucketMutex
         )
 {
     const uint gidx = get_global_id(0);

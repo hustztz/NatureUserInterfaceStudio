@@ -30,15 +30,15 @@ struct NuiCameraIntrinsics
 	}
 };
 
-class NuiCameraParams
+class NuiCameraPos
 {
 public:
-	NuiCameraParams()
+	NuiCameraPos()
 	{
 		m_rotation.setIdentity();
 		m_translation = Vector3f::Zero();
 	}
-	~NuiCameraParams(){}
+	~NuiCameraPos(){}
 
 	void setRotation(const Matrix3frm& rot)
 	{

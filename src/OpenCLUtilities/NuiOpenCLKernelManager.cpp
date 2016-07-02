@@ -61,6 +61,8 @@ static const char * const KernelNames[] =
 	"starveVoxelsKernel",						  "hashingSDF.cl",
 	"garbageCollectIdentifyKernel",				  "hashingSDF.cl",
 	"garbageCollectFreeKernel",					  "hashingSDF.cl",
+	"renderKernel",								  "hashingRaycastSDF.cl",
+	"rayIntervalSplatKernel",					  "hashingRaycastSDF.cl",
 };
 
 NuiOpenCLKernelManager::NuiOpenCLKernelManager()

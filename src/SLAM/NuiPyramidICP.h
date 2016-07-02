@@ -9,7 +9,7 @@
 typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
 typedef Eigen::Vector3f Vector3f;
 
-class NuiCameraParams;
+class NuiKinfuTransform;
 
 class NuiPyramidICP
 {
@@ -17,9 +17,9 @@ public:
 	NuiPyramidICP(NuiICPConfig& config, UINT nWidth, UINT nHeight);
 	~NuiPyramidICP();
 
-	void	input(cl_mem floatDepthsCL, const NuiCameraParams& pos);
-	bool	run(NuiCameraParams* pPos, Eigen::Affine3f *hint);
-	void	transformPrevs(const NuiCameraParams& pos);
+	void	input(cl_mem floatDepthsCL, cl_mem cameraParamsCL);
+	bool	run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
+	void	transformPrevs(cl_mem transformCL);
 	void	resizePrevs();
 
 	float	getError() const { return m_error; }
@@ -36,11 +36,11 @@ protected:
 	void	GenerateGaussianBuffer();
 	void	SmoothDepths(cl_mem floatDepthsCL);
 	void	PyrDown();
-	void	NormalEst(float intr_fx, float intr_fy, float intr_cx, float intr_cy);
-	bool	IterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f *hint);
-	bool	ColorIterativeClosestPoint(NuiCameraParams* pPos, Eigen::Affine3f *hint);
+	void	NormalEst(cl_mem cameraParamsCL);
+	bool	IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
+	//bool	ColorIterativeClosestPoint(NuiCameraPos* pPos, Eigen::Affine3f *hint);
 	void    ResizePrevMaps();
-	void	TransformPrevMaps(const Matrix3frm& Rcurr, const Vector3f& tcurr);
+	void	TransformPrevMaps(cl_mem transformCL);
 	void    CopyPrevMaps();
 
 private:

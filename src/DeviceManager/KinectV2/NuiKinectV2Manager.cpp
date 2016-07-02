@@ -1815,7 +1815,7 @@ bool	NuiKinectV2Manager::CacheCameraIntriscis(NuiCompositeFrame* pCompositeFrame
 	
 	CameraIntrinsics intrinsics = {};
 	m_pCoordinateMapper->GetDepthCameraIntrinsics(&intrinsics);
-	NuiCameraParams cam;
+	NuiCameraPos cam;
 	cam.setIntrinsics(NuiCameraIntrinsics(
 		intrinsics.FocalLengthX,
 		intrinsics.FocalLengthY,

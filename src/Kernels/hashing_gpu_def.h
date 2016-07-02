@@ -8,14 +8,14 @@
 #define SDF_BLOCK_SIZE 8
 #define HASH_BUCKET_SIZE 10
 
-struct NuiHashEntry
+struct NuiCLHashEntry
 {
 	int				pos[3];		//hash position (lower left corner of SDFBlock))
 	int				ptr;		//pointer into heap to SDFBlock
 	unsigned int	offset;		//offset for collisions
 };
 
-struct NuiVoxel
+struct NuiCLVoxel
 {
 	float			sdf;		//signed distance function
 	unsigned char	color[3];	//color 

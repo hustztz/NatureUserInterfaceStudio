@@ -6,11 +6,8 @@
 #define RGB_VIEW_ANGLE_WEIGHT 0.75f
 
 __kernel void scaleDepthsKernel(
-                    __global float* depths,
-                    float intr_fx_inv,
-                    float intr_fy_inv,
-					float intr_cx,
-                    float intr_cy
+                    __global	float*	depths,
+					__constant	struct  NuiCLCameraParams* cameraParams
                     )
 {
     const int gidx = get_global_id(0);
@@ -23,8 +20,9 @@ __kernel void scaleDepthsKernel(
 	if(isnan(Dp))
 		return;
 
-    float xl = (convert_float(gidx) - intr_cx) * intr_fx_inv;
-	float yl = (convert_float(gidy) - intr_cy) * intr_fy_inv;
+	struct NuiCLCameraParams camParams = *cameraParams;
+    float xl = (convert_float(gidx) - camParams.cx) * camParams.fx_inv;
+	float yl = (convert_float(gidy) - camParams.cy) * camParams.fy_inv;
 	float lambda = sqrt (xl * xl + yl * yl + 1.f);
 
 	vstore(Dp * lambda, id, depths); //meters
@@ -33,16 +31,9 @@ __kernel void scaleDepthsKernel(
 __kernel void integrateTsdfVolumeKernel(
                     __global float* depths,
 					__global float* normals,
-					int depth_width,
-					int depth_height,
 					__global uchar* colors,
-                    float8 Rcurr_inv1,
-                    float Rcurr_inv2,
-					float3 tcurr,
-					float intr_fx,
-                    float intr_fy,
-					float intr_cx,
-                    float intr_cy,
+                    __constant	struct  NuiCLCameraParams* cameraParams,
+					__global	struct	NuiCLRigidTransform* matrix,
 					int3  voxelWrap,
 					__global short* volume,
 					__constant struct TsdfParams* params,
@@ -55,21 +46,23 @@ __kernel void integrateTsdfVolumeKernel(
     const int voxel_x = get_global_id(0);
 	const int voxel_y = get_global_id(1);
 	
-	const float v_g_x = (convert_float(voxel_x) + 0.5f) * l_params.cell_size[0] - tcurr.x;
-	const float v_g_y = (convert_float(voxel_y) + 0.5f) * l_params.cell_size[1] - tcurr.y;
-	float v_g_z = (0 + 0.5f) * l_params.cell_size[2] - tcurr.z;
+	struct NuiCLRigidTransform mat = *matrix;
+	const float v_g_x = (convert_float(voxel_x) + 0.5f) * l_params.cell_size[0] - mat.t[0];
+	const float v_g_y = (convert_float(voxel_y) + 0.5f) * l_params.cell_size[1] - mat.t[1];
+	float v_g_z = (0 + 0.5f) * l_params.cell_size[2] - mat.t[2];
 
 	float v_g_part_norm = v_g_x * v_g_x + v_g_y * v_g_y;
 
-	float v_x = (Rcurr_inv1.s0 * v_g_x + Rcurr_inv1.s1 * v_g_y + Rcurr_inv1.s2 * v_g_z) * intr_fx;
-	float v_y = (Rcurr_inv1.s3 * v_g_x + Rcurr_inv1.s4 * v_g_y + Rcurr_inv1.s5 * v_g_z) * intr_fy;
-	float v_z = (Rcurr_inv1.s6 * v_g_x + Rcurr_inv1.s7 * v_g_y + Rcurr_inv2 * v_g_z);
+	struct NuiCLCameraParams camParams = *cameraParams;
+	float v_x = (mat.R_inv[0] * v_g_x + mat.R_inv[1] * v_g_y + mat.R_inv[2] * v_g_z) * camParams.fx;
+	float v_y = (mat.R_inv[3] * v_g_x + mat.R_inv[4] * v_g_y + mat.R_inv[5] * v_g_z) * camParams.fy;
+	float v_z = (mat.R_inv[6] * v_g_x + mat.R_inv[7] * v_g_y + mat.R_inv[8] * v_g_z);
 
 	float z_scaled = 0;
 	float tranc_dist_inv = 1.f / l_params.tranc_dist;
 
-	float Rcurr_inv_0_z_scaled = Rcurr_inv1.s2 * l_params.cell_size[2] * intr_fx;
-	float Rcurr_inv_1_z_scaled = Rcurr_inv1.s5 * l_params.cell_size[2] * intr_fy;
+	float Rcurr_inv_0_z_scaled = mat.R_inv[2] * l_params.cell_size[2] * camParams.fx;
+	float Rcurr_inv_1_z_scaled = mat.R_inv[5] * l_params.cell_size[2] * camParams.fy;
 
 	const int resolution_x = convert_int(l_params.resolution[0]);
 	const int resolution_y = convert_int(l_params.resolution[1]);
@@ -84,7 +77,7 @@ __kernel void integrateTsdfVolumeKernel(
 		v_x += Rcurr_inv_0_z_scaled,
 		v_y += Rcurr_inv_1_z_scaled)
 	{
-		float inv_z = 1.0f / (v_z + Rcurr_inv2 * z_scaled);
+		float inv_z = 1.0f / (v_z + mat.R_inv[8] * z_scaled);
 		// behind the camera
 		if (inv_z < 0.f)
 			continue;
@@ -92,12 +85,14 @@ __kernel void integrateTsdfVolumeKernel(
 		// project to current cam
 		int2 coo = (int2)
 		(
-			round (v_x * inv_z + intr_cx),
-			round (v_y * inv_z + intr_cy)
+			round (v_x * inv_z + camParams.cx),
+			round (v_y * inv_z + camParams.cy)
 		);
-		if (coo.x >= 0 && coo.y >= 0 && coo.x < depth_width && coo.y < depth_height)
+		const int nWidth = camParams.depthImageWidth;
+		const int nHeight = camParams.depthImageHeight;
+		if (coo.x >= 0 && coo.y >= 0 && coo.x < nWidth && coo.y < nHeight)
 		{
-			int coo_id = mul24(coo.y, depth_width) + coo.x;
+			int coo_id = mul24(coo.y, nWidth) + coo.x;
 			float Dp_scaled = vload(coo_id, depths); //meters
 
 			float sdf = Dp_scaled - sqrt (v_g_z * v_g_z + v_g_part_norm);
