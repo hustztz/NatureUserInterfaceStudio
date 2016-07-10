@@ -1,4 +1,4 @@
-#include "hashingUtils.cl"
+#include "cameraUtils.cl"
 #include "hashing_gpu_def.h"
 
 inline static uint computeHashPos(int3 virtualVoxelPos, const uint hashNumBuckets)
@@ -41,11 +41,6 @@ inline static int3 virtualVoxelPosToSDFBlock(int3 virtualVoxelPos)
 		virtualVoxelPos.z/SDF_BLOCK_SIZE);
 }
 
-inline static float3 SDFBlockToWorld(int3 sdfBlock, const float virtualVoxelSize)
-{
-	return convert_float3(sdfBlock * SDF_BLOCK_SIZE) * virtualVoxelSize;
-}
-
 inline static int3 worldToVirtualVoxelPos(float3 pos, const float virtualVoxelSize)
 {
 	//const float3 p = pos*g_VirtualVoxelResolutionScalar;
@@ -53,9 +48,33 @@ inline static int3 worldToVirtualVoxelPos(float3 pos, const float virtualVoxelSi
 	return convert_int3(p + convert_float3(sign(p))*0.5f);
 }
 
+inline static int3 SDFBlockToVirtualVoxelPos(int3 sdfBlock)
+{
+	return sdfBlock*SDF_BLOCK_SIZE;
+}
+
+inline static float3 virtualVoxelPosToWorld(int3 pos, const float virtualVoxelSize)
+{
+	return convert_float3(pos)*virtualVoxelSize;
+}
+
 inline static int3 worldToSDFBlock(float3 worldPos, float virtualVoxelSize)
 {
 	return virtualVoxelPosToSDFBlock(worldToVirtualVoxelPos(worldPos, virtualVoxelSize));
+}
+
+inline static float3 SDFBlockToWorld(int3 sdfBlock, const float virtualVoxelSize)
+{
+	return virtualVoxelPosToWorld(SDFBlockToVirtualVoxelPos(sdfBlock), virtualVoxelSize);
+}
+
+//! computes the linearized index of a local virtual voxel pos; pos in [0;7]^3
+inline static int3 delinearizeVoxelIndex(uint idx)
+{
+	int x = idx % SDF_BLOCK_SIZE;
+	int y = (idx % (SDF_BLOCK_SIZE * SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE;
+	int z = idx / (SDF_BLOCK_SIZE * SDF_BLOCK_SIZE);
+	return (int3)(x,y,z);
 }
 
 //! returns the hash entry for a given sdf block id; if there was no hash entry the returned entry will have a ptr with FREE_ENTRY set

@@ -12,11 +12,8 @@ struct NuiHashParams {
 	NuiHashParams() {
 	}
 
-	Matrix4frm		m_rigidTransform;
-	Matrix4frm		m_rigidTransformInverse;
-
 	unsigned int	m_hashNumBuckets;
-	unsigned int	m_hashBucketSize;
+	//unsigned int	m_hashBucketSize;
 	unsigned int	m_hashMaxCollisionLinkedListSize;
 	unsigned int	m_numSDFBlocks;
 
@@ -30,21 +27,22 @@ struct NuiHashParams {
 	unsigned int	m_integrationWeightSample;
 	unsigned int	m_integrationWeightMax;
 
-	/*float3			m_streamingVoxelExtents;
-	int3			m_streamingGridDimensions;
-	int3			m_streamingMinGridPos;
+	float			m_streamingVoxelExtents[3];
+	int				m_streamingGridDimensions[3];
+	int				m_streamingMinGridPos[3];
 	unsigned int	m_streamingInitialChunkListSize;
-	uint2			m_dummy;*/
+	unsigned int	m_dummy[2];
 
 };
 
-class NuiHashingVolume
+class NuiHashingSDF
 {
 public:
-	NuiHashingVolume();
-	~NuiHashingVolume();
+	NuiHashingSDF();
+	~NuiHashingSDF();
 
 	void	reset();
+	void	integrate(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL);
 
 protected:
 	void	AcquireBuffers();
@@ -54,7 +52,11 @@ protected:
 	void	ResetHashBuffer();
 	void	ResetHashBucketMutexBuffer();
 
-	void	AllocSDFs(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL);
+	void	alloc(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL);
+	UINT	prefixSum();
+	UINT	compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transformCL);
+	void	integrateDepthMap(UINT numOccupiedBlocks, cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL, cl_mem transformCL);
+	void	garbageCollect(bool bGarbageCollectionStarve, UINT numOccupiedBlocks, cl_mem cameraParamsCL);
 
 private:
 	cl_mem		m_heapCL;
@@ -67,6 +69,8 @@ private:
 	cl_mem		m_hashBucketMutexCL;
 
 	NuiHashParams	m_params;
+	bool			m_bGarbageCollectionEnabled;
+	UINT			m_garbageCollectionStarve;
 
 	unsigned int	m_numIntegratedFrames;	//used for garbage collect
 };

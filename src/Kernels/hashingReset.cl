@@ -1,4 +1,4 @@
-#include "hashingBlock.cl"
+#include "hashingSDFUtils.cl"
 
 __kernel void reset_heap_kernel(
             __global uint*	d_heap,

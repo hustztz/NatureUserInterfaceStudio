@@ -1,14 +1,53 @@
-#include "hashingBlock.cl"
+#include "hashingSDFUtils.cl"
+
+inline static bool isSDFBlockInCameraFrustumApprox(
+			int3			sdfBlock,
+			float			virtualVoxelSize,
+			__constant struct NuiCLCameraParams* cameraParams,
+			__global struct NuiCLRigidTransform* matrix)
+{
+	float3 posWorld = SDFBlockToWorld(sdfBlock, virtualVoxelSize) + virtualVoxelSize * 0.5f * (SDF_BLOCK_SIZE - 1.0f);
+	float3 pCamera = transformInverse( posWorld, matrix );
+	float3 pProj = cameraToKinectProj(pCamera, cameraParams);
+	//pProj *= 1.5f;	//TODO THIS IS A HACK FIX IT :)
+	pProj *= 0.95f;
+	return !(pProj.x < -1.0f || pProj.x > 1.0f || pProj.y < -1.0f || pProj.y > 1.0f || pProj.z < 0.0f || pProj.z > 1.0f);
+}
+
+inline static bool isSDFBlockStreamedOut(
+			int3			sdfBlock,
+			const float		virtualVoxelSize,
+			const float3	streamingVoxelExtents,
+			const int3		minGridPos,
+			const int3		gridDimensions,
+			__global uint*	d_bitMask)
+{
+	float3 posWorld = SDFBlockToWorld(sdfBlock, virtualVoxelSize); // sdfBlock is assigned to chunk by the bottom right sample pos
+	posWorld = posWorld / streamingVoxelExtents;
+	float3 signPosWorld;
+	signPosWorld.x = convert_float(sign(posWorld.x));
+	signPosWorld.y = convert_float(sign(posWorld.y));
+	signPosWorld.z = convert_float(sign(posWorld.z));
+	int3 chunkPos = convert_int3(posWorld + signPosWorld * 0.5f);
+
+	chunkPos = chunkPos - minGridPos;
+	uint index = chunkPos.z * gridDimensions.x * gridDimensions.y +
+			chunkPos.y * gridDimensions.x +
+			chunkPos.x;
+
+	uint nBitsInT = 32;
+	return ((d_bitMask[index/nBitsInT] & (0x1 << (index%nBitsInT))) != 0x0);
+}
 
 __kernel void alloc_SDFs_kernel(
             __global float* depths,
-			__global uint*	d_bitMask,
 			__constant struct NuiCLCameraParams* cameraParams,
 			__global struct NuiCLRigidTransform* matrix,
 			__global struct NuiCLHashEntry*	d_hash,
 			__global uint*	d_heap,
 			__global uint*	d_heapCounter,
 			__global int*	d_hashBucketMutex,
+			__global uint*	d_bitMask,
 			const float		maxIntegrationDistance,
 			const float		truncation,
 			const float		truncScale,
@@ -20,12 +59,12 @@ __kernel void alloc_SDFs_kernel(
 			const uint		hashMaxCollisionLinkedListSize
         )
 {
-    const int gidx = get_global_id(0);
-	const int gidy = get_global_id(1);
+    const uint gidx = get_global_id(0);
+	const uint gidy = get_global_id(1);
 	
-	const int gsizex = get_global_size(0);
+	const uint gsizex = get_global_size(0);
     
-	const int id = mul24(gidy, gsizex) + gidx;
+	const uint id = mul24(gidy, gsizex) + gidx;
 	float Dp = vload(id, depths);
 	if(isnan(Dp) || Dp > maxIntegrationDistance)
 		return;
@@ -35,11 +74,9 @@ __kernel void alloc_SDFs_kernel(
 	float maxDepth = fmin(maxIntegrationDistance, Dp+t);
 	if (minDepth >= maxDepth) return;
 
-	struct NuiCLCameraParams camParams = *cameraParams;
-	float3 screenToWorld = (float3)((gidx-camParams.cx)*camParams.fx_inv, (gidy-camParams.cy)*camParams.fy_inv, 1.0);
-	float3 rayMin = screenToWorld * minDepth;
+	float3 rayMin = kinectDepthToSkeleton(gidx, gidy, minDepth, cameraParams);
 	rayMin = transform( rayMin, matrix );
-	float3 rayMax = screenToWorld * maxDepth;
+	float3 rayMax = kinectDepthToSkeleton(gidx, gidy, maxDepth, cameraParams);
 	rayMax = transform( rayMax, matrix );
 
 	float3 rayDir = normalize(rayMax - rayMin);
@@ -58,18 +95,18 @@ __kernel void alloc_SDFs_kernel(
 	//	if (rayDir[c] == 0.0f) { tMax[c] = PINF; tDelta[c] = PINF; }
 	//	if (boundaryPos[c] - rayMin[c] == 0.0f) { tMax[c] = PINF; tDelta[c] = PINF; }
 	//}
-	if (rayDir.x == 0.0f) { tMax.x = NAN; tDelta.x = NAN; }
-	if (boundaryPos.x - rayMin.x == 0.0f) { tMax.x = NAN; tDelta.x = NAN; }
+	if (rayDir.x == 0.0f) { tMax.x = FP_PINF; tDelta.x = FP_PINF; }
+	if (boundaryPos.x - rayMin.x == 0.0f) { tMax.x = FP_PINF; tDelta.x = FP_PINF; }
 
-	if (rayDir.y == 0.0f) { tMax.y = NAN; tDelta.y = NAN; }
-	if (boundaryPos.y - rayMin.y == 0.0f) { tMax.y = NAN; tDelta.y = NAN; }
+	if (rayDir.y == 0.0f) { tMax.y = FP_PINF; tDelta.y = FP_PINF; }
+	if (boundaryPos.y - rayMin.y == 0.0f) { tMax.y = FP_PINF; tDelta.y = FP_PINF; }
 
-	if (rayDir.z == 0.0f) { tMax.z = NAN; tDelta.z = NAN; }
-	if (boundaryPos.z - rayMin.z == 0.0f) { tMax.z = NAN; tDelta.z = NAN; }
+	if (rayDir.z == 0.0f) { tMax.z = FP_PINF; tDelta.z = FP_PINF; }
+	if (boundaryPos.z - rayMin.z == 0.0f) { tMax.z = FP_PINF; tDelta.z = FP_PINF; }
 
 
-	unsigned int iter = 0; // iter < g_MaxLoopIterCount
-	unsigned int g_MaxLoopIterCount = 1024;	//TODO MATTHIAS MOVE TO GLOBAL APP STATE
+	uint iter = 0; // iter < g_MaxLoopIterCount
+	uint g_MaxLoopIterCount = 1024;	//TODO MATTHIAS MOVE TO GLOBAL APP STATE
 	while(iter < g_MaxLoopIterCount)
 	{
 		//check if it's in the frustum and not checked out
@@ -101,17 +138,17 @@ __kernel void alloc_SDFs_kernel(
 }
 
 __kernel void fillDecisionArrayKernel(
-	__global uint*	d_hashDecision,
-	__global struct NuiCLHashEntry*	d_hash,
 	__constant struct NuiCLCameraParams* cameraParams,
 	__global struct NuiCLRigidTransform* matrix,
+	__global char*	d_hashDecision,
+	__global struct NuiCLHashEntry*	d_hash,
 	const float		virtualVoxelSize
 	)
 {
 	const int gidx = get_global_id(0);
 
 	d_hashDecision[gidx] = 0;
-	if( d_hash[gidx] .ptr != FREE_ENTRY )
+	if( d_hash[gidx].ptr != FREE_ENTRY )
 	{
 		int3 pos = (int3)(d_hash[gidx].pos[0], d_hash[gidx].pos[1], d_hash[gidx].pos[2]);
 		if( isSDFBlockInCameraFrustumApprox(pos, virtualVoxelSize, cameraParams, matrix) )
@@ -122,10 +159,10 @@ __kernel void fillDecisionArrayKernel(
 }
 
 __kernel void compactifyHashKernel(
-	__global struct NuiCLHashEntry*	d_hashCompactified,
-	__global uint*	d_hashDecision,
+	__global char*	d_hashDecision,
+	__global int*	d_hashDecisionPrefix,
 	__global struct NuiCLHashEntry*	d_hash,
-	__global int*	d_hashDecisionPrefix
+	__global struct NuiCLHashEntry*	d_hashCompactified
 	)
 {
 	const int gidx = get_global_id(0);
@@ -136,21 +173,13 @@ __kernel void compactifyHashKernel(
 	}
 }
 
-inline static int3 delinearizeVoxelIndex(uint idx)
-{
-	int x = idx % SDF_BLOCK_SIZE;
-	int y = (idx % (SDF_BLOCK_SIZE * SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE;
-	int z = idx / (SDF_BLOCK_SIZE * SDF_BLOCK_SIZE);	
-	return (int3)(x,y,z);
-}
-
 __kernel void integrateDepthMapKernel(
 	__global float*		depths,
 	__global uchar*		colors,
-	__global struct NuiCLVoxel*		d_SDFBlocks,
-	__global struct NuiCLHashEntry*	d_hashCompactified,
 	__constant struct NuiCLCameraParams* cameraParams,
 	__global struct NuiCLRigidTransform* matrix,
+	__global struct NuiCLVoxel*		d_SDFBlocks,
+	__global struct NuiCLHashEntry*	d_hashCompactified,
 	const float			virtualVoxelSize,
 	const float			maxIntegrationDistance,
 	const float			truncation,
@@ -159,20 +188,20 @@ __kernel void integrateDepthMapKernel(
 	const uchar			integrationWeightMax
 	)
 {
-	const int gidx = get_global_id(0);
+	const uint blockIdx = get_group_id(0);
 
 	//TODO check if we should load this in shared memory
-	struct NuiCLHashEntry entry = d_hashCompactified[gidx];
+	struct NuiCLHashEntry entry = d_hashCompactified[blockIdx];
 	//if (entry.ptr == FREE_ENTRY) {
 	//	printf("invliad integrate");
 	//	return; //should never happen since we did the compactification before
 	//}
 
-	int3 pi_base = (int3)(entry.pos[0], entry.pos[1], entry.pos[2]) * SDF_BLOCK_SIZE;
+	int3 pi_base = SDFBlockToVirtualVoxelPos( (int3)(entry.pos[0], entry.pos[1], entry.pos[2]) );
 
 	const uint lidx = get_local_id(0);	//inside of an SDF block
 	int3 pi = pi_base + delinearizeVoxelIndex(lidx);
-	float3 pf = convert_float3(pi) * virtualVoxelSize;
+	float3 pf = virtualVoxelPosToWorld(pi, virtualVoxelSize);
 	float3 pCamera = transformInverse( pf, matrix );
 	uint2 screenPos = convert_uint2(cameraToKinectScreen(pCamera, cameraParams) + (float2)(0.5f, 0.5f));
 
@@ -208,14 +237,14 @@ __kernel void integrateDepthMapKernel(
 
 			uint idx = entry.ptr + lidx;
 			struct NuiCLVoxel oldVoxel = d_SDFBlocks[idx];
-
-			float new_color_r = (convert_float(oldVoxel.color[0] * oldVoxel.weight) + convert_float(color.x*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
-			float new_color_g = (convert_float(oldVoxel.color[1] * oldVoxel.weight) + convert_float(color.y*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
-			float new_color_b = (convert_float(oldVoxel.color[2] * oldVoxel.weight) + convert_float(color.z*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
 			
 			struct NuiCLVoxel newVoxel;	//construct current voxel
 			newVoxel.sdf = (oldVoxel.sdf * convert_float(oldVoxel.weight) + sdf * convert_float(weightUpdate)) / (convert_float(oldVoxel.weight) + convert_float(weightUpdate));
 			newVoxel.weight = min(integrationWeightMax, convert_uchar(oldVoxel.weight + convert_uchar(weightUpdate)));
+
+			float new_color_r = (convert_float(oldVoxel.color[0] * oldVoxel.weight) + convert_float(color.x*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
+			float new_color_g = (convert_float(oldVoxel.color[1] * oldVoxel.weight) + convert_float(color.y*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
+			float new_color_b = (convert_float(oldVoxel.color[2] * oldVoxel.weight) + convert_float(color.z*weightUpdate)) / (convert_float(oldVoxel.weight + weightUpdate));
 			newVoxel.color[0] = convert_uchar( clamp(new_color_r, 0.0f, 255.f) );
 			newVoxel.color[1] = convert_uchar( clamp(new_color_g, 0.0f, 255.f) );
 			newVoxel.color[2] = convert_uchar( clamp(new_color_b, 0.0f, 255.f) );
@@ -230,9 +259,9 @@ __kernel void starveVoxelsKernel(
 	__global struct NuiCLHashEntry*	d_hashCompactified
 	)
 {
-	const int gidx = get_global_id(0);
+	const uint blockIdx = get_group_id(0);
 	const int lidx = get_local_id(0);
-	struct NuiCLHashEntry entry = d_hashCompactified[gidx];
+	struct NuiCLHashEntry entry = d_hashCompactified[blockIdx];
 
 	//is typically exectued only every n'th frame
 	uchar weight = d_SDFBlocks[entry.ptr + lidx].weight;
@@ -252,10 +281,10 @@ __kernel void garbageCollectIdentifyKernel(
 	__local float	shared_MinSDF[SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE / 2];
 	__local uchar	shared_MaxWeight[SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE / 2];
 
-	const int gidx = get_global_id(0);
-	const int lidx = get_local_id(0);
+	const uint blockIdx = get_group_id(0);
+	const uint lidx = get_local_id(0);
 	const uint lsizex = get_local_size(0);
-	struct NuiCLHashEntry entry = d_hashCompactified[gidx];
+	struct NuiCLHashEntry entry = d_hashCompactified[blockIdx];
 
 	//uint h = hashData.computeHashPos(entry.pos);
 	//hashData.d_hashDecision[hashIdx] = 1;
@@ -264,11 +293,14 @@ __kernel void garbageCollectIdentifyKernel(
 	//if (entry.ptr == FREE_ENTRY) return; //should never happen since we did compactify before
 	//const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 
-	const unsigned int idx0 = entry.ptr + 2*lidx+0;
-	const unsigned int idx1 = entry.ptr + 2*lidx+1;
+	const uint idx0 = entry.ptr + 2*lidx+0;
+	const uint idx1 = entry.ptr + 2*lidx+1;
 
 	struct NuiCLVoxel v0 = d_SDFBlocks[idx0];
 	struct NuiCLVoxel v1 = d_SDFBlocks[idx1];
+
+	if (v0.weight == 0)	v0.sdf = FP_PINF;
+	if (v1.weight == 0)	v1.sdf = FP_PINF;
 
 	shared_MinSDF[lidx] = min(fabs(v0.sdf), fabs(v1.sdf));	//init shared memory
 	shared_MaxWeight[lidx] = max(convert_uchar(v0.weight), convert_uchar(v1.weight));
