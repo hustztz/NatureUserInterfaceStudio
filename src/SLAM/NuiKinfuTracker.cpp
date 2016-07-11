@@ -89,6 +89,8 @@ void NuiKinfuTracker::reset(const Vector3f& translateBasis)
 	m_frames.reserve (30000);
 
 	m_transform.setTransform(Matrix3frm::Identity(), translateBasis);
+	m_initialPos.setRotation(Matrix3frm::Identity());
+	m_initialPos.setTranslation(Vector3f::Zero());
 }
 
 float NuiKinfuTracker::getIcpError() const
@@ -104,7 +106,7 @@ float NuiKinfuTracker::getIcpCount() const
 const NuiCameraPos&	NuiKinfuTracker::getCameraPose (int time /*= -1*/) const
 {
 	if(m_frames.size() == 0)
-		return NuiCameraPos();
+		return m_initialPos;
 	
 	if (time > (int)m_frames.size () || time < 0)
 		time = (int)m_frames.size () - 1;

@@ -37,6 +37,14 @@ inline void SafeDeleteArray( Interface *& pInterfaceToRelease )
 	}
 }
 
+inline int sign(float x)
+{
+	if(x>0)
+		return 1;
+	else
+		return -1;
+}
+
 typedef unsigned long		DWORD;
 typedef signed __int64      INT64;
 typedef unsigned char       BYTE;

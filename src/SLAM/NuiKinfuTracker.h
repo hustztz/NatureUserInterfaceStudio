@@ -76,5 +76,5 @@ private:
 	UINT m_nColorWidth, m_nColorHeight;
 
 	std::vector<NuiCameraPos> m_frames;
-
+	NuiCameraPos			m_initialPos;
 };

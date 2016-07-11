@@ -42,6 +42,7 @@ public:
 	~NuiHashingSDF();
 
 	void	reset();
+	void	resetHashBucketMutexBuffer();
 	void	integrate(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL);
 
 protected:
@@ -50,7 +51,6 @@ protected:
 	void	ResetBuffers();
 	void	ResetHeapBuffer();
 	void	ResetHashBuffer();
-	void	ResetHashBucketMutexBuffer();
 
 	void	alloc(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL);
 	UINT	prefixSum();

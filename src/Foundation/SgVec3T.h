@@ -69,6 +69,8 @@ public:
     { _vec[0]=T(v[0]); _vec[1]=T(v[1]); _vec[2]=T(v[2]); }
     SgVec3T( const SgVec3T<double> &v )
     { _vec[0]=T(v[0]); _vec[1]=T(v[1]); _vec[2]=T(v[2]); }
+	SgVec3T( const SgVec3T<int> &v )
+	{ _vec[0]=T(v[0]); _vec[1]=T(v[1]); _vec[2]=T(v[2]); }
 
     /* Destructor. */
     ~SgVec3T() {;}
@@ -241,5 +243,7 @@ private:
 
 typedef SgVec3T<double> SgVec3d;
 typedef SgVec3T<float>  SgVec3f;
+typedef SgVec3T<int>	SgVec3i;
+typedef SgVec3T<unsigned int>	SgVec3ui;
 
 #endif

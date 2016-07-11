@@ -33,7 +33,7 @@ void NuiHashingSDF::reset()
 
 	ResetHeapBuffer();
 	ResetHashBuffer();
-	ResetHashBucketMutexBuffer();
+	resetHashBucketMutexBuffer();
 }
 
 void NuiHashingSDF::integrate(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL)
@@ -205,7 +205,7 @@ void NuiHashingSDF::ResetHashBuffer()
 	NUI_CHECK_CL_ERR(err);
 }
 
-void NuiHashingSDF::ResetHashBucketMutexBuffer()
+void NuiHashingSDF::resetHashBucketMutexBuffer()
 {
 	// Get the kernel
 	cl_kernel initializeKernel = nullptr;
@@ -327,7 +327,7 @@ UINT NuiHashingSDF::prefixSum()
 	if (!allocKernel)
 	{
 		NUI_ERROR("Get kernel 'E_HASHING_ALLOC' failed!\n");
-		return;
+		return 0;
 	}
 
 	// OpenCL command queue and device
