@@ -75,7 +75,7 @@ void NuiHashingSDF::AcquireBuffers()
 	NUI_CHECK_CL_ERR(err);
 	m_hashCompactified = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * HASH_BUCKET_SIZE * sizeof(NuiCLHashEntry), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_SDFBlocksCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_numSDFBlocks * m_params.m_SDFBlockSize*m_params.m_SDFBlockSize*m_params.m_SDFBlockSize*sizeof(NuiCLVoxel), NULL, &err);
+	m_SDFBlocksCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_numSDFBlocks * SDF_BLOCK_SIZE*SDF_BLOCK_SIZE*SDF_BLOCK_SIZE*sizeof(NuiCLVoxel), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_hashBucketMutexCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * sizeof(cl_char), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
@@ -244,7 +244,7 @@ void NuiHashingSDF::resetHashBucketMutexBuffer()
 
 void NuiHashingSDF::alloc(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL)
 {
-	ResetHashBucketMutexBuffer();
+	resetHashBucketMutexBuffer();
 
 	// Get the kernel
 	cl_kernel allocKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_ALLOC_SDF);

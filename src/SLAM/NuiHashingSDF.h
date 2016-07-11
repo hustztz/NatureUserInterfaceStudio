@@ -17,7 +17,6 @@ struct NuiHashParams {
 	unsigned int	m_hashMaxCollisionLinkedListSize;
 	unsigned int	m_numSDFBlocks;
 
-	int				m_SDFBlockSize;
 	float			m_virtualVoxelSize;
 	unsigned int	m_numOccupiedBlocks;	//occupied blocks in the viewing frustum
 

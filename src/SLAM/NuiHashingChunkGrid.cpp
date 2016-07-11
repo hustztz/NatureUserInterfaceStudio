@@ -9,10 +9,12 @@ NuiHashingChunkGrid::NuiHashingChunkGrid(NuiHashingSDF* pSDF)
 	, m_currentPart(0)
 	, m_maxNumberOfSDFBlocksIntegrateFromGlobalHash(100000)
 {
+	AcquireBuffers();
 }
 
 NuiHashingChunkGrid::~NuiHashingChunkGrid()
 {
+	ReleaseBuffers();
 }
 
 void NuiHashingChunkGrid::AcquireBuffers()
