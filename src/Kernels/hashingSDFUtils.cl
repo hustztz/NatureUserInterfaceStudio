@@ -103,7 +103,7 @@ inline static struct NuiCLHashEntry getHashEntryForSDFBlockPos(
 		}
 	}
 
-//#ifdef HANDLE_COLLISIONS
+#ifdef HANDLE_COLLISIONS
 	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;
 	int i = idxLastEntryInBucket;	//start with the last entry of the current bucket
 	struct NuiCLHashEntry curr;
@@ -126,7 +126,7 @@ inline static struct NuiCLHashEntry getHashEntryForSDFBlockPos(
 
 		maxIter++;
 	}
-//#endif
+#endif
 	return entry;
 }
 
@@ -179,7 +179,7 @@ inline static void allocBlock(int3			pos,
 	}
 
 
-//#ifdef _HANDLE_COLLISIONS
+#ifdef _HANDLE_COLLISIONS
 	//updated variables as after the loop
 	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;	//get last index of bucket
 	uint i = idxLastEntryInBucket;											//start with the last entry of the current bucket
@@ -205,7 +205,7 @@ inline static void allocBlock(int3			pos,
 
 		maxIter++;
 	}
-//#endif
+#endif
 
 	if (firstEmpty != -1) {	//if there is an empty entry and we haven't allocated the current entry before
 		//int prevValue = 0;
@@ -223,7 +223,7 @@ inline static void allocBlock(int3			pos,
 		return;
 	}
 
-//#ifdef _HANDLE_COLLISIONS
+#ifdef _HANDLE_COLLISIONS
 	//if (i != idxLastEntryInBucket) return;
 	int offset = 0;
 	//linear search for free entry
@@ -265,9 +265,94 @@ inline static void allocBlock(int3			pos,
 
 		maxIter++;
 	}
-//#endif
+#endif
 }
 
+//!inserts a hash entry without allocating any memory: used by streaming: TODO MATTHIAS check the atomics in this function
+inline static bool insertHashEntry(
+							struct NuiCLHashEntry			entry,
+							__global struct NuiCLHashEntry*	d_hash,
+							const uint						hashNumBuckets,
+							const uint						hashMaxCollisionLinkedListSize
+							)
+{
+	const int3 sdfBlock;
+	sdfBlock.x = entry.pos[0];
+	sdfBlock.y = entry.pos[1];
+	sdfBlock.z = entry.pos[2];
+	uint h = computeHashPos(sdfBlock, hashNumBuckets);
+	uint hp = h * HASH_BUCKET_SIZE;
+
+	for (uint j = 0; j < HASH_BUCKET_SIZE; j++) {
+		uint i = j + hp;		
+		//const HashEntry& curr = d_hash[i];
+		int prevWeight = 0;
+		//InterlockedCompareExchange(hash[3*i+2], FREE_ENTRY, LOCK_ENTRY, prevWeight);
+		prevWeight = atom_cmpxchg(&d_hash[i].ptr, FREE_ENTRY, LOCK_ENTRY);
+		if (prevWeight == FREE_ENTRY) {
+			d_hash[i] = entry;
+			//setHashEntry(hash, i, entry);
+			return true;
+		}
+	}
+
+#ifdef _HANDLE_COLLISIONS
+	//updated variables as after the loop
+	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;	//get last index of bucket
+
+	uint i = idxLastEntryInBucket;											//start with the last entry of the current bucket
+	struct NuiCLHashEntry curr;
+
+	unsigned int maxIter = 0;
+	//[allow_uav_condition]
+	uint g_MaxLoopIterCount = hashMaxCollisionLinkedListSize;
+	while (maxIter < g_MaxLoopIterCount) {									//traverse list until end // why find the end? we you are inserting at the start !!!
+		//curr = getHashEntry(hash, i);
+		curr = d_hash[i];	//TODO MATTHIAS do by reference
+		if (curr.offset == 0) break;									//we have found the end of the list
+		i = idxLastEntryInBucket + curr.offset;							//go to next element in the list
+		i %= (HASH_BUCKET_SIZE * hashNumBuckets);	//check for overflow
+
+		maxIter++;
+	}
+
+	maxIter = 0;
+	int offset = 0;
+	while (maxIter < g_MaxLoopIterCount) {													//linear search for free entry
+		offset++;
+		uint i = (idxLastEntryInBucket + offset) % (HASH_BUCKET_SIZE * hashNumBuckets);	//go to next hash element
+		if ((offset % HASH_BUCKET_SIZE) == 0) continue;										//cannot insert into a last bucket element (would conflict with other linked lists)
+
+		int prevWeight = 0;
+		//InterlockedCompareExchange(hash[3*i+2], FREE_ENTRY, LOCK_ENTRY, prevWeight);		//check for a free entry
+		uint* d_hashUI = (uint*)d_hash;
+		prevWeight = prevWeight = atom_cmpxchg(&d_hashUI[3*idxLastEntryInBucket+1], (uint)FREE_ENTRY, (uint)LOCK_ENTRY);
+		if (prevWeight == FREE_ENTRY) {														//if free entry found set prev->next = curr & curr->next = prev->next
+			//[allow_uav_condition]
+			//while(hash[3*idxLastEntryInBucket+2] == LOCK_ENTRY); // expects setHashEntry to set the ptr last, required because pos.z is packed into the same value -> prev->next = curr -> might corrput pos.z
+
+			struct NuiCLHashEntry lastEntryInBucket = d_hash[idxLastEntryInBucket];			//get prev (= lastEntry in Bucket)
+
+			int newOffsetPrev = (offset << 16) | (lastEntryInBucket.pos[2] & 0x0000ffff);	//prev->next = curr (maintain old z-pos)
+			int oldOffsetPrev = 0;
+			//InterlockedExchange(hash[3*idxLastEntryInBucket+1], newOffsetPrev, oldOffsetPrev);	//set prev offset atomically
+			uint* d_hashUI = (uint*)d_hash;
+			oldOffsetPrev = prevWeight = atomic_xchg(&d_hashUI[3*idxLastEntryInBucket+1], newOffsetPrev);
+			entry.offset = oldOffsetPrev >> 16;													//remove prev z-pos from old offset
+
+			//setHashEntry(hash, i, entry);														//sets the current hashEntry with: curr->next = prev->next
+			d_hash[i] = entry;
+			return true;
+		}
+
+		maxIter++;
+	} 
+#endif
+
+	return false;
+}
+
+//! deletes a hash entry position for a given sdfBlock index (returns true uppon successful deletion; otherwise returns false)
 inline static bool deleteHashEntryElement(
 	int3			sdfBlock,
 	__global struct NuiCLHashEntry*	d_hash,
@@ -285,14 +370,14 @@ inline static bool deleteHashEntryElement(
 		uint i = j + hp;
 		struct NuiCLHashEntry curr = d_hash[i];
 		if (curr.pos[0] == sdfBlock.x && curr.pos[1] == sdfBlock.y && curr.pos[2] == sdfBlock.z && curr.ptr != FREE_ENTRY) {
-//#ifndef HANDLE_COLLISIONS
+#ifndef _HANDLE_COLLISIONS
 			const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 			appendHeap(curr.ptr / linBlockSize, d_heap, d_heapCounter);
 			//heapAppend.Append(curr.ptr / linBlockSize);
 			deleteHashEntry(i, d_hash);
 			return true;
-//#endif
-//#ifdef HANDLE_COLLISIONS
+#endif
+#ifdef _HANDLE_COLLISIONS
 			if (curr.offset != 0) {	//if there was a pointer set it to the next list element
 				//int prevValue = 0;
 				//InterlockedExchange(bucketMutex[h], LOCK_ENTRY, prevValue);	//lock the hash bucket
@@ -315,10 +400,10 @@ inline static bool deleteHashEntryElement(
 				deleteHashEntry(i, d_hash);
 				return true;
 			}
-//#endif	//HANDLE_COLLSISION
+#endif	//HANDLE_COLLSISION
 		}
 	}	
-//#ifdef HANDLE_COLLISIONS
+#ifdef _HANDLE_COLLISIONS
 	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;
 	int i = idxLastEntryInBucket;
 	struct NuiCLHashEntry curr = d_hash[i];
@@ -359,7 +444,7 @@ inline static bool deleteHashEntryElement(
 
 		maxIter++;
 	}
-//#endif	// HANDLE_COLLSISION
+#endif	// HANDLE_COLLSISION
 	return false;
 }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#define _HANDLE_COLLISIONS
+
 //status flags for hash entries
 #define LOCK_ENTRY -1
 #define FREE_ENTRY -2
@@ -28,3 +30,4 @@ struct NuiCLVoxel
 	unsigned char	weight;		//accumulated sdf weight
 };
 #pragma pack()
+

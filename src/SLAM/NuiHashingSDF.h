@@ -13,7 +13,6 @@ struct NuiHashParams {
 	}
 
 	unsigned int	m_hashNumBuckets;
-	//unsigned int	m_hashBucketSize;
 	unsigned int	m_hashMaxCollisionLinkedListSize;
 	unsigned int	m_numSDFBlocks;
 
@@ -43,6 +42,13 @@ public:
 	void	reset();
 	void	resetHashBucketMutexBuffer();
 	void	integrate(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL);
+
+	const NuiHashParams& getParams() const { return m_params; }
+	cl_mem	getHashCL() const { return m_hashCL; }
+	cl_mem	getHeapCL() const { return m_heapCL; }
+	cl_mem	getHeapCountCL() const { return m_heapCountCL; }
+	cl_mem	getHashBucketMutexCL() const { return m_hashBucketMutexCL; }
+	cl_mem	getSDFBlocksCL() const { return m_SDFBlocksCL; }
 
 protected:
 	void	AcquireBuffers();
