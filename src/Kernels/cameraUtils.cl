@@ -1,11 +1,9 @@
-#include "utils.cl"
-#include "hashing_gpu_def.h"
+#include "gpu_def.h"
 
 #pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
 
 #define LOCK(a) atom_cmpxchg(a, 0, 1)
 #define UNLOCK(a) atom_xchg(a, 0)
-
 
 
 inline static float2 cameraToKinectScreen(

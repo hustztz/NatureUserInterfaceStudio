@@ -1,4 +1,5 @@
-#include "hashingBlock.cl"
+#include "utils.cl"
+#include "hashingSDFUtils.cl"
 
 inline static float3 frac(float3 val)
 {
@@ -21,53 +22,68 @@ inline static struct NuiCLVoxel trilinearInterpolationSimpleFastFast(
 	out.weight = 0;
 	float dist = 0.0f;
 	float3 colorFloat = (float3)(0.0f, 0.0f, 0.0f);
+	// 0.0f, 0.0f, 0.0f
 	struct NuiCLVoxel v = getVoxel(posDual+(float3)(0.0f, 0.0f, 0.0f), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-	if(v.weight == 0) return out;
+	if(v.weight == 0)
+		return out;
 	float3 vColor = (float3)(v.color[0], v.color[1], v.color[2]);
-	dist+= (1.0f-weight.x)*(1.0f-weight.y)*(1.0f-weight.z)*v.sdf;
-	colorFloat+= (1.0f-weight.x)*(1.0f-weight.y)*(1.0f-weight.z)*vColor;
+	dist += (1.0f-weight.x)*(1.0f-weight.y)*(1.0f-weight.z)*v.sdf;
+	colorFloat += (1.0f-weight.x)*(1.0f-weight.y)*(1.0f-weight.z)*vColor;
 
+	// oSet, 0.0f, 0.0f
 	v = getVoxel(posDual+(float3)(oSet, 0.0f, 0.0f), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-	if(v.weight == 0) return out;
+	if(v.weight == 0)
+		return out;
 	vColor = (float3)(v.color[0], v.color[1], v.color[2]);
 	dist+=	   weight.x *(1.0f-weight.y)*(1.0f-weight.z)*v.sdf;
 	colorFloat+=	   weight.x *(1.0f-weight.y)*(1.0f-weight.z)*vColor;
 
+	// 0.0f, oSet, 0.0f
 	v = getVoxel(posDual+(float3)(0.0f, oSet, 0.0f), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-	if(v.weight == 0) return out;
+	if(v.weight == 0)
+		return out;
 	vColor = (float3)(v.color[0], v.color[1], v.color[2]);
-	dist+= (1.0f-weight.x)*	   weight.y *(1.0f-weight.z)*v.sdf;
-	colorFloat+= (1.0f-weight.x)*	   weight.y *(1.0f-weight.z)*vColor;
+	dist += (1.0f-weight.x)*	   weight.y *(1.0f-weight.z)*v.sdf;
+	colorFloat += (1.0f-weight.x)*	   weight.y *(1.0f-weight.z)*vColor;
 
+	// 0.0f, 0.0f, oSet
 	v = getVoxel(posDual+(float3)(0.0f, 0.0f, oSet), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-	if(v.weight == 0) return out;
+	if(v.weight == 0)
+		return out;
 	vColor = (float3)(v.color[0], v.color[1], v.color[2]);
-	dist+= (1.0f-weight.x)*(1.0f-weight.y)*	   weight.z *v.sdf;
-	colorFloat+= (1.0f-weight.x)*(1.0f-weight.y)*	   weight.z *vColor;
+	dist += (1.0f-weight.x)*(1.0f-weight.y)*	   weight.z *v.sdf;
+	colorFloat += (1.0f-weight.x)*(1.0f-weight.y)*	   weight.z *vColor;
 
+	// oSet, oSet, 0.0f
 	v = getVoxel(posDual+(float3)(oSet, oSet, 0.0f), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-	if(v.weight == 0) return out;
+	if(v.weight == 0)
+		return out;
 	vColor = (float3)(v.color[0], v.color[1], v.color[2]);
-	dist+=	   weight.x *	   weight.y *(1.0f-weight.z)*v.sdf;
-	colorFloat+=	   weight.x *	   weight.y *(1.0f-weight.z)*vColor;
+	dist +=	   weight.x *	   weight.y *(1.0f-weight.z)*v.sdf;
+	colorFloat +=	   weight.x *	   weight.y *(1.0f-weight.z)*vColor;
 
+	// 0.0f, oSet, oSet
 	v = getVoxel(posDual+(float3)(0.0f, oSet, oSet), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-	if(v.weight == 0) return out;
+	if(v.weight == 0)
+		return out;
 	vColor = (float3)(v.color[0], v.color[1], v.color[2]);
-	dist+= (1.0f-weight.x)*	   weight.y *	   weight.z *v.sdf;
-	colorFloat+= (1.0f-weight.x)*	   weight.y *	   weight.z *vColor;
+	dist += (1.0f-weight.x)*	   weight.y *	   weight.z *v.sdf;
+	colorFloat += (1.0f-weight.x)*	   weight.y *	   weight.z *vColor;
 
+	// oSet, 0.0f, oSet
 	v = getVoxel(posDual+(float3)(oSet, 0.0f, oSet), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
 	if(v.weight == 0) return out;
 	vColor = (float3)(v.color[0], v.color[1], v.color[2]);
-	dist+=	   weight.x *(1.0f-weight.y)*	   weight.z *v.sdf;
-	colorFloat+=	   weight.x *(1.0f-weight.y)*	   weight.z *vColor;
+	dist +=	   weight.x *(1.0f-weight.y)*	   weight.z *v.sdf;
+	colorFloat +=	   weight.x *(1.0f-weight.y)*	   weight.z *vColor;
 
+	// oSet, oSet, oSet
 	v = getVoxel(posDual+(float3)(oSet, oSet, oSet), d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-	if(v.weight == 0) return out;
+	if(v.weight == 0)
+		return out;
 	vColor = (float3)(v.color[0], v.color[1], v.color[2]);
-	dist+=	   weight.x *	   weight.y *	   weight.z *v.sdf;
-	colorFloat+=	   weight.x *	   weight.y *	   weight.z *vColor;
+	dist +=	   weight.x *	   weight.y *	   weight.z *v.sdf;
+	colorFloat +=	   weight.x *	   weight.y *	   weight.z *vColor;
 
 	out.weight = 1;
 	out.sdf = dist;
@@ -92,7 +108,8 @@ inline static struct NuiCLVoxel findIntersectionBisection(
 	const float		virtualVoxelSize,
 	const uint		hashNumBuckets,
 	const uint		hashMaxCollisionLinkedListSize,
-	float d0, float r0, float d1, float r1)
+	float d0, float r0, float d1, float r1
+	)
 {
 	float a = r0; float aDist = d0;
 	float b = r1; float bDist = d1;
@@ -105,7 +122,8 @@ inline static struct NuiCLVoxel findIntersectionBisection(
 		c = findIntersectionLinear(a, b, aDist, bDist);
 
 		out = trilinearInterpolationSimpleFastFast(worldCamPos+c*worldDir, d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-		if(0 == out.weight) return out;
+		if(0 == out.weight)
+			return out;
 
 		if(aDist*out.sdf > 0.0)
 		{
@@ -192,8 +210,8 @@ __kernel void renderKernel(
 	//if (minInterval == 0 || minInterval == MINF) minInterval = rayCastParams.m_minDepth;
 	//if (maxInterval == 0 || maxInterval == MINF) maxInterval = rayCastParams.m_maxDepth;
 	//TODO MATTHIAS: shouldn't this return in the case no interval is found?
-	if (minInterval == 0 || minInterval == NAN) return;
-	if (maxInterval == 0 || maxInterval == NAN) return;
+	if (minInterval == 0 || minInterval == FP_MINF) return;
+	if (maxInterval == 0 || maxInterval == FP_MINF) return;
 
 	// debugging 
 	//if (maxInterval < minInterval) {
@@ -202,6 +220,8 @@ __kernel void renderKernel(
 
 	struct NuiCLCameraParams camParams = *cameraParams;
 	int3  dTid = (int3)(gidx, gidy, 1);
+
+	// Last Sample
 	float lastSampleSdf = 0.0f;
 	float lastSampleAlpha = 0.0f;
 	float lastSampleWeight = 0;
@@ -230,14 +250,14 @@ __kernel void renderKernel(
 					{
 						float depth = intersection.sdf / depthToRayLength; // Convert ray length to depth depthToRayLength
 
-						int oid = dTid.y*camParams.depthImageWidth+dTid.x;
-						vstore3( kinectDepthToSkeleton(dTid.x, dTid.y, depth, cameraParams) , oid, vmap);
-						vstore4( (float4)(intersection.color[0]/255.f, intersection.color[1]/255.f, intersection.color[2]/255.f, 1.0f) , oid, colormap);
+						int oidx = dTid.y*camParams.depthImageWidth+dTid.x;
+						vstore3( kinectDepthToSkeleton(dTid.x, dTid.y, depth, cameraParams) , oidx, vmap);
+						vstore4( (float4)(intersection.color[0]/255.f, intersection.color[1]/255.f, intersection.color[2]/255.f, 1.0f) , oidx, colormap);
 
 						//if(useGradients)
 						{
 							float3 normal = -gradientForPoint(currentIso, d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-							vstore3( rotationInverse(normal, matrix) , oid, nmap);
+							vstore3( rotationInverse(normal, matrix) , oidx, nmap);
 						}
 
 						return;
@@ -255,6 +275,20 @@ __kernel void renderKernel(
 			rayCurrent += rayIncrement;
 		}
 	}
+}
+
+inline static bool isSDFBlockInCameraFrustumApprox(
+			int3			sdfBlock,
+			float			virtualVoxelSize,
+			__constant struct NuiCLCameraParams* cameraParams,
+			__global struct NuiCLRigidTransform* matrix)
+{
+	float3 posWorld = SDFBlockToWorld(sdfBlock, virtualVoxelSize) + virtualVoxelSize * 0.5f * (SDF_BLOCK_SIZE - 1.0f);
+	float3 pCamera = transformInverse( posWorld, matrix );
+	float3 pProj = cameraToKinectProj(pCamera, cameraParams);
+	//pProj *= 1.5f;	//TODO THIS IS A HACK FIX IT :)
+	pProj *= 0.95f;
+	return !(pProj.x < -1.0f || pProj.x > 1.0f || pProj.y < -1.0f || pProj.y > 1.0f || pProj.z < 0.0f || pProj.z > 1.0f);
 }
 
 __kernel void rayIntervalSplatKernel(

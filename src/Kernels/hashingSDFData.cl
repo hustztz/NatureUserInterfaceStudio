@@ -22,6 +22,8 @@ inline static bool isSDFBlockStreamedOut(
 			const int3		gridDimensions,
 			__global uint*	d_bitMask)
 {
+	if(!d_bitMask)
+		return false;
 	float3 posWorld = SDFBlockToWorld(sdfBlock, virtualVoxelSize); // sdfBlock is assigned to chunk by the bottom right sample pos
 	posWorld = posWorld / streamingVoxelExtents;
 	float3 signPosWorld;
@@ -323,9 +325,9 @@ __kernel void garbageCollectIdentifyKernel(
 		float t = truncation + truncScale * camParams.sensorDepthWorldMax;	//MATTHIAS TODO check whether this is a reasonable metric
 
 		if (minSDF >= t || maxWeight == 0) {
-			d_hashDecision[gidx] = 1;
+			d_hashDecision[blockIdx] = 1;
 		} else {
-			d_hashDecision[gidx] = 0;
+			d_hashDecision[blockIdx] = 0;
 		}
 	}
 }

@@ -34,9 +34,9 @@ void NuiHashingChunkGrid::AcquireBuffers()
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
 
-	m_SDFBlockDescOutputCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(NuiCLSDFBlockDesc)*m_maxNumberOfSDFBlocksIntegrateFromGlobalHash, m_SDFBlockDescOutput, &err);
+	m_SDFBlockDescOutputCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(NuiCLHashEntry)*m_maxNumberOfSDFBlocksIntegrateFromGlobalHash, m_SDFBlockDescOutput, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_SDFBlockDescInputCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(NuiCLSDFBlockDesc)*m_maxNumberOfSDFBlocksIntegrateFromGlobalHash, NULL, &err);
+	m_SDFBlockDescInputCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(NuiCLHashEntry)*m_maxNumberOfSDFBlocksIntegrateFromGlobalHash, NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_SDFBlockOutputCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, sizeof(NuiCLSDFBlock)*m_maxNumberOfSDFBlocksIntegrateFromGlobalHash, m_SDFBlockOutput, &err);
 	NUI_CHECK_CL_ERR(err);
@@ -83,6 +83,15 @@ void NuiHashingChunkGrid::ReleaseBuffers()
 
 	SafeDeleteArray(m_SDFBlockOutput);
 	SafeDeleteArray(m_SDFBlockDescOutput);
+}
+
+void NuiHashingChunkGrid::reset()
+{
+	for (unsigned int i = 0; i<m_grid.size(); i++) {
+		SafeDelete(m_grid[i]);
+	}
+	m_grid.clear();
+	m_bitMask.reset();
 }
 
 SgVec3i NuiHashingChunkGrid::worldToChunks(const SgVec3f& posWorld) const {
@@ -274,20 +283,20 @@ UINT NuiHashingChunkGrid::streamOutToCPUPass0GPU(UINT nStreamOutParts, const SgV
 		NUI_CHECK_CL_ERR(err);
 
 		// Map buffers
-		NuiCLSDFBlockDesc* SDFBlockDescOutputMapper = (NuiCLSDFBlockDesc*)clEnqueueMapBuffer(
+		NuiCLHashEntry* SDFBlockDescOutputMapper = (NuiCLHashEntry*)clEnqueueMapBuffer(
 			queue,
 			m_SDFBlockDescOutputCL,
 			CL_TRUE,//blocking
 			CL_MAP_READ,
 			0,
-			nSDFBlockDescs * sizeof(NuiCLSDFBlockDesc),
+			nSDFBlockDescs * sizeof(NuiCLHashEntry),
 			0,
 			NULL,
 			NULL,
 			&err
 			);
 		NUI_CHECK_CL_ERR(err);
-		memcpy(m_SDFBlockDescOutput, SDFBlockDescOutputMapper, nSDFBlockDescs * sizeof(NuiCLSDFBlockDesc));
+		memcpy_s(m_SDFBlockDescOutput, nSDFBlockDescs * sizeof(NuiCLSDFBlockDesc), SDFBlockDescOutputMapper, nSDFBlockDescs * sizeof(NuiCLHashEntry));
 		err = clEnqueueUnmapMemObject(
 			queue,
 			m_SDFBlockDescOutputCL,
@@ -346,9 +355,9 @@ void NuiHashingChunkGrid::streamOutToCPUPass1CPU(UINT nStreamedBlocks)
 	for (unsigned int i = 0; i < nStreamedBlocks; i++)
 	{
 		SgVec3i pos;
-		pos[0] = m_SDFBlockDescOutput[i].pos[0];
-		pos[1] = m_SDFBlockDescOutput[i].pos[1];
-		pos[2] = m_SDFBlockDescOutput[i].pos[2];
+		pos[0] = m_SDFBlockDescOutput[i].m_entry.pos[0];
+		pos[1] = m_SDFBlockDescOutput[i].m_entry.pos[1];
+		pos[2] = m_SDFBlockDescOutput[i].m_entry.pos[2];
 		//vec3f posWorld = VoxelUtilHelper::SDFBlockToWorld(pos);
 		SgVec3f posWorld = SgVec3f(pos*SDF_BLOCK_SIZE)*hashParams.m_virtualVoxelSize;
 		SgVec3i chunk = worldToChunks(posWorld);
@@ -502,20 +511,20 @@ UINT NuiHashingChunkGrid::streamInToGPUPass0CPU( const SgVec3f& posCamera, float
 							throw ("not enough memory allocated for intermediate GPU buffer");
 						}
 						// Copy data to GPU
-						NuiCLSDFBlockDesc* SDFBlockDescOutputMapper = (NuiCLSDFBlockDesc*)clEnqueueMapBuffer(
+						NuiCLHashEntry* SDFBlockDescOutputMapper = (NuiCLHashEntry*)clEnqueueMapBuffer(
 							queue,
 							m_SDFBlockDescOutputCL,
 							CL_TRUE,//blocking
 							CL_MAP_WRITE,
 							0,
-							nBlock * sizeof(NuiCLSDFBlockDesc),
+							nBlock * sizeof(NuiCLHashEntry),
 							0,
 							NULL,
 							NULL,
 							&err
 							);
 						NUI_CHECK_CL_ERR(err);
-						memcpy(SDFBlockDescOutputMapper, &(m_grid[index]->getSDFBlockDescs()[0]), nBlock * sizeof(NuiCLSDFBlockDesc));
+						memcpy_s(SDFBlockDescOutputMapper, nBlock * sizeof(NuiCLHashEntry), &(m_grid[index]->getSDFBlockDescs()[0]), nBlock * sizeof(NuiCLSDFBlockDesc));
 						err = clEnqueueUnmapMemObject(
 							queue,
 							m_SDFBlockDescOutputCL,
@@ -635,8 +644,6 @@ void NuiHashingChunkGrid::streamInToGPUPass1GPU(UINT nStreamedBlocks)
 	err = clSetKernelArg(pass2, idx++, sizeof(cl_mem), &SDFBlocksCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(pass2, idx++, sizeof(cl_mem), &m_SDFBlockInputCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(pass2, idx++, sizeof(cl_mem), &m_SDFBlockDescInputCL);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate 

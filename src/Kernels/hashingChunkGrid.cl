@@ -22,7 +22,7 @@ __kernel void integrateFromGlobalHashPass1Kernel(
 			const float							radius,
 			const float3						cameraPosition,
 			__global uint*						d_SDFBlockCounter,
-			__global struct NuiCLSDFBlockDesc*	d_SDFBlockDescOutput
+			__global struct NuiCLHashEntry*		d_SDFBlockDescOutput
         )
 {
     const uint bucketID = get_global_id(0) + start;
@@ -42,30 +42,25 @@ __kernel void integrateFromGlobalHashPass1Kernel(
 		if (entry.ptr != FREE_ENTRY && d > radius) {
 		
 			// Write
-			struct NuiCLSDFBlockDesc d;
-			d.pos[0] = entry.pos[0];
-			d.pos[1] = entry.pos[1];
-			d.pos[2] = entry.pos[2];
-			d.ptr = entry.ptr;
 
 #ifndef _HANDLE_COLLISIONS
-				uint addr = atomicAdd(&d_SDFBlockCounter[0], 1);
-				d_SDFBlockDescOutput[addr] = d;
+				uint addr = atomic_add(&d_SDFBlockCounter[0], 1);
+				d_SDFBlockDescOutput[addr] = entry;
 				appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
 				deleteHashEntry(bucketID, d_hash);
 #endif
 #ifdef _HANDLE_COLLISIONS
 				//if there is an offset or hash doesn't belong to the bucket (linked list)
-				if (entry.offset != 0 || computeHashPos(entry.pos, hashNumBuckets) != bucketID / HASH_BUCKET_SIZE) {
+				if (entry.offset != 0 || computeHashPos(sdfBlock, hashNumBuckets) != bucketID / HASH_BUCKET_SIZE) {
 					
 					if (deleteHashEntryElement(sdfBlock, d_hash, d_heap, d_heapCounter, d_hashBucketMutex, hashNumBuckets, hashMaxCollisionLinkedListSize)) {
 						appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
 						uint addr = atomicAdd(&d_SDFBlockCounter[0], 1);
-						d_SDFBlockDescOutput[addr] = d;
+						d_SDFBlockDescOutput[addr] = entry;
 					}
 				} else {
 					uint addr = atomicAdd(&d_SDFBlockCounter[0], 1);
-					d_SDFBlockDescOutput[addr] = d;
+					d_SDFBlockDescOutput[addr] = entry;
 					appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
 					deleteHashEntry(bucketID, d_hash);
 				}
@@ -81,20 +76,20 @@ __kernel void integrateFromGlobalHashPass2Kernel(
 			__global struct NuiCLVoxel*			d_SDFBlocks,
 			__global uint*						d_SDFBlockCounter,
 			__global struct NuiCLVoxel*			d_SDFBlockOutput,
-			__global struct NuiCLSDFBlockDesc*	d_SDFBlockDescOutput
+			__global struct NuiCLHashEntry*		d_SDFBlockDescOutput
         )
 {
-	const uint blockIdx = get_group_id(0);
+	const uint idxBlock = get_group_id(0);
 
 	const uint nSDFBlocks = vload(0, d_SDFBlockCounter);
-	if(blockIdx < nSDFBlocks)
+	if(idxBlock < nSDFBlocks)
 	{
 		const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 		const uint idxInBlock = get_local_id(0);
-		struct NuiCLSDFBlockDesc desc = d_SDFBlockDescOutput[idxBlock];
+		struct NuiCLHashEntry desc = d_SDFBlockDescOutput[idxBlock];
 
 		// Copy SDF block to CPU
-		d_SDFBlockOutput[idxBlock*linBlockSize + idxInBlock] = hashData.d_SDFBlocks[desc.ptr + idxInBlock];
+		d_SDFBlockOutput[idxBlock*linBlockSize + idxInBlock] = d_SDFBlocks[desc.ptr + idxInBlock];
 
 		//// Reset SDF Block
 		deleteSDFVoxel(desc.ptr + idxInBlock, d_SDFBlocks);
@@ -116,7 +111,7 @@ __kernel void chunkToGlobalHashPass1Kernel(
 			__global struct NuiCLHashEntry*		d_hash,
 			const uint							hashNumBuckets,
 			const uint							hashMaxCollisionLinkedListSize,
-			__global struct NuiCLSDFBlockDesc*	d_SDFBlockDescInput
+			__global struct NuiCLHashEntry*		d_SDFBlockDescInput
         )
 {
 	const uint bucketID = get_global_id(0);
@@ -125,12 +120,7 @@ __kernel void chunkToGlobalHashPass1Kernel(
 	const uint heapCountPrev = vload(0, d_heapCounter);
 	uint ptr = d_heap[heapCountPrev - bucketID] * linBlockSize;	//mass alloc
 
-	struct NuiCLHashEntry entry;
-	entry.pos[0] = d_SDFBlockDescInput[bucketID].pos[0];
-	entry.pos[1] = d_SDFBlockDescInput[bucketID].pos[1];
-	entry.pos[2] = d_SDFBlockDescInput[bucketID].pos[2];
-	entry.offset = 0;
-	entry.ptr = ptr;
+	struct NuiCLHashEntry entry = d_SDFBlockDescInput[bucketID];
 
 	//TODO MATTHIAS check this: if this is false, we have a memory leak... -> we need to make sure that this works! (also the next kernel will randomly fill memory)
 	bool ok = insertHashEntry(entry, d_hash, hashNumBuckets, hashMaxCollisionLinkedListSize);
@@ -144,18 +134,17 @@ __kernel void chunkToGlobalHashPass2Kernel(
 			__global uint*						d_heap,
 			__global uint*						d_heapCounter,
 			__global struct NuiCLVoxel*			d_SDFBlocks,
-			__global struct NuiCLVoxel*			d_SDFBlockInput,
-			__global struct NuiCLSDFBlockDesc*	d_SDFBlockDescsInput
+			__global struct NuiCLVoxel*			d_SDFBlockInput
 			)
 {
-	const uint blockIdx = get_group_id(0);
+	const uint blockID = get_group_id(0);
 	const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 	const uint heapCountPrev = vload(0, d_heapCounter);
 	const uint idxInBlock = get_local_id(0);
 	const uint blockSize = get_local_size(0);
 
 	uint ptr = d_heap[heapCountPrev-blockID]*linBlockSize;
-	d_SDFBlocks[ptr + idxInBlock] = d_SDFBlockInput[blockIdx*blockSize + idxInBlock];
+	d_SDFBlocks[ptr + idxInBlock] = d_SDFBlockInput[blockID*blockSize + idxInBlock];
 	//hashData.d_SDFBlocks[ptr + threadIdx.x].color = make_uchar3(255,0,0);
 
 	//Update heap counter

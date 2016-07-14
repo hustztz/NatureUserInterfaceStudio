@@ -323,10 +323,8 @@ inline static bool insertHashEntry(
 		uint i = (idxLastEntryInBucket + offset) % (HASH_BUCKET_SIZE * hashNumBuckets);	//go to next hash element
 		if ((offset % HASH_BUCKET_SIZE) == 0) continue;										//cannot insert into a last bucket element (would conflict with other linked lists)
 
-		int prevWeight = 0;
 		//InterlockedCompareExchange(hash[3*i+2], FREE_ENTRY, LOCK_ENTRY, prevWeight);		//check for a free entry
-		uint* d_hashUI = (uint*)d_hash;
-		prevWeight = prevWeight = atom_cmpxchg(&d_hashUI[3*idxLastEntryInBucket+1], (uint)FREE_ENTRY, (uint)LOCK_ENTRY);
+		int prevWeight = atom_cmpxchg(&d_hash[idxLastEntryInBucket].ptr, (uint)FREE_ENTRY, (uint)LOCK_ENTRY);
 		if (prevWeight == FREE_ENTRY) {														//if free entry found set prev->next = curr & curr->next = prev->next
 			//[allow_uav_condition]
 			//while(hash[3*idxLastEntryInBucket+2] == LOCK_ENTRY); // expects setHashEntry to set the ptr last, required because pos.z is packed into the same value -> prev->next = curr -> might corrput pos.z
@@ -334,10 +332,8 @@ inline static bool insertHashEntry(
 			struct NuiCLHashEntry lastEntryInBucket = d_hash[idxLastEntryInBucket];			//get prev (= lastEntry in Bucket)
 
 			int newOffsetPrev = (offset << 16) | (lastEntryInBucket.pos[2] & 0x0000ffff);	//prev->next = curr (maintain old z-pos)
-			int oldOffsetPrev = 0;
 			//InterlockedExchange(hash[3*idxLastEntryInBucket+1], newOffsetPrev, oldOffsetPrev);	//set prev offset atomically
-			uint* d_hashUI = (uint*)d_hash;
-			oldOffsetPrev = prevWeight = atomic_xchg(&d_hashUI[3*idxLastEntryInBucket+1], newOffsetPrev);
+			int oldOffsetPrev = prevWeight = atomic_xchg(&d_hash[idxLastEntryInBucket].ptr, newOffsetPrev);
 			entry.offset = oldOffsetPrev >> 16;													//remove prev z-pos from old offset
 
 			//setHashEntry(hash, i, entry);														//sets the current hashEntry with: curr->next = prev->next

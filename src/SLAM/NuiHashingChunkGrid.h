@@ -27,34 +27,30 @@ class NuiCLSDFBlockDesc
 {
 public:
 	NuiCLSDFBlockDesc()
-		: ptr(LOCK_ENTRY)
 	{
-		pos[0] = pos[1] = pos[2] = 0;
+		m_entry.ptr = LOCK_ENTRY;
+		m_entry.pos[0] = m_entry.pos[1] = m_entry.pos[2] = 0;
 	}
 
 	NuiCLSDFBlockDesc(const NuiCLHashEntry& hashEntry) {
-		pos[0] = hashEntry.pos[0];
-		pos[1] = hashEntry.pos[1];
-		pos[2] = hashEntry.pos[2];
-		ptr = hashEntry.ptr;
+		m_entry = hashEntry;
 	}
 
 	bool operator<(const NuiCLSDFBlockDesc& other) const	{
-		if(pos[0] == other.pos[0]) {
-			if (pos[1] == other.pos[1]) {
-				return pos[2] < other.pos[2];
+		if(m_entry.pos[0] == other.m_entry.pos[0]) {
+			if (m_entry.pos[1] == other.m_entry.pos[1]) {
+				return m_entry.pos[2] < other.m_entry.pos[2];
 			}
-			return pos[1] < other.pos[1];
+			return m_entry.pos[1] < other.m_entry.pos[1];
 		}
-		return pos[0] < other.pos[0];
+		return m_entry.pos[0] < other.m_entry.pos[0];
 	}
 
 	bool operator==(const NuiCLSDFBlockDesc& other) const {
-		return pos[0] == other.pos[0] && pos[1] == other.pos[1] && pos[2] == other.pos[2];
+		return m_entry.pos[0] == other.m_entry.pos[0] && m_entry.pos[1] == other.m_entry.pos[1] && m_entry.pos[2] == other.m_entry.pos[2];
 	}
 
-	int			pos[3];
-	int			ptr;
+	NuiCLHashEntry m_entry;
 };
 
 template<>
@@ -65,7 +61,7 @@ struct std::hash<NuiCLSDFBlockDesc> : public std::unary_function<NuiCLSDFBlockDe
 		const size_t p0 = 73856093;
 		const size_t p1 = 19349669;
 		const size_t p2 = 83492791;
-		const size_t res = ((size_t)other.pos[0] * p0)^((size_t)other.pos[1] * p1)^((size_t)other.pos[2] * p2);
+		const size_t res = ((size_t)other.m_entry.pos[0] * p0)^((size_t)other.m_entry.pos[1] * p1)^((size_t)other.m_entry.pos[2] * p2);
 		return res;
 	}
 };
@@ -130,6 +126,7 @@ public:
 	NuiHashingChunkGrid(NuiHashingSDF* pSDF, const SgVec3i& gridDimensions, const SgVec3i& minGridPos, const SgVec3f& voxelExtends, UINT initialChunkListSize);
 	~NuiHashingChunkGrid();
 
+	void reset();
 	// Stream Out
 	void streamOutToCPUAll(UINT nStreamOutParts);
 	UINT streamOutToCPU(UINT nStreamOutParts, const SgVec3f& posCamera, float radius, bool useParts);
@@ -149,6 +146,8 @@ public:
 	void streamInToGPUPass1GPU(UINT nStreamedBlocks);
 
 	unsigned int integrateInHash(const SgVec3f& posCamera, float radius, bool useParts);
+
+	cl_mem	getBitMaskCL() const { return m_bitMaskCL; }
 
 protected:
 	void	AcquireBuffers();
