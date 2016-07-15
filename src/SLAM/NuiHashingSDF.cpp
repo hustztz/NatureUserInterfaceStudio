@@ -7,8 +7,6 @@
 
 #include "Kernels/hashing_gpu_def.h"
 
-#define HASH_BUCKET_SIZE 10
-
 NuiHashingSDF::NuiHashingSDF()
 	: m_numIntegratedFrames(0)
 	, m_bGarbageCollectionEnabled(true)
@@ -69,15 +67,15 @@ void NuiHashingSDF::AcquireBuffers()
 	NUI_CHECK_CL_ERR(err);
 	m_hashCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * HASH_BUCKET_SIZE * sizeof(NuiCLHashEntry), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_hashDecisionCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * HASH_BUCKET_SIZE * sizeof(cl_char), NULL, &err);
+	m_hashDecisionCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * HASH_BUCKET_SIZE * sizeof(cl_uint), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_hashDecisionPrefixCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * HASH_BUCKET_SIZE * sizeof(cl_int), NULL, &err);
+	m_hashDecisionPrefixCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * HASH_BUCKET_SIZE * sizeof(cl_uint), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_hashCompactified = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * HASH_BUCKET_SIZE * sizeof(NuiCLHashEntry), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_SDFBlocksCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_numSDFBlocks * SDF_BLOCK_SIZE*SDF_BLOCK_SIZE*SDF_BLOCK_SIZE*sizeof(NuiCLVoxel), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_hashBucketMutexCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * sizeof(cl_char), NULL, &err);
+	m_hashBucketMutexCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_params.m_hashNumBuckets * sizeof(cl_uchar), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 }
 
@@ -312,81 +310,6 @@ void NuiHashingSDF::alloc(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_me
 	NUI_CHECK_CL_ERR(err);
 }
 
-UINT NuiHashingSDF::prefixSum()
-{
-	const UINT scanSize = 512;	// about 130 mio, keep consistent with GPU
-
-	UINT bucketSize = scanSize;
-	UINT bucketBlockSize = scanSize;
-	UINT numBuckets = scanSize * scanSize;
-	UINT numBucketBlocks = scanSize;
-
-	// Get the kernel
-	cl_kernel allocKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_ALLOC_SDF);
-	assert(allocKernel);
-	if (!allocKernel)
-	{
-		NUI_ERROR("Get kernel 'E_HASHING_ALLOC' failed!\n");
-		return 0;
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	// Set kernel arguments
-	cl_uint idx = 0;
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &floatDepthsCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &transformCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &m_hashCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &m_heapCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &m_heapCountCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &m_hashBucketMutexCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &bitMaskCL);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float), &m_params.m_maxIntegrationDistance);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float), &m_params.m_truncation);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float), &m_params.m_truncScale);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float), &m_params.m_virtualVoxelSize);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float3), &m_params.m_streamingVoxelExtents);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_int3), &m_params.m_streamingMinGridPos);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_int3), &m_params.m_streamingGridDimensions);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_uint), &m_params.m_hashNumBuckets);
-	//NUI_CHECK_CL_ERR(err);
-	//err = clSetKernelArg(allocKernel, idx++, sizeof(cl_uint), &m_params.m_hashMaxCollisionLinkedListSize);
-	//NUI_CHECK_CL_ERR(err);
-
-	//// Run kernel to calculate 
-	//size_t kernelGlobalSize[2] = { nWidth, nHeight };
-	//err = clEnqueueNDRangeKernel(
-	//	queue,
-	//	allocKernel,
-	//	2,
-	//	nullptr,
-	//	kernelGlobalSize,
-	//	nullptr,
-	//	0,
-	//	NULL,
-	//	NULL
-	//	);
-	//NUI_CHECK_CL_ERR(err);
-}
-
 UINT NuiHashingSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transformCL)
 {
 	// Get the kernel
@@ -438,7 +361,8 @@ UINT NuiHashingSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transfor
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	UINT numOccupiedBlocks = prefixSum();
+	//make sure numOccupiedBlocks is updated on the GPU
+	UINT numOccupiedBlocks = m_scan.prefixSum(HASH_BUCKET_SIZE * m_params.m_hashNumBuckets, m_hashDecisionCL, m_hashDecisionPrefixCL);
 
 	// Set kernel arguments
 	idx = 0;

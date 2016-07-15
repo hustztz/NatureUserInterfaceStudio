@@ -6,18 +6,11 @@
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 
-NuiHashingChunkGrid::NuiHashingChunkGrid(NuiHashingSDF* pSDF, const SgVec3i& gridDimensions, const SgVec3i& minGridPos, const SgVec3f& voxelExtends, UINT initialChunkListSize)
+NuiHashingChunkGrid::NuiHashingChunkGrid(NuiHashingSDF* pSDF)
 	: m_pHashingSDF(pSDF)
 	, m_currentPart(0)
 	, m_maxNumberOfSDFBlocksIntegrateFromGlobalHash(100000)
-	, m_initialChunkDescListSize(initialChunkListSize)
 {
-	m_voxelExtends = voxelExtends;
-	m_gridDimensions = gridDimensions;
-
-	m_minGridPos = minGridPos;
-	m_maxGridPos = -m_minGridPos;
-
 	AcquireBuffers();
 }
 
@@ -96,9 +89,9 @@ void NuiHashingChunkGrid::reset()
 
 SgVec3i NuiHashingChunkGrid::worldToChunks(const SgVec3f& posWorld) const {
 	SgVec3f p;
-	p[0] = posWorld[0] / m_voxelExtends[0];
-	p[1] = posWorld[1] / m_voxelExtends[1];
-	p[2] = posWorld[2] / m_voxelExtends[2];
+	p[0] = posWorld[0] / m_config.m_voxelExtends[0];
+	p[1] = posWorld[1] / m_config.m_voxelExtends[1];
+	p[2] = posWorld[2] / m_config.m_voxelExtends[2];
 
 	SgVec3f s;
 	s[0] = (float)sign(p[0]);
@@ -116,7 +109,7 @@ void NuiHashingChunkGrid::streamOutToCPUAll(UINT nStreamOutParts)
 		for (unsigned int i = 0; i < nStreamOutParts; i++) {
 			unsigned int nStreamedBlocks = streamOutToCPU(
 				nStreamOutParts,
-				worldToChunks((m_minGridPos-SgVec3i(1, 1, 1))),
+				worldToChunks((m_config.m_minGridPos-SgVec3i(1, 1, 1))),
 				0.0f,
 				true);
 			nStreamedBlocksSum += nStreamedBlocks;
@@ -334,17 +327,17 @@ UINT NuiHashingChunkGrid::streamOutToCPUPass0GPU(UINT nStreamOutParts, const SgV
 }
 
 bool NuiHashingChunkGrid::isValidChunk(const SgVec3i& chunk) const	{
-	if(chunk[0] < m_minGridPos[0] || chunk[1] < m_minGridPos[1] || chunk[2] < m_minGridPos[2]) return false;
-	if(chunk[0] > m_maxGridPos[0] || chunk[1] > m_maxGridPos[1] || chunk[2] > m_maxGridPos[2]) return false;
+	if(chunk[0] < m_config.m_minGridPos[0] || chunk[1] < m_config.m_minGridPos[1] || chunk[2] < m_config.m_minGridPos[2]) return false;
+	if(chunk[0] > m_config.m_maxGridPos[0] || chunk[1] > m_config.m_maxGridPos[1] || chunk[2] > m_config.m_maxGridPos[2]) return false;
 
 	return true;
 }
 
 UINT NuiHashingChunkGrid::linearizeChunkPos(const SgVec3i& chunkPos) const {
-	SgVec3ui p = chunkPos-m_minGridPos;
+	SgVec3ui p = chunkPos-m_config.m_minGridPos;
 
-	return  p[2] * m_gridDimensions[0] * m_gridDimensions[1] +
-		p[1] * m_gridDimensions[0] +
+	return  p[2] * m_config.m_gridDimensions[0] * m_config.m_gridDimensions[1] +
+		p[1] * m_config.m_gridDimensions[0] +
 		p[0];
 }
 
@@ -371,7 +364,7 @@ void NuiHashingChunkGrid::streamOutToCPUPass1CPU(UINT nStreamedBlocks)
 
 		if (m_grid[index] == NULL) // Allocate memory for chunk
 		{
-			m_grid[index] = new NuiChunkDesc(m_initialChunkDescListSize);
+			m_grid[index] = new NuiChunkDesc(m_config.m_initialChunkDescListSize);
 		}
 
 		// Add element
@@ -383,17 +376,17 @@ void NuiHashingChunkGrid::streamOutToCPUPass1CPU(UINT nStreamedBlocks)
 SgVec3f NuiHashingChunkGrid::chunkToWorld(const SgVec3i& posChunk) const
 {
 	SgVec3f res;
-	res[0] = posChunk[0]*m_voxelExtends[0];
-	res[1] = posChunk[1]*m_voxelExtends[1];
-	res[2] = posChunk[2]*m_voxelExtends[2];
+	res[0] = posChunk[0]*m_config.m_voxelExtends[0];
+	res[1] = posChunk[1]*m_config.m_voxelExtends[1];
+	res[2] = posChunk[2]*m_config.m_voxelExtends[2];
 
 	return res;
 }
 
 float NuiHashingChunkGrid::getGridRadiusInMeter() const
 {
-	SgVec3f minPos = chunkToWorld(m_minGridPos)-m_voxelExtends/2.0f;
-	SgVec3f maxPos = chunkToWorld(m_maxGridPos)+m_voxelExtends/2.0f;
+	SgVec3f minPos = chunkToWorld(m_config.m_minGridPos)-m_config.m_voxelExtends/2.0f;
+	SgVec3f maxPos = chunkToWorld(m_config.m_maxGridPos)+m_config.m_voxelExtends/2.0f;
 
 	return (minPos-maxPos).length()/2.0f;
 }
@@ -429,8 +422,8 @@ void NuiHashingChunkGrid::streamInToGPUChunk(const SgVec3i& chunkPos )
 
 void NuiHashingChunkGrid::streamInToGPUChunkNeighborhood(const SgVec3i& chunkPos, int kernelRadius )
 {
-	SgVec3i startChunk = SgVec3i(std::max(chunkPos[0]-kernelRadius, m_minGridPos[0]), std::max(chunkPos[1]-kernelRadius, m_minGridPos[1]), std::max(chunkPos[2]-kernelRadius, m_minGridPos[2]));
-	SgVec3i endChunk = SgVec3i(std::min(chunkPos[0]+kernelRadius, m_maxGridPos[0]), std::min(chunkPos[1]+kernelRadius, m_maxGridPos[1]), std::min(chunkPos[2]+kernelRadius, m_maxGridPos[2]));
+	SgVec3i startChunk = SgVec3i(std::max(chunkPos[0]-kernelRadius, m_config.m_minGridPos[0]), std::max(chunkPos[1]-kernelRadius, m_config.m_minGridPos[1]), std::max(chunkPos[2]-kernelRadius, m_config.m_minGridPos[2]));
+	SgVec3i endChunk = SgVec3i(std::min(chunkPos[0]+kernelRadius, m_config.m_maxGridPos[0]), std::min(chunkPos[1]+kernelRadius, m_config.m_maxGridPos[1]), std::min(chunkPos[2]+kernelRadius, m_config.m_maxGridPos[2]));
 
 	for (int x = startChunk[0]; x<endChunk[0]; x++) {
 		for (int y = startChunk[1]; y<endChunk[1]; y++) {
@@ -451,20 +444,20 @@ UINT NuiHashingChunkGrid::streamInToGPU(const SgVec3f& posCamera, float radius, 
 }
 
 SgVec3i	NuiHashingChunkGrid::meterToNumberOfChunksCeil(float f) const {
-	return SgVec3i((int)ceil(f/m_voxelExtends[0]), (int)ceil(f/m_voxelExtends[1]), (int)ceil(f/m_voxelExtends[2]));
+	return SgVec3i((int)ceil(f/m_config.m_voxelExtends[0]), (int)ceil(f/m_config.m_voxelExtends[1]), (int)ceil(f/m_config.m_voxelExtends[2]));
 }
 
 SgVec3i NuiHashingChunkGrid::delinearizeChunkIndex(unsigned int idx)	{
-	unsigned int x = idx % m_gridDimensions[0];
-	unsigned int y = (idx % (m_gridDimensions[0] * m_gridDimensions[1])) / m_gridDimensions[0];
-	unsigned int z = idx / (m_gridDimensions[0] * m_gridDimensions[1]);
+	unsigned int x = idx % m_config.m_gridDimensions[0];
+	unsigned int y = (idx % (m_config.m_gridDimensions[0] * m_config.m_gridDimensions[1])) / m_config.m_gridDimensions[0];
+	unsigned int z = idx / (m_config.m_gridDimensions[0] * m_config.m_gridDimensions[1]);
 
-	return m_minGridPos+SgVec3i(x,y,z);
+	return m_config.m_minGridPos+SgVec3i(x,y,z);
 }
 
 bool NuiHashingChunkGrid::isChunkInSphere(const SgVec3i& chunk, const SgVec3f& center, float radius) const {
 	SgVec3f posWorld = chunkToWorld(chunk);
-	SgVec3f offset = m_voxelExtends/2.0f;
+	SgVec3f offset = m_config.m_voxelExtends/2.0f;
 
 	for (int x = -1; x<=1; x+=2)	{
 		for (int y = -1; y<=1; y+=2)	{
@@ -493,8 +486,8 @@ UINT NuiHashingChunkGrid::streamInToGPUPass0CPU( const SgVec3f& posCamera, float
 
 	SgVec3i camChunk = worldToChunks(posCamera);
 	SgVec3i chunkRadius = meterToNumberOfChunksCeil(radius);
-	SgVec3i startChunk = SgVec3i(std::max(camChunk[0]-chunkRadius[0], m_minGridPos[0]), std::max(camChunk[1]-chunkRadius[1], m_minGridPos[1]), std::max(camChunk[2]-chunkRadius[2], m_minGridPos[2]));
-	SgVec3i endChunk = SgVec3i(std::min(camChunk[0]+chunkRadius[0], m_maxGridPos[0]), std::min(camChunk[1]+chunkRadius[1], m_maxGridPos[1]), std::min(camChunk[2]+chunkRadius[2], m_maxGridPos[2]));
+	SgVec3i startChunk = SgVec3i(std::max(camChunk[0]-chunkRadius[0], m_config.m_minGridPos[0]), std::max(camChunk[1]-chunkRadius[1], m_config.m_minGridPos[1]), std::max(camChunk[2]-chunkRadius[2], m_config.m_minGridPos[2]));
+	SgVec3i endChunk = SgVec3i(std::min(camChunk[0]+chunkRadius[0], m_config.m_maxGridPos[0]), std::min(camChunk[1]+chunkRadius[1], m_config.m_maxGridPos[1]), std::min(camChunk[2]+chunkRadius[2], m_config.m_maxGridPos[2]));
 
 	unsigned int nSDFBlocks = 0;
 	for (int x = startChunk[0]; x <= endChunk[0]; x++) {

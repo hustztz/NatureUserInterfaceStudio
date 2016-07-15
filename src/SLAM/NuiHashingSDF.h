@@ -1,10 +1,9 @@
 #pragma once
 
 #include "stdafx.h"
-#include "OpenCLUtilities/NuiOpenCLUtil.h"
+#include "NuiPrefixSum.h"
 
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 
 typedef Eigen::Matrix<float, 4, 4, Eigen::RowMajor> Matrix4frm;
 
@@ -58,7 +57,6 @@ protected:
 	void	ResetHashBuffer();
 
 	void	alloc(UINT nWidth, UINT nHeight, cl_mem floatDepthsCL, cl_mem cameraParamsCL, cl_mem transformCL, cl_mem bitMaskCL);
-	UINT	prefixSum();
 	UINT	compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transformCL);
 	void	integrateDepthMap(UINT numOccupiedBlocks, cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL, cl_mem transformCL);
 	void	garbageCollect(bool bGarbageCollectionStarve, UINT numOccupiedBlocks, cl_mem cameraParamsCL);
@@ -73,6 +71,7 @@ private:
 	cl_mem		m_SDFBlocksCL;
 	cl_mem		m_hashBucketMutexCL;
 
+	NuiPrefixSum	m_scan;
 	NuiHashParams	m_params;
 	bool			m_bGarbageCollectionEnabled;
 	UINT			m_garbageCollectionStarve;

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Kernels/hashing_gpu_def.h"
-#include "Foundation/SgVec3T.h"
+#include "NuiHashingChunkGridConfig.h"
 #include "Foundation/NuiBitArray.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
@@ -123,10 +123,11 @@ private:
 class NuiHashingChunkGrid
 {
 public:
-	NuiHashingChunkGrid(NuiHashingSDF* pSDF, const SgVec3i& gridDimensions, const SgVec3i& minGridPos, const SgVec3f& voxelExtends, UINT initialChunkListSize);
+	NuiHashingChunkGrid(NuiHashingSDF* pSDF);
 	~NuiHashingChunkGrid();
 
 	void reset();
+	void updateConfig(const NuiHashingChunkGridConfig& config) { m_config = config; }
 	// Stream Out
 	void streamOutToCPUAll(UINT nStreamOutParts);
 	UINT streamOutToCPU(UINT nStreamOutParts, const SgVec3f& posCamera, float radius, bool useParts);
@@ -158,7 +159,7 @@ protected:
 	UINT	linearizeChunkPos(const SgVec3i& chunkPos) const;
 	float	getGridRadiusInMeter() const;
 	float	getChunkRadiusInMeter() const {
-		return m_voxelExtends.length()/2.0f;
+		return m_config.m_voxelExtends.length()/2.0f;
 	}
 	SgVec3i	meterToNumberOfChunksCeil(float f) const;
 	SgVec3i delinearizeChunkIndex(unsigned int idx);
@@ -180,14 +181,7 @@ private:
 	std::vector<NuiChunkDesc*>	m_grid; // Grid data
 	NuiBitArray<UINT>			m_bitMask;
 
-	SgVec3f						m_voxelExtends;		// extend of the voxels in meters
-	SgVec3i						m_gridDimensions;	    // number of voxels in each dimension
-
-	SgVec3i						m_minGridPos;
-	SgVec3i						m_maxGridPos;
-
-	UINT						m_initialChunkDescListSize;	 // initial size for vectors in the ChunkDesc
-
+	NuiHashingChunkGridConfig	m_config;
 	UINT						m_maxNumberOfSDFBlocksIntegrateFromGlobalHash;
 	UINT						m_currentPart;
 };

@@ -67,10 +67,4 @@ private:
 	float					m_thresDist;
 	float					m_minDepth;
 	float					m_maxDepth;
-
-	// ChunkGrid Params
-	SgVec3i					m_gridDimensions;
-	SgVec3i					m_minGridPos;
-	SgVec3f					m_voxelExtends;
-	UINT					m_initialChunkListSize;
 };

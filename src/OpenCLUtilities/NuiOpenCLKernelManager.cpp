@@ -67,6 +67,7 @@ static const char * const KernelNames[] =
 	"integrateFromGlobalHashPass2Kernel",		  "hashingChunkGrid.cl",
 	"chunkToGlobalHashPass1Kernel",				  "hashingChunkGrid.cl",
 	"chunkToGlobalHashPass2Kernel",				  "hashingChunkGrid.cl",
+	"scanExclusiveLocal1",						  "prefixSum.cl",
 };
 
 NuiOpenCLKernelManager::NuiOpenCLKernelManager()

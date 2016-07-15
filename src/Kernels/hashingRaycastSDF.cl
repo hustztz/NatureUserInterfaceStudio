@@ -279,9 +279,9 @@ __kernel void renderKernel(
 
 inline static bool isSDFBlockInCameraFrustumApprox(
 			int3			sdfBlock,
-			float			virtualVoxelSize,
 			__constant struct NuiCLCameraParams* cameraParams,
-			__global struct NuiCLRigidTransform* matrix)
+			__global struct NuiCLRigidTransform* matrix,
+			float			virtualVoxelSize)
 {
 	float3 posWorld = SDFBlockToWorld(sdfBlock, virtualVoxelSize) + virtualVoxelSize * 0.5f * (SDF_BLOCK_SIZE - 1.0f);
 	float3 pCamera = transformInverse( posWorld, matrix );
@@ -313,7 +313,7 @@ __kernel void rayIntervalSplatKernel(
 	block.x = entry.pos[0];
 	block.y = entry.pos[1];
 	block.z = entry.pos[2];
-	if (!isSDFBlockInCameraFrustumApprox(block, virtualVoxelSize, cameraParams, matrix))
+	if (!isSDFBlockInCameraFrustumApprox(block, cameraParams, matrix, virtualVoxelSize))
 		return;
 
 	float3 worldCurrentVoxel = SDFBlockToWorld(block, virtualVoxelSize);

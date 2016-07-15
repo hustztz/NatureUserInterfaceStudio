@@ -11,7 +11,7 @@
 NuiHashingVolume::NuiHashingVolume()
 	: m_integration_metric_threshold(0.15f)
 {
-	m_pChunkGrid = new NuiHashingChunkGrid(&m_sdfData, m_gridDimensions, m_minGridPos, m_voxelExtends, m_initialChunkListSize);
+	m_pChunkGrid = new NuiHashingChunkGrid(&m_sdfData);
 	reset();
 }
 

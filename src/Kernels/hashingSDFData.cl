@@ -1,10 +1,11 @@
 #include "hashingSDFUtils.cl"
+#include "utils.cl"
 
 inline static bool isSDFBlockInCameraFrustumApprox(
 			int3			sdfBlock,
-			float			virtualVoxelSize,
 			__constant struct NuiCLCameraParams* cameraParams,
-			__global struct NuiCLRigidTransform* matrix)
+			__global struct NuiCLRigidTransform* matrix,
+			float			virtualVoxelSize)
 {
 	float3 posWorld = SDFBlockToWorld(sdfBlock, virtualVoxelSize) + virtualVoxelSize * 0.5f * (SDF_BLOCK_SIZE - 1.0f);
 	float3 pCamera = transformInverse( posWorld, matrix );
@@ -112,7 +113,7 @@ __kernel void alloc_SDFs_kernel(
 	while(iter < g_MaxLoopIterCount)
 	{
 		//check if it's in the frustum and not checked out
-		if (isSDFBlockInCameraFrustumApprox(idCurrentVoxel, virtualVoxelSize, cameraParams, matrix) &&
+		if (isSDFBlockInCameraFrustumApprox(idCurrentVoxel, cameraParams, matrix, virtualVoxelSize) &&
 			!isSDFBlockStreamedOut(idCurrentVoxel, virtualVoxelSize, streamingVoxelExtents, minGridPos, gridDimensions, d_bitMask))
 		{		
 			allocBlock(idCurrentVoxel, d_hash, d_heap, d_heapCounter, d_hashBucketMutex, hashNumBuckets, hashMaxCollisionLinkedListSize);
@@ -142,7 +143,7 @@ __kernel void alloc_SDFs_kernel(
 __kernel void fillDecisionArrayKernel(
 	__constant struct NuiCLCameraParams* cameraParams,
 	__global struct NuiCLRigidTransform* matrix,
-	__global char*	d_hashDecision,
+	__global uint*	d_hashDecision,
 	__global struct NuiCLHashEntry*	d_hash,
 	const float		virtualVoxelSize
 	)
@@ -153,7 +154,7 @@ __kernel void fillDecisionArrayKernel(
 	if( d_hash[gidx].ptr != FREE_ENTRY )
 	{
 		int3 pos = (int3)(d_hash[gidx].pos[0], d_hash[gidx].pos[1], d_hash[gidx].pos[2]);
-		if( isSDFBlockInCameraFrustumApprox(pos, virtualVoxelSize, cameraParams, matrix) )
+		if( isSDFBlockInCameraFrustumApprox(pos, cameraParams, matrix, virtualVoxelSize) )
 		{
 			d_hashDecision[gidx] = 1;	//yes
 		}
@@ -161,8 +162,8 @@ __kernel void fillDecisionArrayKernel(
 }
 
 __kernel void compactifyHashKernel(
-	__global char*	d_hashDecision,
-	__global int*	d_hashDecisionPrefix,
+	__global uint*	d_hashDecision,
+	__global uint*	d_hashDecisionPrefix,
 	__global struct NuiCLHashEntry*	d_hash,
 	__global struct NuiCLHashEntry*	d_hashCompactified
 	)
