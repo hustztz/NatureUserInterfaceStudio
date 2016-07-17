@@ -15,7 +15,7 @@ inline static uint computeHashPos(int3 virtualVoxelPos, const uint hashNumBucket
 inline static uint consumeHeap( __global uint*	d_heap,
 								__global uint*	d_heapCounter)
 {
-	uint addr = atomic_sub(&d_heapCounter[0], 1);
+	uint addr = atomic_dec(&d_heapCounter[0]);
 	//TODO MATTHIAS check some error handling?
 	return vload(addr, d_heap);
 }
@@ -24,7 +24,7 @@ inline static void appendHeap(uint ptr,
 							  __global uint*	d_heap,
 							  __global uint*	d_heapCounter)
 {
-	uint addr = atomic_add(&(d_heapCounter[0]), 1);
+	uint addr = atomic_inc(&(d_heapCounter[0]));
 	//TODO MATTHIAS check some error handling?
 	d_heap[addr+1] = ptr;
 }
@@ -103,7 +103,7 @@ inline static struct NuiCLHashEntry getHashEntryForSDFBlockPos(
 		}
 	}
 
-#ifdef HANDLE_COLLISIONS
+#ifdef _HANDLE_COLLISIONS
 	const uint idxLastEntryInBucket = (h+1)*HASH_BUCKET_SIZE - 1;
 	int i = idxLastEntryInBucket;	//start with the last entry of the current bucket
 	struct NuiCLHashEntry curr;

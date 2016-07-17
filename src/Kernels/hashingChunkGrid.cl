@@ -42,28 +42,27 @@ __kernel void integrateFromGlobalHashPass1Kernel(
 		if (entry.ptr != FREE_ENTRY && d > radius) {
 		
 			// Write
-
 #ifndef _HANDLE_COLLISIONS
-				uint addr = atomic_add(&d_SDFBlockCounter[0], 1);
+			uint addr = atomic_inc(&d_SDFBlockCounter[0]);
+			d_SDFBlockDescOutput[addr] = entry;
+			appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
+			deleteHashEntry(bucketID, d_hash);
+#endif
+#ifdef _HANDLE_COLLISIONS
+			//if there is an offset or hash doesn't belong to the bucket (linked list)
+			if (entry.offset != 0 || computeHashPos(sdfBlock, hashNumBuckets) != bucketID / HASH_BUCKET_SIZE) {
+					
+				if (deleteHashEntryElement(sdfBlock, d_hash, d_heap, d_heapCounter, d_hashBucketMutex, hashNumBuckets, hashMaxCollisionLinkedListSize)) {
+					appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
+					uint addr = atomic_inc(&d_SDFBlockCounter[0]);
+					d_SDFBlockDescOutput[addr] = entry;
+				}
+			} else {
+				uint addr = atomic_inc(&d_SDFBlockCounter[0]);
 				d_SDFBlockDescOutput[addr] = entry;
 				appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
 				deleteHashEntry(bucketID, d_hash);
-#endif
-#ifdef _HANDLE_COLLISIONS
-				//if there is an offset or hash doesn't belong to the bucket (linked list)
-				if (entry.offset != 0 || computeHashPos(sdfBlock, hashNumBuckets) != bucketID / HASH_BUCKET_SIZE) {
-					
-					if (deleteHashEntryElement(sdfBlock, d_hash, d_heap, d_heapCounter, d_hashBucketMutex, hashNumBuckets, hashMaxCollisionLinkedListSize)) {
-						appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
-						uint addr = atomicAdd(&d_SDFBlockCounter[0], 1);
-						d_SDFBlockDescOutput[addr] = entry;
-					}
-				} else {
-					uint addr = atomicAdd(&d_SDFBlockCounter[0], 1);
-					d_SDFBlockDescOutput[addr] = entry;
-					appendHeap(entry.ptr/linBlockSize, d_heap, d_heapCounter);
-					deleteHashEntry(bucketID, d_hash);
-				}
+			}
 #endif
 		}
 	}
@@ -87,12 +86,13 @@ __kernel void integrateFromGlobalHashPass2Kernel(
 		const uint linBlockSize = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE;
 		const uint idxInBlock = get_local_id(0);
 		struct NuiCLHashEntry desc = d_SDFBlockDescOutput[idxBlock];
+		const uint idxSrc = desc.ptr + idxInBlock;
 
 		// Copy SDF block to CPU
-		d_SDFBlockOutput[idxBlock*linBlockSize + idxInBlock] = d_SDFBlocks[desc.ptr + idxInBlock];
+		d_SDFBlockOutput[idxBlock*linBlockSize + idxInBlock] = d_SDFBlocks[idxSrc];
 
 		//// Reset SDF Block
-		deleteSDFVoxel(desc.ptr + idxInBlock, d_SDFBlocks);
+		deleteSDFVoxel(idxSrc, d_SDFBlocks);
 	}
 }
 
