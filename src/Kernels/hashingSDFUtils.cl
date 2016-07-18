@@ -164,7 +164,7 @@ inline static void allocBlock(int3			pos,
 
 	int firstEmpty = -1;
 	for (uint j = 0; j < HASH_BUCKET_SIZE; j++) {
-		uint i = j + hp;		
+		uint i = hp + j;		
 		struct NuiCLHashEntry curr = d_hash[i];
 
 		//in that case the SDF-block is already allocated and corresponds to the current position -> exit thread

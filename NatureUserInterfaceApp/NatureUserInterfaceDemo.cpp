@@ -5,8 +5,6 @@
 
 #include "GUI/NuiGuiController.h"
 
-#include "NuiTestUtilities.h"
-
 int _tmain(int argc, _TCHAR* argv[])
 {
 	bool bIsDrawDepth = false;
@@ -28,8 +26,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	NuiGuiController mainController;
 	mainController.launch();
 
-	NuiTestUtilities::testPrefixSum();
-	
 	return 0;
 }
 

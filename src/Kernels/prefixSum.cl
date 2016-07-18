@@ -1,6 +1,7 @@
+//#include "prefix_sum_def.h"
 
 //Must be a power of two
-#define WORKGROUP_SIZE 256
+#define WORKGROUP_SIZE 512
 #define LOG2_WARP_SIZE 5U
 #define WARP_SIZE (1U << LOG2_WARP_SIZE)
 

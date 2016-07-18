@@ -7,8 +7,8 @@
 
 //All three kernels run 512 threads per workgroup
 //Must be a power of two
-#define		WORKGROUP_SIZE		256
-#define		MAX_BATCH_ELEMENTS	64 * 1048576
+#define		WORKGROUP_SIZE		512
+#define		MAX_BATCH_ELEMENTS	4*WORKGROUP_SIZE*WORKGROUP_SIZE
 
 NuiPrefixSum::NuiPrefixSum()
 {
@@ -43,6 +43,7 @@ void NuiPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input,
 		return;
 	}
 
+	const unsigned int cArrayLength = WORKGROUP_SIZE * 4;
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
@@ -55,7 +56,7 @@ void NuiPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input,
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(scanKernel, idx++, 2 * WORKGROUP_SIZE * sizeof(cl_uint), NULL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_uint), &numElements);
+	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_uint), &cArrayLength);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate 
@@ -163,8 +164,7 @@ void NuiPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output)
 	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &d_output);
 	NUI_CHECK_CL_ERR(err);
 
-	// Run kernel to calculate 
-	// iSnapUp
+	// Run kernel to calculate
 	size_t kernelGlobalSize[1] = { numElements * WORKGROUP_SIZE };
 	size_t local_ws[1] = { WORKGROUP_SIZE };
 	err = clEnqueueNDRangeKernel(
@@ -181,17 +181,37 @@ void NuiPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output)
 	NUI_CHECK_CL_ERR(err);
 }
 
+unsigned int iFactorRadix2Up(unsigned int num)
+{
+	unsigned int L = num;
+	unsigned int log2L = 0;
+	for(; L > 1; L >>= 1)
+	{
+		log2L ++;
+	}
+	if(L == 0)
+	{
+		return num;
+	}
+	L = 1;
+	for (unsigned int i = 0; i <= log2L; i ++)
+	{
+		L <<= 1;
+	}
+	return L;
+}
+
 unsigned int NuiPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output)
 {
-	//assert(numElements >= WORKGROUP_SIZE * 4);
-	if(numElements < WORKGROUP_SIZE * 4)
+	const unsigned int cArrayLength = WORKGROUP_SIZE * 4;
+	numElements = iFactorRadix2Up(numElements);
+
+	//assert(numElements >= arrayLength && numElements <= MAX_BATCH_ELEMENTS);
+	if(numElements < cArrayLength || numElements > MAX_BATCH_ELEMENTS)
 		return 0;
 
-	numElements = iSnapUp(numElements, 4 * WORKGROUP_SIZE);
-
 	scanExclusiveLocal1(numElements, d_input, d_output);
-	const unsigned int arrayLength = WORKGROUP_SIZE * 4;
-	unsigned int batchSize = numElements / arrayLength;
+	unsigned int batchSize = numElements / cArrayLength;
 	scanExclusiveLocal2(batchSize, d_input, d_output);
 	uniformUpdate(batchSize, d_output);
 

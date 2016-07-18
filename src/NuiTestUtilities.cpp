@@ -16,7 +16,7 @@ namespace NuiTestUtilities
 		cl_context       context = NuiOpenCLGlobal::instance().clContext();
 		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-		static const UINT cInputSize = 64*4*64;
+		static const UINT cInputSize = 512*16*10;
 		UINT input[cInputSize];
 		for(UINT i = 0; i < cInputSize; i++)
 			input[i] = 1; //rand();
