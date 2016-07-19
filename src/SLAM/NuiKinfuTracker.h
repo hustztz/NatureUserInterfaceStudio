@@ -45,7 +45,7 @@ public:
         * \param[in] time Index of frame for which camera pose is returned.
         * \return camera pose
         */
-    const NuiCameraPos&  getCameraPose (int time = -1) const;
+    const NuiCameraPos&		getCameraPose (int time = -1) const;
 	float					getIcpError() const;
 	float					getIcpCount() const;
 

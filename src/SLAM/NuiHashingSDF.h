@@ -3,10 +3,6 @@
 #include "stdafx.h"
 #include "NuiPrefixSum.h"
 
-#include <Eigen/Core>
-
-typedef Eigen::Matrix<float, 4, 4, Eigen::RowMajor> Matrix4frm;
-
 struct NuiHashParams {
 	NuiHashParams() {
 	}

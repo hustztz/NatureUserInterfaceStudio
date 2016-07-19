@@ -5,6 +5,8 @@
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 
+#include <assert.h>
+
 //All three kernels run 512 threads per workgroup
 //Must be a power of two
 #define		WORKGROUP_SIZE		512
@@ -36,7 +38,7 @@ void NuiPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input,
 {
 	// Get the kernel
 	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE1);
-	//assert(scanKernel);
+	assert(scanKernel);
 	if (!scanKernel)
 	{
 		NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE1' failed!\n");
@@ -80,7 +82,7 @@ void NuiPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input,
 {
 	// Get the kernel
 	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE2);
-	//assert(scanKernel);
+	assert(scanKernel);
 	if (!scanKernel)
 	{
 		NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE2' failed!\n");
@@ -146,7 +148,7 @@ void NuiPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output)
 {
 	// Get the kernel
 	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_UNIFORM_UPDATE);
-	//assert(scanKernel);
+	assert(scanKernel);
 	if (!scanKernel)
 	{
 		NUI_ERROR("Get kernel 'E_PREFIX_SUM_UNIFORM_UPDATE' failed!\n");
@@ -206,7 +208,7 @@ unsigned int NuiPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, c
 	const unsigned int cArrayLength = WORKGROUP_SIZE * 4;
 	numElements = iFactorRadix2Up(numElements);
 
-	//assert(numElements >= arrayLength && numElements <= MAX_BATCH_ELEMENTS);
+	assert(numElements >= cArrayLength && numElements <= MAX_BATCH_ELEMENTS);
 	if(numElements < cArrayLength || numElements > MAX_BATCH_ELEMENTS)
 		return 0;
 

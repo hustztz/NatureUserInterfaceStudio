@@ -1,35 +1,30 @@
 #pragma once
 
-#include "stdafx.h"
-
+#include "NuiKinfuVolume.h"
 #include "NuiHashingSDF.h"
 
 #include "Foundation/SgVec3T.h"
-#include "OpenCLUtilities/NuiOpenCLUtil.h"
 
 // Forwards
-class NuiKinfuTransform;
 class NuiHashingChunkGrid;
 
-typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
-typedef Eigen::Vector3f Vector3f;
-
-class NuiHashingVolume
+class NuiHashingVolume : public NuiKinfuVolume
 {
 public:
 	NuiHashingVolume();
 	~NuiHashingVolume();
 
-	void	reset();
+	virtual void	reset() override;
 
-	void	incrementVolume(
+	virtual void	incrementVolume(
 		cl_mem floatDepthsCL,
 		cl_mem colorsCL,
 		cl_mem normalsCL,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
-		UINT nWidth, UINT nHeight);
-	bool	evaluateVolume(
+		UINT nWidth, UINT nHeight
+		) override;
+	virtual bool	evaluateVolume(
 		cl_mem floatDepthsCL,
 		cl_mem colorsCL,
 		cl_mem normalsCL,
@@ -37,10 +32,15 @@ public:
 		cl_mem renderNormals,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
-		UINT nWidth, UINT nHeight);
+		UINT nWidth, UINT nHeight
+		) override;
+
+	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
+	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
+	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
 protected:
-	void raycastRender(
+	void	raycastRender(
 		NuiHashingSDF* pSDF,
 		cl_mem cameraParamsCL,
 		cl_mem transformCL,
@@ -56,10 +56,8 @@ private:
 	NuiHashingSDF			m_sdfData;
 	NuiHashingChunkGrid*	m_pChunkGrid;
 
-	Matrix3frm				m_lastIntegrationRotation;
-	Vector3f				m_lastIntegrationTranslation;
-
-	float					m_integration_metric_threshold;
+	/*Matrix3frm				m_lastIntegrationRotation;
+	Vector3f				m_lastIntegrationTranslation;*/
 
 	// Raycast Params
 	float					m_rayIncrement;

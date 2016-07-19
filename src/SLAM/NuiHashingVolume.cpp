@@ -7,11 +7,14 @@
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
+#include "OpenCLUtilities/NuiGPUMemManager.h"
+
+#include "Shape/NuiCLMappableData.h"
 
 NuiHashingVolume::NuiHashingVolume()
-	: m_integration_metric_threshold(0.15f)
 {
-	m_pChunkGrid = new NuiHashingChunkGrid(&m_sdfData);
+	//m_pChunkGrid = new NuiHashingChunkGrid(&m_sdfData);
+
 	reset();
 }
 
@@ -25,8 +28,8 @@ void	NuiHashingVolume::reset()
 	m_sdfData.reset();
 	if(m_pChunkGrid)
 		m_pChunkGrid->reset();
-	m_lastIntegrationRotation.setIdentity();
-	m_lastIntegrationTranslation = Vector3f::Zero();
+
+	NuiKinfuVolume::reset();
 }
 
 void NuiHashingVolume::raycastRender(
@@ -122,6 +125,7 @@ void	NuiHashingVolume::incrementVolume(
 	m_sdfData.integrate(nWidth, nHeight, floatDepthsCL, colorsCL, cameraParamsCL, currPos.getTransformCL(), m_pChunkGrid ? m_pChunkGrid->getBitMaskCL() : NULL);
 	m_lastIntegrationRotation = currPos.getRotation();
 	m_lastIntegrationTranslation = currPos.getTranslation();
+	setDirty();
 }
 
 bool	NuiHashingVolume::evaluateVolume(
@@ -159,4 +163,210 @@ bool	NuiHashingVolume::evaluateVolume(
 		m_maxDepth,
 		nWidth, nHeight);
 	return integrate;
+}
+
+bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
+{
+	assert(pCLData);
+	if(!pCLData)
+		return false;
+
+	if(!m_dirty)
+		return false;
+
+	const NuiHashParams& hashParams = m_sdfData.getParams();
+
+	// Set bounding box
+	/*const Vector3f& voxelSizeMeters = getVoxelSize();
+	pCLData->SetBoundingBox(SgVec3f(
+		m_voxel_offset(0)*voxelSizeMeters(0)-m_config.dimensions[0]/2,
+		m_voxel_offset(1)*voxelSizeMeters(1)-m_config.dimensions[1]/2,
+		m_voxel_offset(2)*voxelSizeMeters(2)-m_config.dimensions[2]/2),
+		SgVec3f(
+		m_voxel_offset(0)*voxelSizeMeters(0)+m_config.dimensions[0]/2,
+		m_voxel_offset(1)*voxelSizeMeters(1)+m_config.dimensions[1]/2,
+		m_voxel_offset(2)*voxelSizeMeters(2)+m_config.dimensions[2]/2));*/
+
+	cl_kernel fetchKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_FETCH_VOLUME);
+	assert(fetchKernel);
+	if (!fetchKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_FETCH_VOLUME' failed!\n");
+		return false;
+	}
+
+	cl_mem hashCL = m_sdfData.getHashCL();
+	cl_mem SDFBlocksCL = m_sdfData.getSDFBlocksCL();
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	cl_int mutex = 0;
+	err = clEnqueueWriteBuffer(
+		queue,
+		m_mutexCL,
+		CL_FALSE,//blocking
+		0,
+		sizeof(cl_int),
+		&mutex,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	cl_int vertex_sum = 0;
+	err = clEnqueueWriteBuffer(
+		queue,
+		m_vertexSumCL,
+		CL_FALSE,//blocking
+		0,
+		sizeof(cl_int),
+		&vertex_sum,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &hashCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &SDFBlocksCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_float), &hashParams.m_virtualVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputVerticesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_mutexCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _GPU_PROFILER
+	cl_event timing_event;
+	cl_ulong time_start, time_end;
+#endif
+	// Run kernel to calculate 
+	size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE};
+	size_t kernelGlobalSize[1] = { hashParams.m_hashNumBuckets * HASH_BUCKET_SIZE * local_ws[0] };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		fetchKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		local_ws,
+		0,
+		NULL,
+#ifdef _GPU_PROFILER
+		&timing_event
+#else
+		NULL
+#endif
+		);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _GPU_PROFILER
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+	std::cout << "volume traversal:" << (time_end - time_start) << std::endl;
+	clReleaseEvent(timing_event);
+#endif
+
+	std::vector<SgVec3f>& positions = NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data();
+	if(positions.size() != vertex_sum)
+		positions.resize(vertex_sum);
+
+	clEnqueueReadBuffer(
+		queue,
+		m_volumeOutputVerticesCL,
+		CL_FALSE,//blocking
+		0,
+		vertex_sum * 3 * sizeof(float),
+		positions.data(),
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	std::vector<SgVec4f>& colors = NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data();
+	if(colors.size() != vertex_sum)
+		colors.resize(vertex_sum);
+
+	clEnqueueReadBuffer(
+		queue,
+		m_volumeOutputColorsCL,
+		CL_FALSE,//blocking
+		0,
+		vertex_sum * 4 * sizeof(float),
+		colors.data(),
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	//Push the cached point cloud
+	m_cachedPointCloud.readLock();
+	const int cachedVertexSize = m_cachedPointCloud.pointSize();
+	const int point_count = cachedVertexSize + vertex_sum;
+	if(positions.size() != point_count)
+		positions.resize(point_count);
+	memcpy((void*)(positions.data()+vertex_sum), m_cachedPointCloud.getVertices(), cachedVertexSize*sizeof(SgVec3f));
+	if(colors.size() != point_count)
+		colors.resize(point_count);
+	memcpy((void*)(colors.data()+vertex_sum), m_cachedPointCloud.getColors(), cachedVertexSize*sizeof(SgVec4f));
+	m_cachedPointCloud.readUnlock();
+
+	std::vector<unsigned int>& clTriangleIndices =
+		NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
+	clTriangleIndices.clear();
+
+	std::vector<unsigned int>& clWireframeIndices =
+		NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data();
+	clWireframeIndices.clear();
+
+	std::vector<unsigned int>& clPointIndices =
+		NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
+	if(clPointIndices.size() != point_count)
+	{
+		clPointIndices.resize(point_count);
+		for (int i = 0; i < point_count; ++i)
+		{
+			clPointIndices[i] = i;
+		}
+		pCLData->SetIndexingDirty(true);
+	}
+
+	pCLData->SetStreamDirty(true);
+	m_dirty = false;
+
+	return true;
+}
+
+bool NuiHashingVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
+{
+	assert(pCLData);
+	if(!pCLData)
+		return false;
+
+	return true;
+}
+
+bool NuiHashingVolume::Volume2Mesh(NuiMeshShape* pMesh)
+{
+	assert(pMesh);
+	if(!pMesh)
+		return false;
+
+	return true;
 }

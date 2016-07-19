@@ -43,7 +43,7 @@ private:
 	NuiFrameCircleBuffer				m_buffer;
 
 	/** \brief Tsdf volume container. */
-	NuiKinfuVolume*						m_tsdf_volume;
+	NuiKinfuVolume*						m_pVolume;
 
 	NuiColorImage						m_frameColorImage;
 

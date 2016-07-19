@@ -67,6 +67,7 @@ static const char * const KernelNames[] =
 	"integrateFromGlobalHashPass2Kernel",		  "hashingChunkGrid.cl",
 	"chunkToGlobalHashPass1Kernel",				  "hashingChunkGrid.cl",
 	"chunkToGlobalHashPass2Kernel",				  "hashingChunkGrid.cl",
+	"fetch_SDFs_kernel",						  "hashingSDFFetch.cl",
 	"scanExclusiveLocal1",						  "prefixSum.cl",
 	"scanExclusiveLocal2",						  "prefixSum.cl",
 	"uniformUpdate",							  "prefixSum.cl",

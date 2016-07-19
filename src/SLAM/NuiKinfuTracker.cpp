@@ -1,6 +1,6 @@
 #include "NuiKinfuTracker.h"
 
-#include "NuiKinfuVolume.h"
+#include "NuiKinfuTSDFVolume.h"
 #include "NuiPyramidICP.h"
 
 #include <cmath>

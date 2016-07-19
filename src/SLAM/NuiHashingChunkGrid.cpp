@@ -6,6 +6,8 @@
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 
+#include <assert.h>
+
 NuiHashingChunkGrid::NuiHashingChunkGrid(NuiHashingSDF* pSDF)
 	: m_pHashingSDF(pSDF)
 	, m_currentPart(0)
@@ -262,6 +264,7 @@ UINT NuiHashingChunkGrid::streamOutToCPUPass0GPU(UINT nStreamOutParts, const SgV
 		NUI_CHECK_CL_ERR(err);
 
 		size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE};
+		kernelGlobalSize[0] *= local_ws[0];
 		err = clEnqueueNDRangeKernel(
 			queue,
 			pass2,
@@ -641,6 +644,7 @@ void NuiHashingChunkGrid::streamInToGPUPass1GPU(UINT nStreamedBlocks)
 
 	// Run kernel to calculate 
 	size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE};
+	kernelGlobalSize[0] *= local_ws[0];
 	err = clEnqueueNDRangeKernel(
 		queue,
 		pass2,

@@ -7,6 +7,8 @@
 
 #include "Kernels/hashing_gpu_def.h"
 
+#include <assert.h>
+
 NuiHashingSDF::NuiHashingSDF()
 	: m_numIntegratedFrames(0)
 	, m_bGarbageCollectionEnabled(true)
@@ -437,9 +439,9 @@ void NuiHashingSDF::integrateDepthMap(UINT numOccupiedBlocks, cl_mem floatDepths
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_params.m_integrationWeightMax);
 	NUI_CHECK_CL_ERR(err);
 
-	// Run kernel to calculate 
-	size_t kernelGlobalSize[1] = { numOccupiedBlocks };
-	size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE};
+	// Run kernel to calculate
+	size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE}; 
+	size_t kernelGlobalSize[1] = { numOccupiedBlocks * local_ws[0] };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		integrateKernel,
@@ -487,8 +489,7 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 
 	// Set kernel arguments
 	cl_uint idx = 0;
-	size_t kernelGlobalSize[1] = { numOccupiedBlocks };
-
+	
 	if(bGarbageCollectionStarve)
 	{
 		err = clSetKernelArg(starveVoxelsKernel, idx++, sizeof(cl_mem), &m_SDFBlocksCL);
@@ -498,6 +499,7 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 
 		// Run kernel to calculate
 		size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE};
+		size_t kernelGlobalSize[1] = { numOccupiedBlocks * local_ws[0] };
 		err = clEnqueueNDRangeKernel(
 			queue,
 			starveVoxelsKernel,
@@ -529,6 +531,7 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 
 	// Run kernel to calculate
 	size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE / 2};
+	size_t kernelGlobalSize[1] = { numOccupiedBlocks * local_ws[0] };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		grabageIndentifyKernel,
@@ -564,6 +567,7 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
+	kernelGlobalSize[0] = numOccupiedBlocks;
 	err = clEnqueueNDRangeKernel(
 		queue,
 		grabageFreeKernel,

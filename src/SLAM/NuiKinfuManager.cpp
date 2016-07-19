@@ -1,6 +1,6 @@
 #include "NuiKinfuManager.h"
 
-#include "NuiKinfuVolume.h"
+#include "NuiKinfuTSDFVolume.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
 
@@ -8,7 +8,7 @@ static const std::string sTrackerName("Tracker");
 
 NuiKinfuManager::NuiKinfuManager()
 	: m_bAutoReset(false)
-	, m_tsdf_volume(NULL)
+	, m_pVolume(NULL)
 	, m_translateBasis(Vector3f::Zero())
 {
 	
@@ -17,13 +17,13 @@ NuiKinfuManager::NuiKinfuManager()
 NuiKinfuManager::~NuiKinfuManager()
 {
 	stopThread();
-	SafeDelete(m_tsdf_volume);
+	SafeDelete(m_pVolume);
 }
 
 void	NuiKinfuManager::resetVolume()
 {
-	SafeDelete(m_tsdf_volume);
-	m_tsdf_volume = new NuiKinfuVolume(m_volumeConfig);
+	SafeDelete(m_pVolume);
+	m_pVolume = new NuiKinfuTSDFVolume(m_volumeConfig);
 }
 
 bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
@@ -33,8 +33,8 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 
 	// Camera
 	NuiCameraPos pos = m_tracker.getCameraPose();
-	if(m_tsdf_volume)
-		pos.setTranslation( pos.getTranslation() - m_tsdf_volume->getDimensions() / 2.0f);
+	if(m_pVolume)
+		pos.setTranslation( pos.getTranslation() /*- m_pVolume->getDimensions() / 2.0f*/);
 	pCLData->SetCameraParams(pos);
 
 	// Color image
@@ -42,9 +42,9 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 
 	//bool returnStatus = m_pTracker->PreviousBuffer(pCLData);
 	bool returnStatus = false;
-	if( m_tsdf_volume )
+	if( m_pVolume )
 	{
-		returnStatus = bIsMesh ? m_tsdf_volume->Volume2CLMesh(pCLData) : m_tsdf_volume->Volume2CLVertices(pCLData);
+		returnStatus = bIsMesh ? m_pVolume->Volume2CLMesh(pCLData) : m_pVolume->Volume2CLVertices(pCLData);
 	}
 
 	return returnStatus;
@@ -56,23 +56,23 @@ bool	NuiKinfuManager::getCameraPose (NuiCameraPos* cam) const
 		return false;
 
 	*cam = m_tracker.getCameraPose();
-	if(m_tsdf_volume)
-		cam->setTranslation( cam->getTranslation() - m_translateBasis - m_tsdf_volume->getDimensions() * 0.5f);
+	if(m_pVolume)
+		cam->setTranslation( cam->getTranslation() - m_translateBasis /*- m_pVolume->getDimensions() * 0.5f*/);
 	return true;
 }
 
 bool	NuiKinfuManager::getMesh(NuiMeshShape* pMesh)
 {
-	if(!m_tsdf_volume ||  !pMesh)
+	if(!m_pVolume ||  !pMesh)
 		return false;
 
-	return m_tsdf_volume->Volume2Mesh(pMesh);
+	return m_pVolume->Volume2Mesh(pMesh);
 }
 
 void	NuiKinfuManager::setIntegrationMetricThreshold(float threshold)
 {
-	if(m_tsdf_volume)
-		m_tsdf_volume->setIntegrationMetricThreshold(threshold);
+	if(m_pVolume)
+		m_pVolume->setIntegrationMetricThreshold(threshold);
 }
 
 /*virtual*/
@@ -81,14 +81,14 @@ void	NuiKinfuManager::reset()
 	m_buffer.clear();
 
 	Vector3f volumeBasis = m_translateBasis;
-	if(m_tsdf_volume)
+	/*if(m_pVolume)
 	{
-		const Vector3f& volumeDimensions = m_tsdf_volume->getDimensions();
+		const Vector3f& volumeDimensions = m_pVolume->getDimensions();
 		volumeBasis = volumeBasis + volumeDimensions * 0.5f;
-	}
+	}*/
 	m_tracker.reset(volumeBasis);
-	if(m_tsdf_volume)
-		m_tsdf_volume->reset();
+	if(m_pVolume)
+		m_pVolume->reset();
 }
 
 /*virtual*/
@@ -135,7 +135,7 @@ bool	NuiKinfuManager::process ()
 		maxDepth,
 		pDepthToColor,
 		m_frameColorImage,
-		m_tsdf_volume,
+		m_pVolume,
 		intri.m_fx, intri.m_fy, intri.m_cx, intri.m_cy);
 	NuiTimeLog::instance().tock(sTrackerName);
 
@@ -146,11 +146,11 @@ bool	NuiKinfuManager::process ()
 		if(m_bAutoReset)
 		{
 			Vector3f volumeBasis = m_translateBasis;
-			if(m_tsdf_volume)
+			/*if(m_pVolume)
 			{
-				const Vector3f& volumeDimensions = m_tsdf_volume->getDimensions();
+				const Vector3f& volumeDimensions = m_pVolume->getDimensions();
 				volumeBasis = volumeBasis + volumeDimensions * 0.5f;
-			}
+			}*/
 			m_tracker.reset(volumeBasis);
 			/*if(m_tsdf_volume)
 				m_tsdf_volume->reset();*/
