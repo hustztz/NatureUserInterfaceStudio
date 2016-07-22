@@ -37,6 +37,7 @@ static const char * const KernelNames[] =
 	"UV2color",									  "transformMaps.cl",
 	"transform_maps_kernel",					  "transformMaps.cl",
 	"resize_maps_kernel",						  "transformMaps.cl",
+	"float3_to_RGBA_kernel",					  "transformMaps.cl",
 	"icp_kernel",								  "icp.cl",
 	"icp_block_kernel",							  "icp.cl",
 	"color_icp_block_kernel",					  "icp.cl",

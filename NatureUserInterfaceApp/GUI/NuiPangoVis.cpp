@@ -38,8 +38,8 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	, a_trackColors("ui.Track Colors", true, true)
 	, a_volumeResolution("ui.Volume Resolution", 256, 128, 512)
 	, a_volumeSize("ui.Volume Size", 3.0f, 0.0f, 10.0f)
-	, a_translateBasisX("ui.Tracker Basis X", -0.f, -10.0f, 10.0f)
-	, a_translateBasisZ("ui.Tracker Basis Z", -0.5f, -10.0f, 10.0f)
+	, a_translateBasisX("ui.Tracker Basis X", 0.f, -10.0f, 10.0f)
+	, a_translateBasisZ("ui.Tracker Basis Z", 0.f, -10.0f, 10.0f)
 	, a_integrationThreshold("ui.Volume Threshold", 0.15f, 0.05f, 1.0f)
 	, a_gpuMem("ui.GPU memory free", 0)
 	, a_grabberSpeed("ui.Grabber FPS", "0")
@@ -329,7 +329,7 @@ void NuiPangoVis::updateView(NuiCLMappableData* pData)
 
 	pangolin::OpenGlMatrix mv;
 
-	const Matrix3frm& currRot = pData->GetCameraParams().getRotation();
+	Matrix3frm currRot = pData->GetCameraParams().getRotation().inverse();
 
 	Eigen::Quaternionf currQuat(currRot);
 	Vector3f forwardVector(0, 0, 1);

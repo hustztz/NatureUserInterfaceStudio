@@ -32,15 +32,12 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 		return false;
 
 	// Camera
-	NuiCameraPos pos = m_tracker.getCameraPose();
-	if(m_pVolume)
-		pos.setTranslation( pos.getTranslation() /*- m_pVolume->getDimensions() / 2.0f*/);
-	pCLData->SetCameraParams(pos);
+	pCLData->SetCameraParams( m_tracker.getCameraPose() );
 
 	// Color image
-	pCLData->SetColorImage(m_frameColorImage);
+	m_tracker.previousNormalImageToData(pCLData);
 
-	//bool returnStatus = m_pTracker->PreviousBuffer(pCLData);
+	//bool returnStatus = m_tracker.PreviousBuffer(pCLData);
 	bool returnStatus = false;
 	if( m_pVolume )
 	{
@@ -57,7 +54,7 @@ bool	NuiKinfuManager::getCameraPose (NuiCameraPos* cam) const
 
 	*cam = m_tracker.getCameraPose();
 	if(m_pVolume)
-		cam->setTranslation( cam->getTranslation() - m_translateBasis /*- m_pVolume->getDimensions() * 0.5f*/);
+		cam->setTranslation( cam->getTranslation() - m_translateBasis);
 	return true;
 }
 
@@ -80,13 +77,7 @@ void	NuiKinfuManager::reset()
 {
 	m_buffer.clear();
 
-	Vector3f volumeBasis = m_translateBasis;
-	/*if(m_pVolume)
-	{
-		const Vector3f& volumeDimensions = m_pVolume->getDimensions();
-		volumeBasis = volumeBasis + volumeDimensions * 0.5f;
-	}*/
-	m_tracker.reset(volumeBasis);
+	m_tracker.reset(m_translateBasis);
 	if(m_pVolume)
 		m_pVolume->reset();
 }
@@ -117,7 +108,6 @@ bool	NuiKinfuManager::process ()
 	ColorSpacePoint* pDepthToColor = pCompositeFrame->m_colorMapFrame.GetBuffer();
 	//assert(nPointNum == nColorMapNum);
 
-	m_frameColorImage = pCompositeFrame->m_colorFrame.GetImage();
 	const NuiCameraIntrinsics& intri = pCompositeFrame->GetCameraParams().getIntrinsics();
 
 	if( !m_tracker.isInit() )
@@ -134,7 +124,7 @@ bool	NuiKinfuManager::process ()
 		minDepth,
 		maxDepth,
 		pDepthToColor,
-		m_frameColorImage,
+		pCompositeFrame->m_colorFrame.GetImage(),
 		m_pVolume,
 		intri.m_fx, intri.m_fy, intri.m_cx, intri.m_cy);
 	NuiTimeLog::instance().tock(sTrackerName);
@@ -145,13 +135,7 @@ bool	NuiKinfuManager::process ()
 	{
 		if(m_bAutoReset)
 		{
-			Vector3f volumeBasis = m_translateBasis;
-			/*if(m_pVolume)
-			{
-				const Vector3f& volumeDimensions = m_pVolume->getDimensions();
-				volumeBasis = volumeBasis + volumeDimensions * 0.5f;
-			}*/
-			m_tracker.reset(volumeBasis);
+			m_tracker.reset(m_translateBasis);
 			/*if(m_tsdf_volume)
 				m_tsdf_volume->reset();*/
 		}

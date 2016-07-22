@@ -88,12 +88,12 @@ __kernel void fetchVolumeKernel(
 			}
 
 			while(LOCK(mutex));
-			int current_id = *vertex_id;
+			int current_id = vload(0, vertex_id);
 			if(current_id < max_vertex_size)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
-				*vertex_id = current_id + 1;
+				atomic_inc(vertex_id);
 			}
 			UNLOCK(mutex);
 		}
@@ -111,12 +111,12 @@ __kernel void fetchVolumeKernel(
 			}
 
 			while(LOCK(mutex));
-			int current_id = *vertex_id;
+			int current_id = vload(0, vertex_id);
 			if(current_id < max_vertex_size)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
-				*vertex_id = current_id + 1;
+				atomic_inc(vertex_id);
 			}
 			UNLOCK(mutex);
 		}

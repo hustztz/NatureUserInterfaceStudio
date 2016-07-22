@@ -45,8 +45,6 @@ private:
 	/** \brief Tsdf volume container. */
 	NuiKinfuVolume*						m_pVolume;
 
-	NuiColorImage						m_frameColorImage;
-
 	bool								m_bAutoReset;
 	Vector3f							m_translateBasis;
 };

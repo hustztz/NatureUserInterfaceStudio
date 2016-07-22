@@ -46,6 +46,7 @@ public:
 
 	void				SetColorImage(const NuiColorImage& image) { m_colorImage = image; }
 	const NuiColorImage&	GetColorImage() const { return m_colorImage; }
+	NuiColorImage&		GetColorImage() { return m_colorImage; }
 
 	void				SetCameraParams(const NuiCameraPos& cam) { m_camParams = cam; }
 	const NuiCameraPos&	GetCameraParams() const { return m_camParams; }

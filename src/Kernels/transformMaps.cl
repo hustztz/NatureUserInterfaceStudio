@@ -248,3 +248,20 @@ __kernel void UV2color(
 	}
 	vstore4((uchar4)(0, 0, 0, 0), idx, colors);
 }
+
+__kernel void float3_to_RGBA_kernel(
+					__global float* floatColors,
+					__global uchar* RGBAs
+						)
+{
+	const uint idx = get_global_id(0);
+
+	float3 color = vload3(idx, floatColors);
+	uchar4 new_color = (uchar4)(
+		convert_uchar(color.x * 255.0f),
+		convert_uchar(color.y * 255.0f),
+		convert_uchar(color.z * 255.0f),
+		255
+		);
+	vstore4(new_color, idx, RGBAs);
+}

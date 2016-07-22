@@ -42,13 +42,17 @@ __kernel void integrateTsdfVolumeKernel(
                     )
 {
 	struct TsdfParams l_params = *params;
-		
+	
+	const int resolution_x = convert_int(l_params.resolution[0]);
+	const int resolution_y = convert_int(l_params.resolution[1]);
+	const int resolution_z = convert_int(l_params.resolution[2]);
+
     const int voxel_x = get_global_id(0);
 	const int voxel_y = get_global_id(1);
 	
 	struct NuiCLRigidTransform mat = *matrix;
-	const float v_g_x = (convert_float(voxel_x) + 0.5f) * l_params.cell_size[0] - mat.t[0];
-	const float v_g_y = (convert_float(voxel_y) + 0.5f) * l_params.cell_size[1] - mat.t[1];
+	const float v_g_x = (convert_float(voxel_x - resolution_x/2) + 0.5f) * l_params.cell_size[0] - mat.t[0];
+	const float v_g_y = (convert_float(voxel_y - resolution_y/2) + 0.5f) * l_params.cell_size[1] - mat.t[1];
 	float v_g_z = (0 + 0.5f) * l_params.cell_size[2] - mat.t[2];
 
 	float v_g_part_norm = v_g_x * v_g_x + v_g_y * v_g_y;
@@ -64,9 +68,6 @@ __kernel void integrateTsdfVolumeKernel(
 	float Rcurr_inv_0_z_scaled = mat.R_inv[2] * l_params.cell_size[2] * camParams.fx;
 	float Rcurr_inv_1_z_scaled = mat.R_inv[5] * l_params.cell_size[2] * camParams.fy;
 
-	const int resolution_x = convert_int(l_params.resolution[0]);
-	const int resolution_y = convert_int(l_params.resolution[1]);
-	const int resolution_z = convert_int(l_params.resolution[2]);
 	int idxBase = mul24(((voxel_x+voxelWrap.x)%resolution_x + mul24((voxel_y+voxelWrap.y)%resolution_y, resolution_x)), resolution_z);
 
 	//#pragma unroll

@@ -27,8 +27,6 @@ public:
 	/** \brief Performs the tracker reset to initial  state. It's used if case of camera tracking fail.  */
 	void	reset(const Vector3f& translateBasis);
 
-	bool	PreviousBuffer(NuiCLMappableData* pCLData);
-
 	bool	RunTracking(UINT16* pDepths,
 		UINT nPointNum,
 		UINT16 minDepth,
@@ -48,6 +46,9 @@ public:
     const NuiCameraPos&		getCameraPose (int time = -1) const;
 	float					getIcpError() const;
 	float					getIcpCount() const;
+
+	bool					previousBufferToData(NuiCLMappableData* pCLData);
+	bool					previousNormalImageToData(NuiCLMappableData* pCLData);
 
 protected:
 	void	AcquireBuffers(bool bHasColor);
@@ -71,6 +72,7 @@ private:
 	cl_mem m_colorImageCL;
 	cl_mem m_colorsCL;
 	cl_mem m_cameraParamsCL;
+	cl_mem m_outputColorImageCL;
 
 	UINT m_nWidth, m_nHeight;
 	UINT m_nColorWidth, m_nColorHeight;

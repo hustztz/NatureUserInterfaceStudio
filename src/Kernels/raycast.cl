@@ -145,22 +145,22 @@ __kernel void raycastKernel(
 	vstore3(NAN, id, vmap);
 	vstore3(NAN, id, nmap);
 	
+	struct TsdfParams l_params = *params;
+	float3 volumeOffset = (float3)(l_params.dimension[0]/2.0, l_params.dimension[1]/2.0, 0.0);
+
 	struct NuiCLCameraParams camParams = *cameraParams;
 	struct NuiCLRigidTransform mat = *matrix;
-	float3 ray_start;
-	ray_start.x = mat.t[0];
-	ray_start.y = mat.t[1];
-	ray_start.z = mat.t[2];
+	float3 ray_start = (float3)(mat.t[0], mat.t[1], mat.t[2]);
+	ray_start += volumeOffset;
 	float3 ray_next = (float3)((convert_float(gidx) - camParams.cx) * camParams.fx_inv, (convert_float(gidy) - camParams.cy) * camParams.fy_inv, 1);
     ray_next = transform(ray_next, matrix);
+	ray_next += volumeOffset;
 	float3 ray_dir = normalize (ray_next - ray_start);
 	
 	//ensure that it isn't a degenerate case
 	/*ray_dir.x = (ray_dir.x == 0.f) ? 1e-15 : ray_dir.x;
 	ray_dir.y = (ray_dir.y == 0.f) ? 1e-15 : ray_dir.y;
 	ray_dir.z = (ray_dir.z == 0.f) ? 1e-15 : ray_dir.z;*/
-
-	struct TsdfParams l_params = *params;
 
 	// computer time when entry and exit volume
 	float time_start_volume = getMinTime (l_params.dimension, ray_start, ray_dir);
@@ -221,7 +221,7 @@ __kernel void raycastKernel(
 			float Ts = time_curr - time_step * Ft / (Ftdt - Ft);
 
 			float3 vetex_found = ray_start + ray_dir * Ts;
-			vstore3(vetex_found, id, vmap);
+			vstore3(vetex_found - volumeOffset, id, vmap);
 
 			int3 g = getVoxel ( ray_start + ray_dir * time_curr, l_params.cell_size );
 			if (g.x > 1 && g.y > 1 && g.z > 1 && g.x < resolutions.x - 2 && g.y < resolutions.y - 2 && g.z < resolutions.z - 2)

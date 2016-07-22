@@ -24,6 +24,7 @@ NuiKinfuTracker::NuiKinfuTracker(NuiICPConfig& icpConfig, UINT nWidth, UINT nHei
 	, m_colorImageCL(NULL)
 	, m_colorsCL(NULL)
 	, m_cameraParamsCL(NULL)
+	, m_outputColorImageCL(NULL)
 	, m_nWidth(nWidth)
 	, m_nHeight(nHeight)
 	, m_nColorWidth(nColorWidth)
@@ -44,6 +45,7 @@ NuiKinfuTracker::NuiKinfuTracker()
 	, m_colorImageCL(NULL)
 	, m_colorsCL(NULL)
 	, m_cameraParamsCL(NULL)
+	, m_outputColorImageCL(NULL)
 	, m_nWidth(0)
 	, m_nHeight(0)
 	, m_nColorWidth(0)
@@ -89,8 +91,8 @@ void NuiKinfuTracker::reset(const Vector3f& translateBasis)
 	m_frames.reserve (30000);
 
 	m_transform.setTransform(Matrix3frm::Identity(), translateBasis);
-	m_initialPos.setRotation(Matrix3frm::Identity());
-	m_initialPos.setTranslation(Vector3f::Zero());
+	m_initialPos.setRotation(m_transform.getRotation());
+	m_initialPos.setTranslation(m_transform.getTranslation());
 }
 
 float NuiKinfuTracker::getIcpError() const
@@ -137,6 +139,8 @@ void NuiKinfuTracker::AcquireBuffers(bool bHasColor)
 		NUI_CHECK_CL_ERR(err);
 	}
 	m_cameraParamsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, sizeof(NuiCLCameraParams), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+	m_outputColorImageCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nColorWidth*m_nColorHeight*sizeof(BGRQUAD), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 }
 
@@ -195,6 +199,11 @@ void NuiKinfuTracker::ReleaseBuffers()
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_cameraParamsCL);
 		NUI_CHECK_CL_ERR(err);
 		m_cameraParamsCL = NULL;
+	}
+	if (m_outputColorImageCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_outputColorImageCL);
+		NUI_CHECK_CL_ERR(err);
+		m_outputColorImageCL = NULL;
 	}
 }
 
@@ -484,7 +493,7 @@ bool	NuiKinfuTracker::RunTracking(
 	{
 		if( !m_icp->run(m_cameraParamsCL, &m_transform, NULL) )
 			return false;
-
+		//m_transform.setTransform(Matrix3frm::Identity(), Vector3f::Zero());
 		if( pVolume )
 		{
 			pVolume->evaluateVolume(m_floatDepthsCL, m_colorsCL, m_icp->getNormals(), m_icp->getPrevVertices(), m_icp->getPrevNormals(), m_cameraParamsCL, m_transform, m_nWidth, m_nHeight);
@@ -511,7 +520,7 @@ bool	NuiKinfuTracker::RunTracking(
 	return true;
 }
 
-bool NuiKinfuTracker::PreviousBuffer(NuiCLMappableData* pCLData)
+bool NuiKinfuTracker::previousBufferToData(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
 	if(!pCLData)
@@ -526,6 +535,9 @@ bool NuiKinfuTracker::PreviousBuffer(NuiCLMappableData* pCLData)
 	}*/
 
 	const UINT nPointsNum = m_nWidth * m_nHeight;
+
+	pCLData->SetBoundingBox(SgVec3f(-256.0f / 370.0f, -212.0f / 370.0f, 0.4f),
+		SgVec3f((m_nWidth-256.0f) / 370.0f, (m_nHeight-212.0f) / 370.0f, 4.0f));
 
 	std::vector<unsigned int>& clTriangleIndices =
 		NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
@@ -576,7 +588,7 @@ bool NuiKinfuTracker::PreviousBuffer(NuiCLMappableData* pCLData)
 	clEnqueueReadBuffer(
 		queue,
 		prevVertices,
-		CL_TRUE,//blocking
+		CL_FALSE,//blocking
 		0,
 		nPointsNum * 3 * sizeof(float),
 		positions.data(),
@@ -586,6 +598,10 @@ bool NuiKinfuTracker::PreviousBuffer(NuiCLMappableData* pCLData)
 		);
 	NUI_CHECK_CL_ERR(err);
 
+	std::vector<SgVec4f>& colors = NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data();
+	if(colors.size() != nPointsNum)
+		colors.resize(nPointsNum);
+
 	pCLData->SetStreamDirty(true);
 
 	//ReleaseGLBuffer();
@@ -593,4 +609,65 @@ bool NuiKinfuTracker::PreviousBuffer(NuiCLMappableData* pCLData)
 	return true;
 }
 
+bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
+{
+	assert(pCLData);
+	if(!pCLData)
+		return false;
 
+	if(!m_icp)
+		return false;
+
+	// Get the kernel
+	cl_kernel rgbaKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_FLOAT3_TO_RGBA);
+	assert(rgbaKernel);
+	if (!rgbaKernel)
+	{
+		NUI_ERROR("Get kernel 'E_FLOAT3_TO_RGBA' failed!\n");
+		return false;
+	}
+
+	cl_mem prevNormals = m_icp->getPrevNormals();
+
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &prevNormals);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_outputColorImageCL);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[1] = { m_nWidth * m_nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		rgbaKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	BGRQUAD* normalBuffer = pCLData->GetColorImage().AllocateBuffer(m_nWidth, m_nHeight);
+	clEnqueueReadBuffer(
+		queue,
+		m_outputColorImageCL,
+		CL_FALSE,//blocking
+		0,
+		pCLData->GetColorImage().GetBufferSize(),
+		normalBuffer,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	return true;
+}
