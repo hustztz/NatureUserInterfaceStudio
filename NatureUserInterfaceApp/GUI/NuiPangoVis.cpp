@@ -338,7 +338,7 @@ void NuiPangoVis::updateView(NuiCLMappableData* pData)
 	Vector3f forward = (currQuat * forwardVector).normalized();
 	Vector3f up = (currQuat * upVector).normalized();
 
-	Vector3f eye = pData->GetCameraParams().getTranslation();
+	Vector3f eye = - pData->GetCameraParams().getTranslation();
 
 	eye -= forward;
 

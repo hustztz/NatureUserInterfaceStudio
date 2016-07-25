@@ -149,6 +149,7 @@ public:
 	unsigned int integrateInHash(const SgVec3f& posCamera, float radius, bool useParts);
 
 	cl_mem	getBitMaskCL() const { return m_bitMaskCL; }
+	const NuiHashingChunkGridConfig& getConfig() const { return m_config; }
 
 protected:
 	void	AcquireBuffers();

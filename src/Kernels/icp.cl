@@ -251,8 +251,11 @@ __kernel void icp_block_kernel(
 							float sine = fast_length (cross (projectedNormal, referenceNormal));
 							if (sine < angleThres)
 							{
-								float3 row0 = cross (projectedVertex, referenceNormal);
-								float coresp[7] = { row0.x, row0.y, row0.z, referenceNormal.x, referenceNormal.y, referenceNormal.z, dot (referenceNormal, diff) };
+								float3 referencePos = transformInverse(referenceVertex, previousMatrix);
+								diff = referencePos - projectedPos;
+								float3 referenceNorm = rotationInverse(referenceNormal, previousMatrix);
+								float3 row0 = cross (projectedPos, referenceNorm);
+								float coresp[7] = { row0.x, row0.y, row0.z, referenceNorm.x, referenceNorm.y, referenceNorm.z, dot (referenceNorm, diff) };
 	
 								uint shift = 0;
 								for (uint i = 0; i < 6; ++i)        //rows

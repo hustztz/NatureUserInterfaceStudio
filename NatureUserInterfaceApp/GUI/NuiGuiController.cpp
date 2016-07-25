@@ -240,7 +240,7 @@ void NuiGuiController::launch()
 		}
 
 		std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
-		if(m_gui->a_drawGlobalModel && m_pKinfu && m_pKinfu->isThreadOn())
+		if(m_gui->a_drawGlobalModel && m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
 		{
 			m_pKinfu->getCLData(&frameData, m_gui->a_drawMesh);
 		}

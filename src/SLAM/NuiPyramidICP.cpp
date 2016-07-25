@@ -149,6 +149,11 @@ void NuiPyramidICP::resizePrevs()
 	ResizePrevMaps();
 }
 
+void NuiPyramidICP::copyPrevs()
+{
+	CopyPrevMaps();
+}
+
 void NuiPyramidICP::GenerateGaussianBuffer()
 {
 	// Get the kernel

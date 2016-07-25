@@ -1,17 +1,17 @@
 #pragma once
 
 #include "NuiKinfuVolume.h"
-#include "NuiHashingSDF.h"
-
+#include "NuiHashingSDFConfig.h"
 #include "Foundation/SgVec3T.h"
 
 // Forwards
+class NuiHashingSDF;
 class NuiHashingChunkGrid;
 
 class NuiHashingVolume : public NuiKinfuVolume
 {
 public:
-	NuiHashingVolume();
+	NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig);
 	~NuiHashingVolume();
 
 	virtual void	reset() override;
@@ -53,11 +53,8 @@ protected:
 		float maxDepth,
 		UINT nWidth, UINT nHeight);
 private:
-	NuiHashingSDF			m_sdfData;
+	NuiHashingSDF*			m_pSDFData;
 	NuiHashingChunkGrid*	m_pChunkGrid;
-
-	/*Matrix3frm				m_lastIntegrationRotation;
-	Vector3f				m_lastIntegrationTranslation;*/
 
 	// Raycast Params
 	float					m_rayIncrement;

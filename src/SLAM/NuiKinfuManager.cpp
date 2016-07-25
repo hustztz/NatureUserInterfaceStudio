@@ -53,8 +53,8 @@ bool	NuiKinfuManager::getCameraPose (NuiCameraPos* cam) const
 		return false;
 
 	*cam = m_tracker.getCameraPose();
-	if(m_pVolume)
-		cam->setTranslation( cam->getTranslation() - m_translateBasis);
+	/*if(m_pVolume)
+		cam->setTranslation( cam->getTranslation() - m_translateBasis);*/
 	return true;
 }
 

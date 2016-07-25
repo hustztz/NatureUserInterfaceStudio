@@ -146,7 +146,7 @@ __kernel void raycastKernel(
 	vstore3(NAN, id, nmap);
 	
 	struct TsdfParams l_params = *params;
-	float3 volumeOffset = (float3)(l_params.dimension[0]/2.0, l_params.dimension[1]/2.0, 0.0);
+	float3 volumeOffset = (float3)(l_params.dimension[0]/2.0, l_params.dimension[1]/2.0, l_params.dimension[2]/4.0);
 
 	struct NuiCLCameraParams camParams = *cameraParams;
 	struct NuiCLRigidTransform mat = *matrix;

@@ -21,6 +21,7 @@ public:
 	bool	run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
 	void	transformPrevs(cl_mem transformCL);
 	void	resizePrevs();
+	void	copyPrevs();
 
 	float	getError() const { return m_error; }
 	float	getCount() const { return m_count; }

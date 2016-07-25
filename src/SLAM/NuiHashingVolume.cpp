@@ -1,5 +1,6 @@
 #include "NuiHashingVolume.h"
 
+#include "NuiHashingSDF.h"
 #include "NuiHashingChunkGrid.h"
 #include "NuiKinfuTransform.h"
 
@@ -11,8 +12,11 @@
 
 #include "Shape/NuiCLMappableData.h"
 
-NuiHashingVolume::NuiHashingVolume()
+NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig)
+	: m_pSDFData(NULL)
+	, m_pChunkGrid(NULL)
 {
+	m_pSDFData = new NuiHashingSDF(sdfConfig);
 	//m_pChunkGrid = new NuiHashingChunkGrid(&m_sdfData);
 
 	reset();
@@ -20,12 +24,13 @@ NuiHashingVolume::NuiHashingVolume()
 
 NuiHashingVolume::~NuiHashingVolume()
 {
+	SafeDelete(m_pSDFData);
 	SafeDelete(m_pChunkGrid);
 }
 
 void	NuiHashingVolume::reset()
 {
-	m_sdfData.reset();
+	m_pSDFData->reset();
 	if(m_pChunkGrid)
 		m_pChunkGrid->reset();
 
@@ -46,6 +51,9 @@ void NuiHashingVolume::raycastRender(
 	UINT nWidth, UINT nHeight
 	)
 {
+	if(!pSDF)
+		return;
+
 	// Get the kernel
 	cl_kernel raycastKernel = nullptr;
 	NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAYCAST_SDF);
@@ -58,7 +66,7 @@ void NuiHashingVolume::raycastRender(
 
 	cl_mem hashCL = pSDF->getHashCL();
 	cl_mem SDFBlocksCL = pSDF->getSDFBlocksCL();
-	const NuiHashParams& hashParams = pSDF->getParams();
+	const NuiHashingSDFConfig& hashParams = pSDF->getConfig();
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -122,7 +130,27 @@ void	NuiHashingVolume::incrementVolume(
 	UINT nWidth, UINT nHeight
 	)
 {
-	m_sdfData.integrate(nWidth, nHeight, floatDepthsCL, colorsCL, cameraParamsCL, currPos.getTransformCL(), m_pChunkGrid ? m_pChunkGrid->getBitMaskCL() : NULL);
+	SgVec3f streamingVoxelExtends;
+	SgVec3i	streamingGridDimensions;
+	SgVec3i	streamingMinGridPos;
+	if(m_pChunkGrid)
+	{
+		const NuiHashingChunkGridConfig& streamingConfig = m_pChunkGrid->getConfig();
+		streamingVoxelExtends = streamingConfig.m_voxelExtends;
+		streamingGridDimensions = streamingConfig.m_gridDimensions;
+		streamingMinGridPos = streamingConfig.m_minGridPos;
+	}
+	m_pSDFData->integrate(
+		nWidth, nHeight,
+		floatDepthsCL,
+		colorsCL,
+		cameraParamsCL,
+		currPos.getTransformCL(),
+		m_pChunkGrid ? m_pChunkGrid->getBitMaskCL() : NULL,
+		streamingVoxelExtends,
+		streamingGridDimensions,
+		streamingMinGridPos
+		);
 	m_lastIntegrationRotation = currPos.getRotation();
 	m_lastIntegrationTranslation = currPos.getTranslation();
 	setDirty();
@@ -151,7 +179,7 @@ bool	NuiHashingVolume::evaluateVolume(
 		incrementVolume(floatDepthsCL, colorsCL, normalsCL, cameraParamsCL, currPos, nWidth, nHeight);
 	}
 	raycastRender(
-		&m_sdfData,
+		m_pSDFData,
 		cameraParamsCL,
 		currPos.getTransformCL(),
 		renderVertices,
@@ -174,7 +202,7 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	if(!m_dirty)
 		return false;
 
-	const NuiHashParams& hashParams = m_sdfData.getParams();
+	const NuiHashingSDFConfig& hashParams = m_pSDFData->getConfig();
 
 	// Set bounding box
 	/*const Vector3f& voxelSizeMeters = getVoxelSize();
@@ -196,8 +224,8 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 		return false;
 	}
 
-	cl_mem hashCL = m_sdfData.getHashCL();
-	cl_mem SDFBlocksCL = m_sdfData.getSDFBlocksCL();
+	cl_mem hashCL = m_pSDFData->getHashCL();
+	cl_mem SDFBlocksCL = m_pSDFData->getSDFBlocksCL();
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;

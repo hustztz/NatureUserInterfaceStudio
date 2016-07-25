@@ -176,7 +176,7 @@ UINT NuiHashingChunkGrid::streamOutToCPUPass0GPU(UINT nStreamOutParts, const SgV
 	// Pass 1: Find all SDFBlocks that have to be transfered
 	//-------------------------------------------------------
 
-	const NuiHashParams& hashParams = m_pHashingSDF->getParams();
+	const NuiHashingSDFConfig& hashParams = m_pHashingSDF->getConfig();
 	unsigned int threadsPerPart = (hashParams.m_hashNumBuckets*HASH_BUCKET_SIZE + nStreamOutParts - 1) / nStreamOutParts;
 	if (!useParts) threadsPerPart = hashParams.m_hashNumBuckets*HASH_BUCKET_SIZE;
 
@@ -346,7 +346,7 @@ UINT NuiHashingChunkGrid::linearizeChunkPos(const SgVec3i& chunkPos) const {
 
 void NuiHashingChunkGrid::streamOutToCPUPass1CPU(UINT nStreamedBlocks)
 {
-	const NuiHashParams& hashParams = m_pHashingSDF->getParams();
+	const NuiHashingSDFConfig& hashParams = m_pHashingSDF->getConfig();
 
 	for (unsigned int i = 0; i < nStreamedBlocks; i++)
 	{
@@ -594,7 +594,7 @@ void NuiHashingChunkGrid::streamInToGPUPass1GPU(UINT nStreamedBlocks)
 	//-------------------------------------------------------
 	// Pass 1: Alloc memory for chunks
 	//-------------------------------------------------------
-	const NuiHashParams& hashParams = m_pHashingSDF->getParams();
+	const NuiHashingSDFConfig& hashParams = m_pHashingSDF->getConfig();
 	cl_mem hashCL = m_pHashingSDF->getHashCL();
 	cl_mem heapCL = m_pHashingSDF->getHeapCL();
 	cl_mem heapCountCL = m_pHashingSDF->getHeapCountCL();
