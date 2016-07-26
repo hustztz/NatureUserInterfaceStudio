@@ -24,6 +24,7 @@ public:
 	void setIntegrationMetricThreshold(float threshold) { m_integration_metric_threshold = threshold; }
 	void setDirty() { m_dirty = true; }
 
+	virtual bool	log(const std::string& fileName) const = 0;
 	virtual bool	hasColorData() const { return true; }
 	/** \brief Resets tsdf volume data to uninitialized state */
 	virtual void	reset();
@@ -43,7 +44,8 @@ public:
 		cl_mem renderNormals,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
-		UINT nWidth, UINT nHeight
+		UINT nWidth, UINT nHeight,
+		float minDepth, float maxDepth
 		) = 0;
 
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) = 0;

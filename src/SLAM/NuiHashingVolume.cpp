@@ -12,12 +12,12 @@
 
 #include "Shape/NuiCLMappableData.h"
 
-NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig)
+NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const NuiHashingRaycastConfig& raycastConfig)
 	: m_pSDFData(NULL)
 	, m_pChunkGrid(NULL)
+	, m_raycastConfig(raycastConfig)
 {
 	m_pSDFData = new NuiHashingSDF(sdfConfig);
-	//m_pChunkGrid = new NuiHashingChunkGrid(&m_sdfData);
 
 	reset();
 }
@@ -26,6 +26,11 @@ NuiHashingVolume::~NuiHashingVolume()
 {
 	SafeDelete(m_pSDFData);
 	SafeDelete(m_pChunkGrid);
+}
+
+bool NuiHashingVolume::log(const std::string& fileName) const
+{
+	return true;
 }
 
 void	NuiHashingVolume::reset()
@@ -37,6 +42,20 @@ void	NuiHashingVolume::reset()
 	NuiKinfuVolume::reset();
 }
 
+void	NuiHashingVolume::updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig)
+{
+	if(chunkGridConfig.m_enable)
+	{
+		if(!m_pChunkGrid)
+			m_pChunkGrid = new NuiHashingChunkGrid(m_pSDFData);
+		m_pChunkGrid->updateConfig(chunkGridConfig);
+	}
+	else
+	{
+		SafeDelete(m_pChunkGrid);
+	}
+}
+
 void NuiHashingVolume::raycastRender(
 	NuiHashingSDF* pSDF,
 	cl_mem cameraParamsCL,
@@ -46,17 +65,15 @@ void NuiHashingVolume::raycastRender(
 	float rayIncrement,
 	float thresSampleDist,
 	float thresDist,
-	float minDepth,
-	float maxDepth,
-	UINT nWidth, UINT nHeight
+	UINT nWidth, UINT nHeight,
+	float minDepth,	float maxDepth
 	)
 {
 	if(!pSDF)
 		return;
 
 	// Get the kernel
-	cl_kernel raycastKernel = nullptr;
-	NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAYCAST_SDF);
+	cl_kernel raycastKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAYCAST_SDF);
 	assert(raycastKernel);
 	if (!raycastKernel)
 	{
@@ -164,7 +181,8 @@ bool	NuiHashingVolume::evaluateVolume(
 	cl_mem renderNormals,
 	cl_mem cameraParamsCL,
 	const NuiKinfuTransform& currPos,
-	UINT nWidth, UINT nHeight
+	UINT nWidth, UINT nHeight,
+	float minDepth, float maxDepth
 	)
 {
 	///////////////////////////////////////////////////////////////////////////////////////////
@@ -178,18 +196,21 @@ bool	NuiHashingVolume::evaluateVolume(
 	{
 		incrementVolume(floatDepthsCL, colorsCL, normalsCL, cameraParamsCL, currPos, nWidth, nHeight);
 	}
+	float rayIncrement = m_raycastConfig.m_rayIncrementFactor * m_pSDFData->getConfig().m_truncation;
+	float thresSampleDist = m_raycastConfig.m_thresSampleDistFactor * rayIncrement;
+	float thresDist = m_raycastConfig.m_thresDistFactor * rayIncrement;
 	raycastRender(
 		m_pSDFData,
 		cameraParamsCL,
 		currPos.getTransformCL(),
 		renderVertices,
 		renderNormals,
-		m_rayIncrement,
-		m_thresSampleDist,
-		m_thresDist,
-		m_minDepth,
-		m_maxDepth,
-		nWidth, nHeight);
+		rayIncrement,
+		thresSampleDist,
+		thresDist,
+		nWidth, nHeight,
+		minDepth, maxDepth
+		);
 	return integrate;
 }
 

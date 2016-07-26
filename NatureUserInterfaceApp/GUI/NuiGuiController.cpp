@@ -113,8 +113,8 @@ void NuiGuiController::handleGuiChanged()
 			m_pKinfu->pauseThread();
 			m_pKinfu->setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
 			m_pKinfu->setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
-			m_pKinfu->m_volumeConfig.dimensions = Vector3f::Constant(m_gui->a_volumeSize);
-			m_pKinfu->m_volumeConfig.resolution = Vector3i::Constant(m_gui->a_volumeResolution);
+			//m_pKinfu->m_volumeConfig.dimensions = Vector3f::Constant(m_gui->a_volumeSize);
+			//m_pKinfu->m_volumeConfig.resolution = Vector3i::Constant(m_gui->a_volumeResolution);
 			m_pKinfu->resetVolume();
 
 			m_pKinfu->startThread();
@@ -274,10 +274,7 @@ void NuiGuiController::launch()
 
 	NuiFileIOUtilities::writeDayTime(fileName);
 	if(m_pKinfu)
-	{
-		m_pKinfu->m_trackerConfig.log(fileName);
-		m_pKinfu->m_volumeConfig.log(fileName);
-	}
+		m_pKinfu->log(fileName);
 	NuiTimeLog::instance().log(fileName);
 }
 

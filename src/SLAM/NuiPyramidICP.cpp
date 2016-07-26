@@ -14,7 +14,7 @@
 
 using Eigen::AngleAxisf;
 
-NuiPyramidICP::NuiPyramidICP(NuiICPConfig& config, UINT nWidth, UINT nHeight)
+NuiPyramidICP::NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeight)
 	: m_configuration(config)
 	, m_gaussianCL(NULL)
 	, m_corespsCL(NULL)
@@ -120,6 +120,11 @@ void NuiPyramidICP::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_corespsCL = NULL;
 	}
+}
+
+bool NuiPyramidICP::log(const std::string& fileName) const
+{
+	return m_configuration.log(fileName);
 }
 
 void NuiPyramidICP::input(cl_mem floatDepthsCL, cl_mem cameraParamsCL)

@@ -22,7 +22,8 @@ public:
 	~NuiKinfuTracker();
 
 	bool	isInit() const { return (m_icp ? true : false); }
-	void	initialize(NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight);
+	void	initialize(const NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight);
+	bool	log(const std::string& fileName) const;
 
 	/** \brief Performs the tracker reset to initial  state. It's used if case of camera tracking fail.  */
 	void	reset(const Vector3f& translateBasis);

@@ -4,6 +4,7 @@
 
 struct NuiHashingChunkGridConfig
 {
+	bool						m_enable;
 	SgVec3f						m_voxelExtends;		// extend of the voxels in meters
 	SgVec3i						m_gridDimensions;	    // number of voxels in each dimension
 

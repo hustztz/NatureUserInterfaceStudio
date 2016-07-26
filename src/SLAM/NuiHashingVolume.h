@@ -2,6 +2,8 @@
 
 #include "NuiKinfuVolume.h"
 #include "NuiHashingSDFConfig.h"
+#include "NuiHashingRaycastConfig.h"
+#include "NuiHashingChunkGridConfig.h"
 #include "Foundation/SgVec3T.h"
 
 // Forwards
@@ -11,10 +13,11 @@ class NuiHashingChunkGrid;
 class NuiHashingVolume : public NuiKinfuVolume
 {
 public:
-	NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig);
+	NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const NuiHashingRaycastConfig& raycastConfig);
 	~NuiHashingVolume();
 
 	virtual void	reset() override;
+	virtual bool	log(const std::string& fileName) const override;
 
 	virtual void	incrementVolume(
 		cl_mem floatDepthsCL,
@@ -32,13 +35,15 @@ public:
 		cl_mem renderNormals,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
-		UINT nWidth, UINT nHeight
+		UINT nWidth, UINT nHeight,
+		float minDepth, float maxDepth
 		) override;
 
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
+	void			updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
 protected:
 	void	raycastRender(
 		NuiHashingSDF* pSDF,
@@ -49,17 +54,12 @@ protected:
 		float rayIncrement,
 		float thresSampleDist,
 		float thresDist,
-		float minDepth,
-		float maxDepth,
-		UINT nWidth, UINT nHeight);
+		UINT nWidth, UINT nHeight,
+		float minDepth,	float maxDepth
+		);
 private:
 	NuiHashingSDF*			m_pSDFData;
 	NuiHashingChunkGrid*	m_pChunkGrid;
 
-	// Raycast Params
-	float					m_rayIncrement;
-	float					m_thresSampleDist;
-	float					m_thresDist;
-	float					m_minDepth;
-	float					m_maxDepth;
+	NuiHashingRaycastConfig		m_raycastConfig;
 };

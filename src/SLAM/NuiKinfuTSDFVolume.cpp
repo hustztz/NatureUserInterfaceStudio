@@ -87,6 +87,11 @@ Vector3f NuiKinfuTSDFVolume::getVoxelOffsetSize() const
 		);
 }
 
+bool NuiKinfuTSDFVolume::log(const std::string& fileName) const
+{
+	return m_config.log(fileName);
+}
+
 void NuiKinfuTSDFVolume::reset()
 {
 	m_voxel_offset = Vector3i::Zero();
@@ -663,7 +668,8 @@ bool	NuiKinfuTSDFVolume::evaluateVolume(
 	cl_mem renderNormals,
 	cl_mem cameraParamsCL,
 	const NuiKinfuTransform& currPos,
-	UINT nWidth, UINT nHeight)
+	UINT nWidth, UINT nHeight,
+	float minDepth, float maxDepth)
 {
 	// Shift
 	//currPos.setTranslation( shiftVolume(currPos.getTranslation()) );

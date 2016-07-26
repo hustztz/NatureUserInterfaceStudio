@@ -14,8 +14,10 @@ class NuiKinfuTransform;
 class NuiPyramidICP
 {
 public:
-	NuiPyramidICP(NuiICPConfig& config, UINT nWidth, UINT nHeight);
+	NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeight);
 	~NuiPyramidICP();
+
+	bool	log(const std::string& fileName) const;
 
 	void	input(cl_mem floatDepthsCL, cl_mem cameraParamsCL);
 	bool	run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
@@ -55,7 +57,7 @@ private:
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 
-	NuiICPConfig& m_configuration;
+	NuiICPConfig m_configuration;
 	std::vector<UINT> m_iterations;
 	UINT m_nWidth, m_nHeight;
 

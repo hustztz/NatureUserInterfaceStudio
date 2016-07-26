@@ -13,7 +13,8 @@ public:
 	~NuiKinfuTSDFVolume();
 
 	/** \brief Resets tsdf volume data to uninitialized state */
-	virtual void reset() override;
+	virtual void	reset() override;
+	virtual bool	log(const std::string& fileName) const override;
 
 	virtual void	incrementVolume(
 		cl_mem floatDepthsCL,
@@ -31,7 +32,8 @@ public:
 		cl_mem renderNormals,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
-		UINT nWidth, UINT nHeight
+		UINT nWidth, UINT nHeight,
+		float minDepth, float maxDepth
 		) override;
 
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;

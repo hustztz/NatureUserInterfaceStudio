@@ -1,6 +1,7 @@
 #include "NuiKinfuManager.h"
 
 #include "NuiKinfuTSDFVolume.h"
+#include "NuiHashingVolume.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
 
@@ -23,7 +24,19 @@ NuiKinfuManager::~NuiKinfuManager()
 void	NuiKinfuManager::resetVolume()
 {
 	SafeDelete(m_pVolume);
-	m_pVolume = new NuiKinfuTSDFVolume(m_volumeConfig);
+
+	/*NuiKinfuVolumeConfig volumeConfig;
+	m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);*/
+	NuiHashingSDFConfig sdfConfig;
+	NuiHashingRaycastConfig raycastConfig;
+	m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);
+}
+
+void	NuiKinfuManager::log(const std::string& fileName) const
+{
+	m_tracker.log(fileName);
+	if(m_pVolume)
+		m_pVolume->log(fileName);
 }
 
 bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
@@ -114,7 +127,8 @@ bool	NuiKinfuManager::process ()
 	{
 		const UINT nImageWidth = pCompositeFrame->m_colorFrame.GetWidth();
 		const UINT nImageHeight = pCompositeFrame->m_colorFrame.GetHeight();
-		m_tracker.initialize(m_trackerConfig, nPointWidth, nPointHeight, nImageWidth, nImageHeight);
+		NuiICPConfig trackerConfig;
+		m_tracker.initialize(trackerConfig, nPointWidth, nPointHeight, nImageWidth, nImageHeight);
 	}
 
 	NuiTimeLog::instance().tick(sTrackerName);

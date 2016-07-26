@@ -138,8 +138,7 @@ void NuiHashingSDF::ReleaseBuffers()
 void NuiHashingSDF::ResetHeapBuffer()
 {
 	// Get the kernel
-	cl_kernel initializeKernel = nullptr;
-	NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_INITIALIZE_HEAP);
+	cl_kernel initializeKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_INITIALIZE_HEAP);
 	assert(initializeKernel);
 	if (!initializeKernel)
 	{
@@ -179,8 +178,7 @@ void NuiHashingSDF::ResetHeapBuffer()
 void NuiHashingSDF::ResetHashBuffer()
 {
 	// Get the kernel
-	cl_kernel initializeKernel = nullptr;
-	NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_INITIALIZE_HASH);
+	cl_kernel initializeKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_INITIALIZE_HASH);
 	assert(initializeKernel);
 	if (!initializeKernel)
 	{
@@ -218,8 +216,7 @@ void NuiHashingSDF::ResetHashBuffer()
 void NuiHashingSDF::resetHashBucketMutexBuffer()
 {
 	// Get the kernel
-	cl_kernel initializeKernel = nullptr;
-	NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_INITIALIZE_HASH_Bucket_Mutex);
+	cl_kernel initializeKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_INITIALIZE_HASH_Bucket_Mutex);
 	assert(initializeKernel);
 	if (!initializeKernel)
 	{

@@ -94,7 +94,7 @@ bool	NuiKinfuVolumeConfig::load(const std::string& fileName)
 	return true;
 }
 
-bool	NuiKinfuVolumeConfig::log(const std::string& fileName)
+bool	NuiKinfuVolumeConfig::log(const std::string& fileName) const
 {
 	// Open file
 	std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);

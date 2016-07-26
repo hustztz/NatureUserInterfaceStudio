@@ -62,7 +62,7 @@ NuiKinfuTracker::~NuiKinfuTracker()
 	ReleaseGLBuffer();
 }
 
-void NuiKinfuTracker::initialize(NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+void NuiKinfuTracker::initialize(const NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 {
 	if(nWidth != m_nWidth || nHeight != m_nHeight || nColorWidth != m_nColorWidth || nColorHeight != m_nColorHeight)
 	{
@@ -93,6 +93,11 @@ void NuiKinfuTracker::reset(const Vector3f& translateBasis)
 	m_transform.setTransform(Matrix3frm::Identity(), translateBasis);
 	m_initialPos.setRotation(m_transform.getRotation());
 	m_initialPos.setTranslation(m_transform.getTranslation());
+}
+
+bool NuiKinfuTracker::log(const std::string& fileName) const
+{
+	return m_icp ? m_icp->log(fileName) : false;
 }
 
 float NuiKinfuTracker::getIcpError() const
@@ -496,7 +501,17 @@ bool	NuiKinfuTracker::RunTracking(
 		//m_transform.setTransform(Matrix3frm::Identity(), Vector3f::Zero());
 		if( pVolume )
 		{
-			pVolume->evaluateVolume(m_floatDepthsCL, m_colorsCL, m_icp->getNormals(), m_icp->getPrevVertices(), m_icp->getPrevNormals(), m_cameraParamsCL, m_transform, m_nWidth, m_nHeight);
+			pVolume->evaluateVolume(
+				m_floatDepthsCL,
+				m_colorsCL,
+				m_icp->getNormals(),
+				m_icp->getPrevVertices(),
+				m_icp->getPrevNormals(),
+				m_cameraParamsCL,
+				m_transform,
+				m_nWidth, m_nHeight,
+				(float)minDepth/1000.0f, (float)maxDepth/1000.0f
+				);
 			m_icp->resizePrevs();
 		}
 		else

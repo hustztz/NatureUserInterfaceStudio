@@ -30,10 +30,7 @@ public:
 	void	setAutoReset(bool autoReset) { m_bAutoReset = autoReset; }
 	void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
 	void	setIntegrationMetricThreshold(float threshold);
-
-public:
-	NuiICPConfig						m_trackerConfig;
-	NuiKinfuVolumeConfig				m_volumeConfig;
+	void	log(const std::string& fileName) const;
 
 private:
 	virtual bool process() override;

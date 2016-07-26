@@ -20,5 +20,5 @@ struct NuiICPConfig
 	NuiICPConfig();
 
 	bool	load(const std::string& fileName);
-	bool	log(const std::string& fileName);
+	bool	log(const std::string& fileName) const;
 };

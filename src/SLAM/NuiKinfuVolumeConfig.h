@@ -27,5 +27,5 @@ struct NuiKinfuVolumeConfig
 	NuiKinfuVolumeConfig();
 
 	bool	load(const std::string& fileName);
-	bool	log(const std::string& fileName);
+	bool	log(const std::string& fileName) const;
 };
