@@ -1,7 +1,7 @@
 //#include "prefix_sum_def.h"
 
 //Must be a power of two
-#define WORKGROUP_SIZE 512
+#define WORKGROUP_SIZE 1024
 #define LOG2_WARP_SIZE 5U
 #define WARP_SIZE (1U << LOG2_WARP_SIZE)
 
@@ -63,23 +63,27 @@ inline uint scan1Exclusive(uint idata, __local uint *l_Data, uint size)
 }
 
 //Vector scan: the array to be scanned is stored
-//in work-item private memory as uint4
-inline uint4 scan4Inclusive(uint4 data4, __local uint *l_Data, uint size)
+//in work-item private memory as uint8
+inline uint8 scan8Inclusive(uint8 data8, __local uint *l_Data, uint size)
 {
     //Level-0 inclusive scan
-    data4.y += data4.x;
-    data4.z += data4.y;
-    data4.w += data4.z;
+    data8.s1 += data8.s0;
+    data8.s2 += data8.s1;
+    data8.s3 += data8.s2;
+	data8.s4 += data8.s3;
+	data8.s5 += data8.s4;
+	data8.s6 += data8.s5;
+	data8.s7 += data8.s6;
 
     //Level-1 exclusive scan
-    uint val = scan1Inclusive(data4.w, l_Data, size / 4) - data4.w;
+    uint val = scan1Inclusive(data8.s7, l_Data, size / 8) - data8.s7;
 
-    return (data4 + (uint4)val);
+    return (data8 + (uint8)val);
 }
 
-inline uint4 scan4Exclusive(uint4 data4, __local uint *l_Data, uint size)
+inline uint8 scan8Exclusive(uint8 data8, __local uint *l_Data, uint size)
 {
-    return scan4Inclusive(data4, l_Data, size) - data4;
+    return scan8Inclusive(data8, l_Data, size) - data8;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -87,20 +91,20 @@ inline uint4 scan4Exclusive(uint4 data4, __local uint *l_Data, uint size)
 ////////////////////////////////////////////////////////////////////////////////
 __kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
 void scanExclusiveLocal1(
-    __global uint4 *d_Src,
-    __global uint4 *d_Dst,
+    __global uint8 *d_Src,
+    __global uint8 *d_Dst,
     __local uint *l_Data,
     uint size
 	)
 {
     //Load data
-    uint4 idata4 = d_Src[get_global_id(0)];
+    uint8 idata8 = d_Src[get_global_id(0)];
 
     //Calculate exclusive scan
-    uint4 odata4  = scan4Exclusive(idata4, l_Data, size);
+    uint8 odata8  = scan8Exclusive(idata8, l_Data, size);
 
     //Write back
-    d_Dst[get_global_id(0)] = odata4;
+    d_Dst[get_global_id(0)] = odata8;
 }
 
 //Exclusive scan of top elements of bottom-level scans (4 * THREADBLOCK_SIZE)
@@ -119,8 +123,8 @@ void scanExclusiveLocal2(
     uint data = 0;
     if(get_global_id(0) < size)
     data =
-        d_Dst[(4 * WORKGROUP_SIZE - 1) + (4 * WORKGROUP_SIZE) * get_global_id(0)] + 
-        d_Src[(4 * WORKGROUP_SIZE - 1) + (4 * WORKGROUP_SIZE) * get_global_id(0)];
+        d_Dst[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)] + 
+        d_Src[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)];
 
     //Compute
     uint odata = scan1Exclusive(data, l_Data, size);
@@ -134,17 +138,17 @@ void scanExclusiveLocal2(
 __kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
 void uniformUpdate(
     __global uint *d_Buf,
-    __global uint4 *d_Data
+    __global uint8 *d_Data
 	)
 {
     __local uint buf[1];
 
-    uint4 data4 = d_Data[get_global_id(0)];
+    uint8 data8 = d_Data[get_global_id(0)];
 
     if(get_local_id(0) == 0)
         buf[0] = d_Buf[get_group_id(0)];
 
     barrier(CLK_LOCAL_MEM_FENCE);
-    data4 += (uint4)buf[0];
-    d_Data[get_global_id(0)] = data4;
+    data8 += (uint8)buf[0];
+    d_Data[get_global_id(0)] = data8;
 }

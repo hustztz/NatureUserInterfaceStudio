@@ -9,15 +9,15 @@
 
 //All three kernels run 512 threads per workgroup
 //Must be a power of two
-#define		WORKGROUP_SIZE		512
-#define		MAX_BATCH_ELEMENTS	4*WORKGROUP_SIZE*WORKGROUP_SIZE
+#define		WORKGROUP_SIZE		1024
+#define		MAX_BATCH_ELEMENTS	8*WORKGROUP_SIZE*WORKGROUP_SIZE
 
 NuiPrefixSum::NuiPrefixSum()
 {
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
 
-	m_buffer = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (MAX_BATCH_ELEMENTS / (4 * WORKGROUP_SIZE)) * sizeof(cl_uint), NULL, &err);
+	m_buffer = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (MAX_BATCH_ELEMENTS / (8 * WORKGROUP_SIZE)) * sizeof(cl_uint), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 }
 
@@ -45,7 +45,7 @@ void NuiPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input,
 		return;
 	}
 
-	const unsigned int cArrayLength = WORKGROUP_SIZE * 4;
+	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
@@ -62,7 +62,7 @@ void NuiPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input,
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate 
-	size_t kernelGlobalSize[1] = { numElements / 4 };
+	size_t kernelGlobalSize[1] = { numElements / 8 };
 	size_t local_ws[1] = { WORKGROUP_SIZE };
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -123,25 +123,25 @@ void NuiPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input,
 	NUI_CHECK_CL_ERR(err);
 
 	// Debug
-	unsigned int* pBuffer = new unsigned int[numElements];
-	err = clEnqueueReadBuffer(
-		queue,
-		m_buffer,
-		CL_TRUE,//blocking
-		0, //offset
-		numElements * sizeof(cl_uint),
-		pBuffer,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-	for(unsigned int i = 0; i < numElements; i++)
-	{
-		unsigned int hustztz = pBuffer[i];
-		//std::cout << pBuffer[i]  << std::endl;
-	}
-	delete[] pBuffer;
+	//unsigned int* pBuffer = new unsigned int[numElements];
+	//err = clEnqueueReadBuffer(
+	//	queue,
+	//	m_buffer,
+	//	CL_TRUE,//blocking
+	//	0, //offset
+	//	numElements * sizeof(cl_uint),
+	//	pBuffer,
+	//	0,
+	//	NULL,
+	//	NULL
+	//	);
+	//NUI_CHECK_CL_ERR(err);
+	//for(unsigned int i = 0; i < numElements; i++)
+	//{
+	//	unsigned int hustztz = pBuffer[i];
+	//	//std::cout << pBuffer[i]  << std::endl;
+	//}
+	//delete[] pBuffer;
 }
 
 void NuiPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output)
@@ -196,7 +196,7 @@ unsigned int iFactorRadix2Up(unsigned int num)
 		return num;
 	}
 	L = 1;
-	for (unsigned int i = 0; i <= log2L; i ++)
+	for (unsigned int i = 0; i < log2L; i ++)
 	{
 		L <<= 1;
 	}
@@ -205,8 +205,8 @@ unsigned int iFactorRadix2Up(unsigned int num)
 
 unsigned int NuiPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output)
 {
-	const unsigned int cArrayLength = WORKGROUP_SIZE * 4;
-	numElements = iFactorRadix2Up(numElements);
+	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
+	numElements = iFactorRadix2Up(numElements / 8) * 8;
 
 	assert(numElements >= cArrayLength && numElements <= MAX_BATCH_ELEMENTS);
 	if(numElements < cArrayLength || numElements > MAX_BATCH_ELEMENTS)

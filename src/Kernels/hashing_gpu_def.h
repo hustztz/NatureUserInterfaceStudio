@@ -1,6 +1,6 @@
 #pragma once
 
-#define _HANDLE_COLLISIONS
+//#define _HANDLE_COLLISIONS
 
 //status flags for hash entries
 #define LOCK_ENTRY -1
@@ -8,7 +8,7 @@
 #define NO_OFFSET 0
 
 #define SDF_BLOCK_SIZE 8
-#define HASH_BUCKET_SIZE 10
+#define HASH_BUCKET_SIZE 8
 
 #define FP_MINF -FLT_MAX
 #define FP_PINF FLT_MAX

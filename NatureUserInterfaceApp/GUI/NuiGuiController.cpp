@@ -2,10 +2,11 @@
 
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
+#include "NuiGuiOpenCLUtilities.h"
+
 #include "DeviceManager/NuiRGBDDeviceController.h"
 
 #include "NuiPangoVis.h"
-#include "NuiGuiOpenCLUtilities.h"
 
 #include "SLAM/NuiKinfuManager.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
@@ -26,6 +27,34 @@ NuiGuiController::NuiGuiController()
 	m_pCache = new NuiFrameBuffer();
 	m_gui = new NuiPangoVis(false);
 	m_pDevice = new NuiRGBDDeviceController();
+
+	//Initialize OpenCL
+	if( !NuiOpenCLGlobal::instance().isCLReady() )
+	{
+		if( !NuiOpenCLGlobal::instance().initializeOpenCL() )
+			printf("Failed to initialize OpenCL.\n");
+
+		// Register buffer functions, register more if needed in the future
+		/*NuiOpenCLBufferFactory::RegisterAsUInt32IndexBufferCLFn(
+			NuiMayaHWMappable::asUInt32IndexBufferCL);
+		NuiOpenCLBufferFactory::RegisterAsPosition3fBufferCLFn(
+			NuiMayaHWMappable::asPosition3fBufferCL);
+		NuiOpenCLBufferFactory::RegisterAsColor4fBufferCLFn(
+			NuiMayaHWMappable::asColor4fBufferCL);
+		NuiOpenCLBufferFactory::RegisterAsNormal3fBufferCLFn(
+			NuiMayaHWMappable::asNormal3fBufferCL);
+		NuiOpenCLBufferFactory::RegisterAsPatchUV2fBufferCLFn(
+			NuiMayaHWMappable::asTexture2fBufferCL);
+		NuiOpenCLBufferFactory::RegisterAsTexture1fBufferCLFn(
+			NuiMayaHWMappable::asTexture1fBufferCL);*/
+
+		// Register functions for NuiGPUMemManager
+		NuiGPUMemManager::RegisterInformRenderHoldGPU(NuiGuiOpenCLUtilities::informRenderHoldGPU);
+		NuiGPUMemManager::RegisterInformRenderReleaseGPU(NuiGuiOpenCLUtilities::informRenderReleaseGPU);
+		NuiGPUMemManager::RegisterLockRenderResourceHandle(NuiGuiOpenCLUtilities::lockResourceHandle);
+		NuiGPUMemManager::RegisterUnlockRenderResourceHandle(NuiGuiOpenCLUtilities::unlockResourceHandle);
+	}
+
 }
 
 NuiGuiController::~NuiGuiController()
@@ -76,35 +105,8 @@ void NuiGuiController::handleGuiChanged()
 	}
 	if(m_gui->a_kinFuOn.GuiChanged())
 	{
-		if(m_gui->a_kinFuOn)
+		if(m_gui->a_kinFuOn && NuiOpenCLGlobal::instance().isCLReady())
 		{
-			//Initialize OpenCL
-			if( !NuiOpenCLGlobal::instance().isCLReady() )
-			{
-				if( !NuiOpenCLGlobal::instance().initializeOpenCL() )
-					printf("Failed to initialize OpenCL.\n");
-
-				// Register buffer functions, register more if needed in the future
-				/*NuiOpenCLBufferFactory::RegisterAsUInt32IndexBufferCLFn(
-					NuiMayaHWMappable::asUInt32IndexBufferCL);
-				NuiOpenCLBufferFactory::RegisterAsPosition3fBufferCLFn(
-					NuiMayaHWMappable::asPosition3fBufferCL);
-				NuiOpenCLBufferFactory::RegisterAsColor4fBufferCLFn(
-					NuiMayaHWMappable::asColor4fBufferCL);
-				NuiOpenCLBufferFactory::RegisterAsNormal3fBufferCLFn(
-					NuiMayaHWMappable::asNormal3fBufferCL);
-				NuiOpenCLBufferFactory::RegisterAsPatchUV2fBufferCLFn(
-					NuiMayaHWMappable::asTexture2fBufferCL);
-				NuiOpenCLBufferFactory::RegisterAsTexture1fBufferCLFn(
-					NuiMayaHWMappable::asTexture1fBufferCL);*/
-
-				// Register functions for NuiGPUMemManager
-				NuiGPUMemManager::RegisterInformRenderHoldGPU(NuiGuiOpenCLUtilities::informRenderHoldGPU);
-				NuiGPUMemManager::RegisterInformRenderReleaseGPU(NuiGuiOpenCLUtilities::informRenderReleaseGPU);
-				NuiGPUMemManager::RegisterLockRenderResourceHandle(NuiGuiOpenCLUtilities::lockResourceHandle);
-				NuiGPUMemManager::RegisterUnlockRenderResourceHandle(NuiGuiOpenCLUtilities::unlockResourceHandle);
-			}
-
 			if(!m_pKinfu)
 			{
 				m_pKinfu = new NuiKinfuManager();

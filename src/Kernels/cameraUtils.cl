@@ -44,8 +44,8 @@ inline static float cameraToKinectProjZ(
 inline static float3 kinectDepthToSkeleton(uint ux, uint uy, float depth, __constant struct NuiCLCameraParams* cameraParams)
 {
 	struct NuiCLCameraParams camParams = *cameraParams;
-	const float x = ((float)ux-camParams.cx) / camParams.fx;
-	const float y = ((float)uy-camParams.cy) / camParams.fy;
+	const float x = (convert_float(ux)-camParams.cx) / camParams.fx;
+	const float y = (convert_float(uy)-camParams.cy) / camParams.fy;
 	//const float y = (c_depthCameraParams.my-(float)uy) / c_depthCameraParams.fy;
 	return (float3)(depth*x, depth*y, depth);
 }

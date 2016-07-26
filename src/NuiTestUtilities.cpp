@@ -16,15 +16,15 @@ namespace NuiTestUtilities
 		cl_context       context = NuiOpenCLGlobal::instance().clContext();
 		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-		static const UINT cInputSize = 512*16*10;
-		UINT input[cInputSize];
+		static const UINT cInputSize = 16*1024*8;
+		UINT* input = new UINT[cInputSize];
 		for(UINT i = 0; i < cInputSize; i++)
 			input[i] = 1; //rand();
 		/*std::cout << " input:"  << std::endl;
 		for(UINT i = 0; i < sInputSize; i++)
 			std::cout << input[i]  << std::endl;*/
 
-		UINT outputCPU[cInputSize];
+		UINT* outputCPU = new UINT[cInputSize];
 		for(UINT j = 0; j < cInputSize; j++)
 			outputCPU[j] = 0;
 		for(UINT j = 1; j < cInputSize; j++)
@@ -55,6 +55,7 @@ namespace NuiTestUtilities
 			);
 		NUI_CHECK_CL_ERR(err);
 
+		bool returnStatus = true;
 		std::cout << " outputGPU:"  << std::endl;
 		for(UINT i = 0; i < cInputSize; i++)
 		{
@@ -62,9 +63,22 @@ namespace NuiTestUtilities
 			if(outputCPU[i] != outputGPU[i])
 			{
 				std::cout << "error."  << std::endl;
-				return false;
+				returnStatus = false;
+				break;
 			}
 		}
-		return true;
+		delete[] input;
+		delete[] outputCPU;
+		if (inputCL) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(inputCL);
+			NUI_CHECK_CL_ERR(err);
+			inputCL = NULL;
+		}
+		if (outputCL) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(outputCL);
+			NUI_CHECK_CL_ERR(err);
+			outputCL = NULL;
+		}
+		return returnStatus;
 	}
 }

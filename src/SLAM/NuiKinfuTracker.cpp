@@ -478,6 +478,8 @@ bool	NuiKinfuTracker::RunTracking(
 	camIntri.cy = intri_cy;
 	camIntri.depthImageWidth = m_nWidth;
 	camIntri.depthImageHeight = m_nHeight;
+	camIntri.sensorDepthWorldMin = (float)minDepth / 1000.0f;
+	camIntri.sensorDepthWorldMax = (float)maxDepth / 1000.0f;
 	WriteCameraParams(camIntri);
 	if( pVolume->hasColorData() )
 		WriteColors(pDepthToColor, colorImage, nPointNum);

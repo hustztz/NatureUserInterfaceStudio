@@ -51,7 +51,6 @@ __kernel void alloc_SDFs_kernel(
 			__global uint*	d_heapCounter,
 			__global int*	d_hashBucketMutex,
 			__global uint*	d_bitMask,
-			const float		maxIntegrationDistance,
 			const float		truncation,
 			const float		truncScale,
 			const float		virtualVoxelSize,
@@ -69,12 +68,12 @@ __kernel void alloc_SDFs_kernel(
     
 	const uint id = mul24(gidy, gsizex) + gidx;
 	float Dp = vload(id, depths);
-	if(isnan(Dp) || Dp > maxIntegrationDistance)
+	if(isnan(Dp))
 		return;
 	
 	float t = truncation + truncScale * Dp;
-	float minDepth = fmin(maxIntegrationDistance, Dp-t);
-	float maxDepth = fmin(maxIntegrationDistance, Dp+t);
+	float minDepth = Dp-t;
+	float maxDepth = Dp+t;
 	if (minDepth >= maxDepth) return;
 
 	float3 rayMin = kinectDepthToSkeleton(gidx, gidy, minDepth, cameraParams);
@@ -115,7 +114,7 @@ __kernel void alloc_SDFs_kernel(
 		//check if it's in the frustum and not checked out
 		if (isSDFBlockInCameraFrustumApprox(idCurrentVoxel, cameraParams, matrix, virtualVoxelSize) &&
 			!isSDFBlockStreamedOut(idCurrentVoxel, virtualVoxelSize, streamingVoxelExtents, minGridPos, gridDimensions, d_bitMask))
-		{		
+		{
 			allocBlock(idCurrentVoxel, d_hash, d_heap, d_heapCounter, d_hashBucketMutex, hashNumBuckets, hashMaxCollisionLinkedListSize);
 		}
 
@@ -184,7 +183,6 @@ __kernel void integrateDepthMapKernel(
 	__global struct NuiCLVoxel*		d_SDFBlocks,
 	__global struct NuiCLHashEntry*	d_hashCompactified,
 	const float			virtualVoxelSize,
-	const float			maxIntegrationDistance,
 	const float			truncation,
 	const float			truncScale,
 	const uint			integrationWeightSample,
@@ -213,7 +211,7 @@ __kernel void integrateDepthMapKernel(
 	{
 		const uint screenId = mul24(screenPos.y, camParams.depthImageWidth) + screenPos.x;
 		float depth = vload(screenId, depths);
-		if(isnan(depth) || depth > maxIntegrationDistance)
+		if(isnan(depth))
 			return;
 
 		uchar4 color = vload4(screenId, colors);

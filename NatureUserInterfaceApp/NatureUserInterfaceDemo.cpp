@@ -22,7 +22,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			bHasFace = true;
 		}
 	}
-	
+
 	NuiGuiController mainController;
 	mainController.launch();
 

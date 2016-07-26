@@ -293,8 +293,6 @@ void NuiHashingSDF::alloc(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(allocKernel, idx++, sizeof(cl_mem), &bitMaskCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float), &m_config.m_maxIntegrationDistance);
-	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float), &m_config.m_truncation);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(allocKernel, idx++, sizeof(cl_float), &m_config.m_truncScale);
@@ -326,6 +324,24 @@ void NuiHashingSDF::alloc(
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+	// Debug
+#ifdef _DEBUG
+	//UINT debugHeapCounter = 0;
+	//err = clEnqueueReadBuffer(
+	//	queue,
+	//	m_heapCountCL,
+	//	CL_TRUE,//blocking
+	//	0, //offset
+	//	sizeof(cl_uint),
+	//	&debugHeapCounter,
+	//	0,
+	//	NULL,
+	//	NULL
+	//	);
+	//NUI_CHECK_CL_ERR(err);
+	//std::cout << debugHeapCounter  << std::endl;
+#endif
 }
 
 UINT NuiHashingSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transformCL)
@@ -378,6 +394,32 @@ UINT NuiHashingSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transfor
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+	// Debug
+#ifdef _DEBUG
+	//UINT numElements = HASH_BUCKET_SIZE * m_config.m_hashNumBuckets;
+	//unsigned int* pBuffer = new unsigned int[numElements];
+	//err = clEnqueueReadBuffer(
+	//	queue,
+	//	m_hashDecisionCL,
+	//	CL_TRUE,//blocking
+	//	0, //offset
+	//	numElements * sizeof(cl_uint),
+	//	pBuffer,
+	//	0,
+	//	NULL,
+	//	NULL
+	//	);
+	//NUI_CHECK_CL_ERR(err);
+	//unsigned int hustztz = 0;
+	//for(unsigned int i = 0; i < numElements; i++)
+	//{
+	//	hustztz += pBuffer[i];
+	//	//std::cout << pBuffer[i]  << std::endl;
+	//}
+	//delete[] pBuffer;
+	//std::cout << hustztz  << std::endl;
+#endif
 
 	//make sure numOccupiedBlocks is updated on the GPU
 	UINT numOccupiedBlocks = m_scan.prefixSum(HASH_BUCKET_SIZE * m_config.m_hashNumBuckets, m_hashDecisionCL, m_hashDecisionPrefixCL);
@@ -444,15 +486,13 @@ void NuiHashingSDF::integrateDepthMap(UINT numOccupiedBlocks, cl_mem floatDepths
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_virtualVoxelSize);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_maxIntegrationDistance);
-	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_truncation);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_truncScale);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_integrationWeightSample);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_uint), &m_config.m_integrationWeightSample);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_integrationWeightMax);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_uchar), &m_config.m_integrationWeightMax);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
