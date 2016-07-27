@@ -171,7 +171,10 @@ __kernel void compactifyHashKernel(
 
 	if( d_hashDecision[gidx] == 1 )
 	{
-		d_hashCompactified[d_hashDecisionPrefix[gidx]-1] = d_hash[gidx];
+		uint prefixIdx = d_hashDecisionPrefix[gidx];
+		if(prefixIdx > 0)
+			prefixIdx --;
+		d_hashCompactified[prefixIdx] = d_hash[gidx];
 	}
 }
 
@@ -276,12 +279,11 @@ __kernel void garbageCollectIdentifyKernel(
 	__global uint*					d_hashDecision,
 	__constant struct NuiCLCameraParams* cameraParams,
 	const float						truncation,
-	const float						truncScale
+	const float						truncScale,
+	__local float*					l_shared_MinSDF,
+	__local uchar*					l_shared_MaxWeight
 	)
 {
-	__local float	shared_MinSDF[SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE / 2];
-	__local uchar	shared_MaxWeight[SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE / 2];
-
 	const uint blockIdx = get_group_id(0);
 	const uint lidx = get_local_id(0);
 	const uint lsizex = get_local_size(0);
@@ -303,22 +305,23 @@ __kernel void garbageCollectIdentifyKernel(
 	if (v0.weight == 0)	v0.sdf = FP_PINF;
 	if (v1.weight == 0)	v1.sdf = FP_PINF;
 
-	shared_MinSDF[lidx] = min(fabs(v0.sdf), fabs(v1.sdf));	//init shared memory
-	shared_MaxWeight[lidx] = max(convert_uchar(v0.weight), convert_uchar(v1.weight));
+	//init shared memory
+	l_shared_MinSDF[lidx] = fmin(fabs(v0.sdf), fabs(v1.sdf));
+	l_shared_MaxWeight[lidx] = max(convert_uchar(v0.weight), convert_uchar(v1.weight));
 
 	for (uint stride = 2; stride <= lsizex; stride <<= 1) {
 		barrier(CLK_LOCAL_MEM_FENCE);
 		if ((lidx  & (stride-1)) == (stride-1)) {
-			shared_MinSDF[lidx] = min(shared_MinSDF[lidx-stride/2], shared_MinSDF[lidx]);
-			shared_MaxWeight[lidx] = max(shared_MaxWeight[lidx-stride/2], shared_MaxWeight[lidx]);
+			l_shared_MinSDF[lidx] = min(l_shared_MinSDF[lidx-stride/2], l_shared_MinSDF[lidx]);
+			l_shared_MaxWeight[lidx] = max(l_shared_MaxWeight[lidx-stride/2], l_shared_MaxWeight[lidx]);
 		}
 	}
 
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 	if (lidx == lsizex - 1) {
-		float minSDF = shared_MinSDF[lidx];
-		uchar maxWeight = shared_MaxWeight[lidx];
+		float minSDF = l_shared_MinSDF[lidx];
+		uchar maxWeight = l_shared_MaxWeight[lidx];
 
 		struct NuiCLCameraParams camParams = *cameraParams;
 		float t = truncation + truncScale * camParams.sensorDepthWorldMax;	//MATTHIAS TODO check whether this is a reasonable metric

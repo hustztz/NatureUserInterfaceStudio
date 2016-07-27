@@ -32,8 +32,7 @@ public:
 		cl_mem renderNormals,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
-		UINT nWidth, UINT nHeight,
-		float minDepth, float maxDepth
+		UINT nWidth, UINT nHeight
 		) override;
 
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;

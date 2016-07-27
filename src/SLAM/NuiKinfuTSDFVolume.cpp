@@ -668,8 +668,7 @@ bool	NuiKinfuTSDFVolume::evaluateVolume(
 	cl_mem renderNormals,
 	cl_mem cameraParamsCL,
 	const NuiKinfuTransform& currPos,
-	UINT nWidth, UINT nHeight,
-	float minDepth, float maxDepth)
+	UINT nWidth, UINT nHeight)
 {
 	// Shift
 	//currPos.setTranslation( shiftVolume(currPos.getTranslation()) );

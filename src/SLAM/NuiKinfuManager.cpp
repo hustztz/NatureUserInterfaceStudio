@@ -21,13 +21,18 @@ NuiKinfuManager::~NuiKinfuManager()
 	SafeDelete(m_pVolume);
 }
 
-void	NuiKinfuManager::resetVolume()
+void	NuiKinfuManager::resetVolume(float voxelSize)
 {
 	SafeDelete(m_pVolume);
 
-	/*NuiKinfuVolumeConfig volumeConfig;
+	/*volumeConfig.dimensions = Vector3f::Constant(3.0f);
+	volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
+	NuiKinfuVolumeConfig volumeConfig;
 	m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);*/
 	NuiHashingSDFConfig sdfConfig;
+	sdfConfig.m_virtualVoxelSize = voxelSize;
+	sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
+	sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
 	NuiHashingRaycastConfig raycastConfig;
 	m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);
 }
@@ -50,12 +55,12 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	// Color image
 	m_tracker.previousNormalImageToData(pCLData);
 
-	//bool returnStatus = m_tracker.PreviousBuffer(pCLData);
-	bool returnStatus = false;
+	bool returnStatus = m_tracker.previousBufferToData(pCLData);
+	/*bool returnStatus = false;
 	if( m_pVolume )
 	{
 		returnStatus = bIsMesh ? m_pVolume->Volume2CLMesh(pCLData) : m_pVolume->Volume2CLVertices(pCLData);
-	}
+	}*/
 
 	return returnStatus;
 }

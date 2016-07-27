@@ -511,8 +511,7 @@ bool	NuiKinfuTracker::RunTracking(
 				m_icp->getPrevNormals(),
 				m_cameraParamsCL,
 				m_transform,
-				m_nWidth, m_nHeight,
-				(float)minDepth/1000.0f, (float)maxDepth/1000.0f
+				m_nWidth, m_nHeight
 				);
 			m_icp->resizePrevs();
 		}

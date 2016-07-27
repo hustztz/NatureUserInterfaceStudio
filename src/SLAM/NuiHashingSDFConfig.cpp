@@ -1,7 +1,7 @@
 #include "NuiHashingSDFConfig.h"
 
 NuiHashingSDFConfig::NuiHashingSDFConfig()
-	: m_hashNumBuckets(1024*1024)
+	: m_hashNumBuckets(512*512)
 	, m_numSDFBlocks(400000)
 	, m_hashMaxCollisionLinkedListSize(7)
 	, m_virtualVoxelSize(0.010f)

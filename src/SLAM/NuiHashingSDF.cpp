@@ -12,7 +12,7 @@
 NuiHashingSDF::NuiHashingSDF(NuiHashingSDFConfig config)
 	: m_config(config)
 	, m_numIntegratedFrames(0)
-	, m_bGarbageCollectionEnabled(true)
+	, m_bGarbageCollectionEnabled(false)
 	, m_garbageCollectionStarve(10)
 {
 	AcquireBuffers();
@@ -423,6 +423,7 @@ UINT NuiHashingSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transfor
 
 	//make sure numOccupiedBlocks is updated on the GPU
 	UINT numOccupiedBlocks = m_scan.prefixSum(HASH_BUCKET_SIZE * m_config.m_hashNumBuckets, m_hashDecisionCL, m_hashDecisionPrefixCL);
+	numOccupiedBlocks --;
 
 	// Set kernel arguments
 	idx = 0;
@@ -448,7 +449,10 @@ UINT NuiHashingSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transfor
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 	return numOccupiedBlocks;
 }
 
@@ -510,6 +514,10 @@ void NuiHashingSDF::integrateDepthMap(UINT numOccupiedBlocks, cl_mem floatDepths
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 }
 
 void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupiedBlocks, cl_mem cameraParamsCL)
@@ -569,7 +577,7 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 			);
 		NUI_CHECK_CL_ERR(err);
 	}
-
+	
 	// Set kernel arguments
 	idx = 0;
 	err = clSetKernelArg(grabageIndentifyKernel, idx++, sizeof(cl_mem), &m_SDFBlocksCL);
@@ -585,8 +593,13 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 	err = clSetKernelArg(grabageIndentifyKernel, idx++, sizeof(cl_float), &m_config.m_truncScale);
 	NUI_CHECK_CL_ERR(err);
 
-	// Run kernel to calculate
 	size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE / 2};
+	err = clSetKernelArg(grabageIndentifyKernel, idx++, local_ws[0] * sizeof(cl_float), NULL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(grabageIndentifyKernel, idx++, local_ws[0] * sizeof(cl_uchar), NULL);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
 	size_t kernelGlobalSize[1] = { numOccupiedBlocks * local_ws[0] };
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -600,7 +613,10 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 	// Set kernel arguments
 	idx = 0;
 	err = clSetKernelArg(grabageFreeKernel, idx++, sizeof(cl_mem), &m_SDFBlocksCL);
@@ -636,4 +652,8 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 }

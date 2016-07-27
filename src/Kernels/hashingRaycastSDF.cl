@@ -183,16 +183,14 @@ __kernel void renderKernel(
 			const uint		hashMaxCollisionLinkedListSize,
 			const float		thresSampleDist,
 			const float		thresDist,
-			const float		rayIncrement,
-			const float		minDepth,
-			const float		maxDepth
+			const float		rayIncrement
         )
 {
     const uint gidx = get_global_id(0);
 	const uint gidy = get_global_id(1);
 	const uint gsizex = get_global_size(0);
 	const int idx = mul24(gidy, gsizex) + gidx;
-
+						
 	/*vstore3(NAN, idx, vmap);
 	vstore3(NAN, idx, nmap);
 	vstore4(NAN, idx, colormap);*/
@@ -203,9 +201,9 @@ __kernel void renderKernel(
 
 	//float minInterval = tex2D(rayMinTextureRef, x, y);
 	//float maxInterval = tex2D(rayMaxTextureRef, x, y);
-
-	float minInterval = minDepth;
-	float maxInterval = maxDepth;
+	struct NuiCLCameraParams camParams = *cameraParams;
+	float minInterval = camParams.sensorDepthWorldMin;
+	float maxInterval = camParams.sensorDepthWorldMax;
 
 	//if (minInterval == 0 || minInterval == MINF) minInterval = rayCastParams.m_minDepth;
 	//if (maxInterval == 0 || maxInterval == MINF) maxInterval = rayCastParams.m_maxDepth;
@@ -218,17 +216,14 @@ __kernel void renderKernel(
 	//	printf("ERROR (%d,%d): [ %f, %f ]\n", x, y, minInterval, maxInterval);
 	//}
 
-	struct NuiCLCameraParams camParams = *cameraParams;
-	int3  dTid = (int3)(gidx, gidy, 1);
-
 	// Last Sample
 	float lastSampleSdf = 0.0f;
 	float lastSampleAlpha = 0.0f;
 	float lastSampleWeight = 0;
 	const float depthToRayLength = 1.0f/camDir.z; // scale factor to convert from depth to ray length
 
-	float rayCurrent = depthToRayLength * max(minDepth, minInterval);	// Convert depth to raylength
-	float rayEnd = depthToRayLength * min(maxDepth, maxInterval);		// Convert depth to raylength
+	float rayCurrent = depthToRayLength * max(camParams.sensorDepthWorldMin, minInterval);	// Convert depth to raylength
+	float rayEnd = depthToRayLength * min(camParams.sensorDepthWorldMax, maxInterval);		// Convert depth to raylength
 	//float rayCurrent = depthToRayLength * rayCastParams.m_minDepth;	// Convert depth to raylength
 	//float rayEnd = depthToRayLength * rayCastParams.m_maxDepth;		// Convert depth to raylength
 
@@ -250,14 +245,14 @@ __kernel void renderKernel(
 					{
 						float depth = intersection.sdf / depthToRayLength; // Convert ray length to depth depthToRayLength
 
-						int oidx = dTid.y*camParams.depthImageWidth+dTid.x;
-						vstore3( kinectDepthToSkeleton(dTid.x, dTid.y, depth, cameraParams) , oidx, vmap);
-						vstore4( (float4)(intersection.color[0]/255.f, intersection.color[1]/255.f, intersection.color[2]/255.f, 1.0f) , oidx, colormap);
+						vstore3( kinectDepthToSkeleton(gidx, gidy, depth, cameraParams) , idx, vmap);
+						if(colormap)
+							vstore4( (float4)(intersection.color[0]/255.f, intersection.color[1]/255.f, intersection.color[2]/255.f, 1.0f) , idx, colormap);
 
 						//if(useGradients)
 						{
 							float3 normal = -gradientForPoint(currentIso, d_hash, d_SDFBlocks, virtualVoxelSize, hashNumBuckets, hashMaxCollisionLinkedListSize);
-							vstore3( rotationInverse(normal, matrix) , oidx, nmap);
+							vstore3( rotationInverse(normal, matrix) , idx, nmap);
 						}
 
 						return;

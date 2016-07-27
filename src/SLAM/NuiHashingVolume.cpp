@@ -65,8 +65,7 @@ void NuiHashingVolume::raycastRender(
 	float rayIncrement,
 	float thresSampleDist,
 	float thresDist,
-	UINT nWidth, UINT nHeight,
-	float minDepth,	float maxDepth
+	UINT nWidth, UINT nHeight
 	)
 {
 	if(!pSDF)
@@ -117,10 +116,6 @@ void NuiHashingVolume::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_uint), &rayIncrement);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_uint), &minDepth);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_uint), &maxDepth);
-	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
 	size_t kernelGlobalSize[2] = { nWidth, nHeight };
@@ -136,6 +131,10 @@ void NuiHashingVolume::raycastRender(
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 }
 
 void	NuiHashingVolume::incrementVolume(
@@ -181,8 +180,7 @@ bool	NuiHashingVolume::evaluateVolume(
 	cl_mem renderNormals,
 	cl_mem cameraParamsCL,
 	const NuiKinfuTransform& currPos,
-	UINT nWidth, UINT nHeight,
-	float minDepth, float maxDepth
+	UINT nWidth, UINT nHeight
 	)
 {
 	///////////////////////////////////////////////////////////////////////////////////////////
@@ -208,8 +206,7 @@ bool	NuiHashingVolume::evaluateVolume(
 		rayIncrement,
 		thresSampleDist,
 		thresDist,
-		nWidth, nHeight,
-		minDepth, maxDepth
+		nWidth, nHeight
 		);
 	return integrate;
 }

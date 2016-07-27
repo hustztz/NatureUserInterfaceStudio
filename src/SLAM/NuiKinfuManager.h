@@ -17,7 +17,7 @@ public:
 	virtual ~NuiKinfuManager();
 
 	virtual void	reset() override;
-	void	resetVolume();
+	void	resetVolume(float voxelSize);
 	bool	pushbackFrame(std::shared_ptr<NuiCompositeFrame> pFrame) { return m_buffer.pushbackCompositeFrame(pFrame); }
 	bool	getCLData(NuiCLMappableData* pCLData, bool bIsMesh);
 	bool	getMesh(NuiMeshShape* pMesh);

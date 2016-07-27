@@ -40,8 +40,7 @@ public:
 
 	pangolin::Var<bool> a_kinFuOn;
 	pangolin::Var<bool> a_trackColors;
-	pangolin::Var<int> a_volumeResolution;
-	pangolin::Var<float> a_volumeSize;
+	pangolin::Var<float> a_volumeVoxelSize;
 	pangolin::Var<float> a_translateBasisX;
 	pangolin::Var<float> a_translateBasisZ;
 	pangolin::Var<float> a_integrationThreshold;
