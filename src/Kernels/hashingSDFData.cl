@@ -269,7 +269,8 @@ __kernel void starveVoxelsKernel(
 
 	//is typically exectued only every n'th frame
 	uchar weight = d_SDFBlocks[entry.ptr + lidx].weight;
-	weight = max(0, weight-1);	
+	if(weight > 0)
+		weight --;
 	d_SDFBlocks[entry.ptr + lidx].weight = weight;
 }
 

@@ -569,6 +569,10 @@ void    NuiKinfuTSDFVolume::Integrate(cl_mem floatDepthsCL, cl_mem colorsCL, cl_
 		);
 	NUI_CHECK_CL_ERR(err);
 
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 #ifdef _GPU_PROFILER
 	clFinish(queue);
 	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
@@ -580,7 +584,7 @@ void    NuiKinfuTSDFVolume::Integrate(cl_mem floatDepthsCL, cl_mem colorsCL, cl_
 }
 
 
-void    NuiKinfuTSDFVolume::RayCast(cl_mem renderVertices, cl_mem renderNormals, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight)
+void    NuiKinfuTSDFVolume::RayCast(cl_mem renderVertices, cl_mem renderNormals, cl_mem renderColors, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight)
 {
 	if(!renderVertices || !renderNormals)
 		return;
@@ -606,6 +610,8 @@ void    NuiKinfuTSDFVolume::RayCast(cl_mem renderVertices, cl_mem renderNormals,
 	cl_uint idx = 0;
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_volumeCL);
 	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_colorVolumeCL);
+	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
@@ -615,6 +621,8 @@ void    NuiKinfuTSDFVolume::RayCast(cl_mem renderVertices, cl_mem renderNormals,
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderVertices);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderNormals);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderColors);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_int3), voxelWrap.data());
 	NUI_CHECK_CL_ERR(err);
@@ -666,6 +674,7 @@ bool	NuiKinfuTSDFVolume::evaluateVolume(
 	cl_mem normalsCL,
 	cl_mem renderVertices,
 	cl_mem renderNormals,
+	cl_mem renderColors,
 	cl_mem cameraParamsCL,
 	const NuiKinfuTransform& currPos,
 	UINT nWidth, UINT nHeight)
@@ -684,7 +693,7 @@ bool	NuiKinfuTSDFVolume::evaluateVolume(
 	{
 		incrementVolume(floatDepthsCL, colorsCL, normalsCL, cameraParamsCL, currPos, nWidth, nHeight);
 	}
-	RayCast(renderVertices, renderNormals, cameraParamsCL, currPos, nWidth, nHeight);
+	RayCast(renderVertices, renderNormals, renderColors, cameraParamsCL, currPos, nWidth, nHeight);
 	return integrate;
 }
 

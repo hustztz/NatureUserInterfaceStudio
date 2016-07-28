@@ -30,6 +30,7 @@ public:
 		cl_mem normalsCL,
 		cl_mem renderVertices,
 		cl_mem renderNormals,
+		cl_mem renderColors,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
 		UINT nWidth, UINT nHeight
@@ -70,7 +71,7 @@ protected:
 
 	Vector3f shiftVolume(const Vector3f& translation);
 	void    Integrate(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem normalsCL, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight);
-	void    RayCast(cl_mem renderVertices, cl_mem renderNormals, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight);
+	void    RayCast(cl_mem renderVertices, cl_mem renderNormals, cl_mem renderColors, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight);
 
 private:
 	/** \brief tsdf volume data container */

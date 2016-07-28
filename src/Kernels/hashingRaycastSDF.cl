@@ -175,7 +175,7 @@ __kernel void renderKernel(
 			__global struct NuiCLRigidTransform* matrix,
 			__global float* vmap,
 			__global float* nmap,
-			__global float* colormap,
+			__global uchar* colormap,
 			__global struct NuiCLHashEntry*	d_hash,
 			__global struct NuiCLVoxel*		d_SDFBlocks,
 			const float		virtualVoxelSize,
@@ -247,7 +247,7 @@ __kernel void renderKernel(
 
 						vstore3( kinectDepthToSkeleton(gidx, gidy, depth, cameraParams) , idx, vmap);
 						if(colormap)
-							vstore4( (float4)(intersection.color[0]/255.f, intersection.color[1]/255.f, intersection.color[2]/255.f, 1.0f) , idx, colormap);
+							vstore4( (uchar4)(intersection.color[0], intersection.color[1], intersection.color[2], 255) , idx, colormap);
 
 						//if(useGradients)
 						{

@@ -25,16 +25,16 @@ void	NuiKinfuManager::resetVolume(float voxelSize)
 {
 	SafeDelete(m_pVolume);
 
-	/*volumeConfig.dimensions = Vector3f::Constant(3.0f);
-	volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
 	NuiKinfuVolumeConfig volumeConfig;
-	m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);*/
-	NuiHashingSDFConfig sdfConfig;
+	volumeConfig.dimensions = Vector3f::Constant(3.0f);
+	volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
+	m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);
+	/*NuiHashingSDFConfig sdfConfig;
 	sdfConfig.m_virtualVoxelSize = voxelSize;
 	sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
 	sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
 	NuiHashingRaycastConfig raycastConfig;
-	m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);
+	m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);*/
 }
 
 void	NuiKinfuManager::log(const std::string& fileName) const

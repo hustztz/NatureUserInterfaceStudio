@@ -74,6 +74,7 @@ private:
 	cl_mem m_colorsCL;
 	cl_mem m_cameraParamsCL;
 	cl_mem m_outputColorImageCL;
+	cl_mem m_outputColorsCL;
 
 	UINT m_nWidth, m_nHeight;
 	UINT m_nColorWidth, m_nColorHeight;

@@ -28,18 +28,22 @@ NuiPyramidICP::NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeig
 	m_depthsArrCL.resize(m_iterations.size());
 	m_verticesArrCL.resize(m_iterations.size());
 	m_normalsArrCL.resize(m_iterations.size());
+	m_colorsArrCL.resize(m_iterations.size());
 	m_verticesPrevArrCL.resize(m_iterations.size());
 	m_normalsPrevArrCL.resize(m_iterations.size());
+	m_colorsPrevArrCL.resize(m_iterations.size());
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		m_depthsArrCL[i] = NULL;
 		m_verticesArrCL[i] = NULL;
 		m_normalsArrCL[i] = NULL;
+		m_colorsArrCL[i] = NULL;
 		m_verticesPrevArrCL[i] = NULL;
 		m_normalsPrevArrCL[i] = NULL;
+		m_colorsPrevArrCL[i] = NULL;
 	}
 
-	AcquireBuffers();
+	AcquireBuffers(true);
 }
 
 NuiPyramidICP::~NuiPyramidICP()
@@ -47,7 +51,7 @@ NuiPyramidICP::~NuiPyramidICP()
 	ReleaseBuffers();
 }
 
-void NuiPyramidICP::AcquireBuffers()
+void NuiPyramidICP::AcquireBuffers(bool bHasColor)
 {
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
@@ -64,6 +68,13 @@ void NuiPyramidICP::AcquireBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_normalsPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
+		if(bHasColor)
+		{
+			m_colorsArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(BGRQUAD), NULL, &err);
+			NUI_CHECK_CL_ERR(err);
+			m_colorsPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(BGRQUAD), NULL, &err);
+			NUI_CHECK_CL_ERR(err);
+		}
 	}
 	UINT nblocks = (UINT)std::ceil( (float)(m_nWidth*m_nHeight) / WORK_GROUP_SIZE);
 	m_corespsBlocksCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nblocks*KINFU_ICP_CORESPS_NUM*sizeof(cl_float), NULL, &err);
@@ -99,6 +110,11 @@ void NuiPyramidICP::ReleaseBuffers()
 			NUI_CHECK_CL_ERR(err);
 			m_normalsArrCL[i] = NULL;
 		}
+		if (m_colorsArrCL[i]) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorsArrCL[i]);
+			NUI_CHECK_CL_ERR(err);
+			m_colorsArrCL[i] = NULL;
+		}
 		if (m_verticesPrevArrCL[i]) {
 			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_verticesPrevArrCL[i]);
 			NUI_CHECK_CL_ERR(err);
@@ -108,6 +124,11 @@ void NuiPyramidICP::ReleaseBuffers()
 			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_normalsPrevArrCL[i]);
 			NUI_CHECK_CL_ERR(err);
 			m_normalsPrevArrCL[i] = NULL;
+		}
+		if (m_colorsPrevArrCL[i]) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorsPrevArrCL[i]);
+			NUI_CHECK_CL_ERR(err);
+			m_colorsPrevArrCL[i] = NULL;
 		}
 	}
 	if (m_corespsBlocksCL) {
@@ -705,6 +726,7 @@ void NuiPyramidICP::TransformPrevMaps(cl_mem transformCL)
 		);
 		NUI_CHECK_CL_ERR(err);
 	}
+	CopyPrevColorMaps();
 }
 
 void NuiPyramidICP::CopyPrevMaps()
@@ -736,6 +758,34 @@ void NuiPyramidICP::CopyPrevMaps()
 			0,
 			0,
 			nPointsNum * 3 * sizeof(float),
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+	}
+	CopyPrevColorMaps();
+}
+
+void NuiPyramidICP::CopyPrevColorMaps()
+{
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	for (UINT i = 0; i < m_iterations.size(); ++i)
+	{
+		if(!m_colorsArrCL[i] || !m_colorsPrevArrCL[i])
+			continue;
+
+		const UINT nPointsNum = (m_nWidth >> i) * (m_nHeight >> i);
+
+		err = clEnqueueCopyBuffer(
+			queue,
+			m_colorsArrCL[i],
+			m_colorsPrevArrCL[i],
+			0,
+			0,
+			nPointsNum * 4 * sizeof(cl_uchar),
 			0,
 			NULL,
 			NULL

@@ -127,11 +127,13 @@ static float interpolateTrilineary2 (float3 origin, float3 dir, float time,
 
 __kernel void raycastKernel(
                     __global	short* volume,
+					__global	uchar* color_volume,
 					__constant	struct TsdfParams* params,
                     __constant	struct  NuiCLCameraParams* cameraParams,
 					__global	struct	NuiCLRigidTransform* matrix,
                     __global	float*	vmap,
 					__global	float*	nmap,
+					__global	uchar*	colormap,
 					const		int3	voxelWrap
                     )
 {
@@ -144,6 +146,7 @@ __kernel void raycastKernel(
 
 	vstore3(NAN, id, vmap);
 	vstore3(NAN, id, nmap);
+	vstore4(NAN, id, colormap);
 	
 	struct TsdfParams l_params = *params;
 	float3 volumeOffset = (float3)(l_params.dimension[0]/2.0, l_params.dimension[1]/2.0, l_params.dimension[2]/4.0);
@@ -222,6 +225,12 @@ __kernel void raycastKernel(
 
 			float3 vetex_found = ray_start + ray_dir * Ts;
 			vstore3(vetex_found - volumeOffset, id, vmap);
+
+			if(color_volume && colormap)
+			{
+				uchar4 rgba = vload4( idx, color_volume );
+				vstore4(rgba, id, colormap);
+			}
 
 			int3 g = getVoxel ( ray_start + ray_dir * time_curr, l_params.cell_size );
 			if (g.x > 1 && g.y > 1 && g.z > 1 && g.x < resolutions.x - 2 && g.y < resolutions.y - 2 && g.z < resolutions.z - 2)

@@ -31,9 +31,10 @@ public:
 	cl_mem	getNormals() const { return m_normalsArrCL[0]; }
 	cl_mem	getPrevVertices() const { return m_verticesPrevArrCL[0]; }
 	cl_mem	getPrevNormals() const { return m_normalsPrevArrCL[0]; }
+	cl_mem	getPrevColors() const { return m_colorsPrevArrCL[0]; }
 
 protected:
-	void	AcquireBuffers();
+	void	AcquireBuffers(bool bHasColor);
 	void	ReleaseBuffers();
 
 	void	GenerateGaussianBuffer();
@@ -45,6 +46,7 @@ protected:
 	void    ResizePrevMaps();
 	void	TransformPrevMaps(cl_mem transformCL);
 	void    CopyPrevMaps();
+	void	CopyPrevColorMaps();
 
 private:
 	cl_mem m_gaussianCL;
@@ -52,8 +54,10 @@ private:
 	GPUBuffers m_depthsArrCL;
 	GPUBuffers m_verticesArrCL;
 	GPUBuffers m_normalsArrCL;
+	GPUBuffers m_colorsArrCL;
 	GPUBuffers m_verticesPrevArrCL;
 	GPUBuffers m_normalsPrevArrCL;
+	GPUBuffers m_colorsPrevArrCL;
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 

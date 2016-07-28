@@ -46,6 +46,7 @@ NuiKinfuTracker::NuiKinfuTracker()
 	, m_colorsCL(NULL)
 	, m_cameraParamsCL(NULL)
 	, m_outputColorImageCL(NULL)
+	, m_outputColorsCL(NULL)
 	, m_nWidth(0)
 	, m_nHeight(0)
 	, m_nColorWidth(0)
@@ -145,7 +146,9 @@ void NuiKinfuTracker::AcquireBuffers(bool bHasColor)
 	}
 	m_cameraParamsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, sizeof(NuiCLCameraParams), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_outputColorImageCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nColorWidth*m_nColorHeight*sizeof(BGRQUAD), NULL, &err);
+	m_outputColorImageCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(BGRQUAD), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+	m_outputColorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*4*sizeof(cl_float), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 }
 
@@ -209,6 +212,11 @@ void NuiKinfuTracker::ReleaseBuffers()
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_outputColorImageCL);
 		NUI_CHECK_CL_ERR(err);
 		m_outputColorImageCL = NULL;
+	}
+	if (m_outputColorsCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_outputColorsCL);
+		NUI_CHECK_CL_ERR(err);
+		m_outputColorsCL = NULL;
 	}
 }
 
@@ -509,6 +517,7 @@ bool	NuiKinfuTracker::RunTracking(
 				m_icp->getNormals(),
 				m_icp->getPrevVertices(),
 				m_icp->getPrevNormals(),
+				m_icp->getPrevColors(),
 				m_cameraParamsCL,
 				m_transform,
 				m_nWidth, m_nHeight
@@ -617,6 +626,51 @@ bool NuiKinfuTracker::previousBufferToData(NuiCLMappableData* pCLData)
 	std::vector<SgVec4f>& colors = NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data();
 	if(colors.size() != nPointsNum)
 		colors.resize(nPointsNum);
+
+	cl_mem prevColorsCL = m_icp->getPrevColors();
+	// Get the kernel
+	cl_kernel rgbaKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_RGBA_TO_FLOAT4);
+	assert(rgbaKernel);
+	if (rgbaKernel && prevColorsCL)
+	{
+		// Set kernel arguments
+		cl_uint idx = 0;
+		err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &prevColorsCL);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_outputColorsCL);
+		NUI_CHECK_CL_ERR(err);
+
+		size_t kernelGlobalSize[1] = { nPointsNum };
+		err = clEnqueueNDRangeKernel(
+			queue,
+			rgbaKernel,
+			1,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+
+		clEnqueueReadBuffer(
+			queue,
+			m_outputColorsCL,
+			CL_FALSE,//blocking
+			0,
+			nPointsNum * 4 * sizeof(float),
+			colors.data(),
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+	}
+	else
+	{
+		NUI_ERROR("Get kernel 'E_RGBA_TO_FLOAT4' failed!\n");
+	}
 
 	pCLData->SetStreamDirty(true);
 

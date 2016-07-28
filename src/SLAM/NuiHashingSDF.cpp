@@ -12,7 +12,7 @@
 NuiHashingSDF::NuiHashingSDF(NuiHashingSDFConfig config)
 	: m_config(config)
 	, m_numIntegratedFrames(0)
-	, m_bGarbageCollectionEnabled(false)
+	, m_bGarbageCollectionEnabled(true)
 	, m_garbageCollectionStarve(10)
 {
 	AcquireBuffers();
@@ -449,10 +449,7 @@ UINT NuiHashingSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem transfor
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-#ifdef _DEBUG
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-#endif
+
 	return numOccupiedBlocks;
 }
 
@@ -514,10 +511,6 @@ void NuiHashingSDF::integrateDepthMap(UINT numOccupiedBlocks, cl_mem floatDepths
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-#ifdef _DEBUG
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-#endif
 }
 
 void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupiedBlocks, cl_mem cameraParamsCL)
@@ -613,10 +606,7 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-#ifdef _DEBUG
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-#endif
+
 	// Set kernel arguments
 	idx = 0;
 	err = clSetKernelArg(grabageFreeKernel, idx++, sizeof(cl_mem), &m_SDFBlocksCL);
@@ -652,8 +642,4 @@ void NuiHashingSDF::garbageCollect(bool bGarbageCollectionStarve, UINT numOccupi
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-#ifdef _DEBUG
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-#endif
 }

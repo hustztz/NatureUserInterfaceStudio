@@ -1,6 +1,8 @@
 #include "cameraUtils.cl"
 #include "hashing_gpu_def.h"
 
+#define _HANDLE_COLLISIONS
+
 inline static uint computeHashPos(int3 virtualVoxelPos, const uint hashNumBuckets)
 { 
 	const int p0 = 73856093;

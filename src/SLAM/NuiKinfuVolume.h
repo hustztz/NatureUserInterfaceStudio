@@ -42,6 +42,7 @@ public:
 		cl_mem normalsCL,
 		cl_mem renderVertices,
 		cl_mem renderNormals,
+		cl_mem renderColors,
 		cl_mem cameraParamsCL,
 		const NuiKinfuTransform& currPos,
 		UINT nWidth, UINT nHeight

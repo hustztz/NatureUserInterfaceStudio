@@ -1,6 +1,5 @@
 #pragma once
 
-#define _HANDLE_COLLISIONS
 
 //status flags for hash entries
 #define LOCK_ENTRY -1

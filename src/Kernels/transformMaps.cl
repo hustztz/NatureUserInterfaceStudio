@@ -265,3 +265,20 @@ __kernel void float3_to_RGBA_kernel(
 		);
 	vstore4(new_color, idx, RGBAs);
 }
+
+__kernel void RGBA_to_float4_kernel(
+					__global uchar* RGBAs,
+					__global float* floatColors
+						)
+{
+	const uint idx = get_global_id(0);
+
+	uchar4 color = vload4(idx, RGBAs);
+	float4 new_color = (float4)(
+		convert_float(color.x) / 255.0f,
+		convert_float(color.y) / 255.0f,
+		convert_float(color.z) / 255.0f,
+		1.0
+		);
+	vstore4(new_color, idx, floatColors);
+}

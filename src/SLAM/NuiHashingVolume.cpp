@@ -62,6 +62,7 @@ void NuiHashingVolume::raycastRender(
 	cl_mem transformCL,
 	cl_mem verticesCL,
 	cl_mem normalsCL,
+	cl_mem colorsCL,
 	float rayIncrement,
 	float thresSampleDist,
 	float thresDist,
@@ -98,7 +99,7 @@ void NuiHashingVolume::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &normalsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), NULL);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &colorsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &hashCL);
 	NUI_CHECK_CL_ERR(err);
@@ -131,10 +132,6 @@ void NuiHashingVolume::raycastRender(
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-#ifdef _DEBUG
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-#endif
 }
 
 void	NuiHashingVolume::incrementVolume(
@@ -178,6 +175,7 @@ bool	NuiHashingVolume::evaluateVolume(
 	cl_mem normalsCL,
 	cl_mem renderVertices,
 	cl_mem renderNormals,
+	cl_mem renderColors,
 	cl_mem cameraParamsCL,
 	const NuiKinfuTransform& currPos,
 	UINT nWidth, UINT nHeight
@@ -203,6 +201,7 @@ bool	NuiHashingVolume::evaluateVolume(
 		currPos.getTransformCL(),
 		renderVertices,
 		renderNormals,
+		renderColors,
 		rayIncrement,
 		thresSampleDist,
 		thresDist,
