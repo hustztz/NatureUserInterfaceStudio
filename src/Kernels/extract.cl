@@ -11,8 +11,7 @@ __kernel void fetchVolumeKernel(
                     __global float* vmap,
 					__global float* colormap,
 					const int max_vertex_size,
-					volatile __global int* mutex,
-					__global int* vertex_id
+					__global volatile int* vertex_id
                     )
 {
 	const int voxel_x = get_global_id(0);
@@ -87,15 +86,12 @@ __kernel void fetchVolumeKernel(
 				color_value = (float4)(convert_float(color_gbra.x) /255.f, convert_float(color_gbra.y) /255.f, convert_float(color_gbra.z) /255.f, 1.0f);
 			}
 
-			while(LOCK(mutex));
-			int current_id = vload(0, vertex_id);
+			int current_id = atomic_inc(vertex_id);
 			if(current_id < max_vertex_size)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
-				atomic_inc(vertex_id);
 			}
-			UNLOCK(mutex);
 		}
 		else if ((tsdf_prev < 0.f && tsdf > 0.f) || (tsdf_prev > 0.f && tsdf < 0.f))
 		{
@@ -110,15 +106,12 @@ __kernel void fetchVolumeKernel(
 				color_value = (float4)(convert_float(color_gbra.z) /255.f, convert_float(color_gbra.y) /255.f, convert_float(color_gbra.x) /255.f, 1.0f);
 			}
 
-			while(LOCK(mutex));
-			int current_id = vload(0, vertex_id);
+			int current_id = atomic_inc(vertex_id);
 			if(current_id < max_vertex_size)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
-				atomic_inc(vertex_id);
 			}
-			UNLOCK(mutex);
 		}
 	}
 }

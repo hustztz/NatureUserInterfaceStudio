@@ -248,20 +248,6 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	cl_int mutex = 0;
-	err = clEnqueueWriteBuffer(
-		queue,
-		m_mutexCL,
-		CL_FALSE,//blocking
-		0,
-		sizeof(cl_int),
-		&mutex,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
 		queue,
@@ -289,8 +275,6 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_mutexCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);

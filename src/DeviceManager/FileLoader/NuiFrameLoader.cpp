@@ -31,8 +31,8 @@ bool NuiFrameLoader::process()
 	std::shared_ptr<NuiCompositeFrame> pCompositeFrame = m_pBuffer->allocateFrame();
 	if(!pCompositeFrame)
 	{
-		assert(pCompositeFrame);
-		return false;
+		//assert(pCompositeFrame);
+		return true;
 	}
 
 	bool bLoadSucceed = false;

@@ -489,7 +489,7 @@ bool	NuiKinfuTracker::RunTracking(
 	camIntri.sensorDepthWorldMin = (float)minDepth / 1000.0f;
 	camIntri.sensorDepthWorldMax = (float)maxDepth / 1000.0f;
 	WriteCameraParams(camIntri);
-	if( pVolume->hasColorData() )
+	if(pVolume && pVolume->hasColorData() )
 		WriteColors(pDepthToColor, colorImage, nPointNum);
 
 	// half sample the input depth maps into the pyramid levels

@@ -251,20 +251,6 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	cl_int mutex = 0;
-	err = clEnqueueWriteBuffer(
-		queue,
-		m_mutexCL,
-		CL_FALSE,//blocking
-		0,
-		sizeof(cl_int),
-		&mutex,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
 		queue,
@@ -297,8 +283,6 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_mutexCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);
@@ -703,7 +687,7 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	if(!pCLData)
 		return false;
 
-	if(!m_volumeCL || !m_volumeOutputVerticesCL || !m_mutexCL || !m_vertexSumCL)
+	if(!m_volumeCL || !m_volumeOutputVerticesCL || !m_vertexSumCL)
 		return false;
 
 	if(!m_dirty)
@@ -734,20 +718,6 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	cl_int mutex = 0;
-	err = clEnqueueWriteBuffer(
-		queue,
-		m_mutexCL,
-		CL_FALSE,//blocking
-		0,
-		sizeof(cl_int),
-		&mutex,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
 
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
@@ -785,8 +755,6 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_mutexCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);
@@ -914,7 +882,7 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	if(!pCLData)
 		return false;
 
-	if(!m_volumeCL || !m_volumeOutputVerticesCL || !m_mutexCL || !m_vertexSumCL)
+	if(!m_volumeCL || !m_volumeOutputVerticesCL || !m_vertexSumCL)
 		return false;
 
 	if(!m_dirty)
@@ -935,20 +903,6 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	cl_int mutex = 0;
-	err = clEnqueueWriteBuffer(
-		queue,
-		m_mutexCL,
-		CL_FALSE,//blocking
-		0,
-		sizeof(cl_int),
-		&mutex,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
 
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
@@ -981,8 +935,6 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_triTableCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_mutexCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);

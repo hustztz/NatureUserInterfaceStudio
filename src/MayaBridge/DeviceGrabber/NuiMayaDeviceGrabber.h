@@ -37,7 +37,6 @@ public:
 
 	// Helper functions
 	bool					updateDevice();
-	void					updateCache();
 	bool					updateNearMode();
 	void					updateaElevationAngle();
 	void					updatePreviewer();
@@ -51,13 +50,14 @@ public:
 	// the values later.
 	//
 	static  MObject			aTime;
+	static  MObject			aUseCache;
 	static  MObject			aDeviceOn;
 	static  MObject			aDeviceMode;
-	static  MObject			aUseCache;
 	static  MObject			aNearMode;
 	static  MObject			aElevationAngle;
 	static  MObject			aPreviewerOn;
 	static  MObject			aKinFuOn;
+	static  MObject			aVolumeVoxelSize;
 
 	static  MObject			aShowMesh;
 	static  MObject			aShowInvalid;

@@ -17,7 +17,6 @@ static const std::string sVolume2Vertices("Volume2Vertices");
 NuiKinfuVolume::NuiKinfuVolume()
 	: m_volumeOutputVerticesCL(NULL)
 	, m_volumeOutputColorsCL(NULL)
-	, m_mutexCL(NULL)
 	, m_vertexSumCL(NULL)
 	, m_max_output_vertex_size(3000000)
 	, m_dirty(true)
@@ -54,8 +53,6 @@ void NuiKinfuVolume::AcquireBuffer(bool bHas_color_volume)
 		m_volumeOutputColorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_WRITE_ONLY, m_max_output_vertex_size*4*sizeof(float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
 	}
-	m_mutexCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &err);
-	NUI_CHECK_CL_ERR(err);
 	m_vertexSumCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 }
@@ -72,11 +69,6 @@ void NuiKinfuVolume::ReleaseBuffer()
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_volumeOutputColorsCL);
 		NUI_CHECK_CL_ERR(err);
 		m_volumeOutputColorsCL = NULL;
-	}
-	if (m_mutexCL) {
-		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_mutexCL);
-		NUI_CHECK_CL_ERR(err);
-		m_mutexCL = NULL;
 	}
 	if (m_vertexSumCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_vertexSumCL);

@@ -29,6 +29,8 @@
 #include <maya/MFloatArray.h>
 #include <maya/MDistance.h>
 
+static std::string sTestDataFolder = getenv("NUI_TESTDATA") ? getenv("NUI_TESTDATA") : "G:\\tmp\\";
+
 MTypeId     NuiMayaDeviceGrabber::id( 0x80089 );
 
 // Attributes
@@ -41,6 +43,7 @@ MObject		NuiMayaDeviceGrabber::aNearMode;
 MObject		NuiMayaDeviceGrabber::aElevationAngle;
 MObject		NuiMayaDeviceGrabber::aPreviewerOn;
 MObject		NuiMayaDeviceGrabber::aKinFuOn;
+MObject		NuiMayaDeviceGrabber::aVolumeVoxelSize;
 MObject		NuiMayaDeviceGrabber::aShowMesh;
 MObject		NuiMayaDeviceGrabber::aShowInvalid;
 MObject		NuiMayaDeviceGrabber::aShowOnlyBody;
@@ -99,9 +102,6 @@ void NuiMayaDeviceGrabber::attrChangedCB(MNodeMessage::AttributeMessage msg, MPl
 	if (fnAttr.name() == "deviceOn" ||
 		fnAttr.name() == "deviceMode" ) {
 		wrapper->updateDevice();
-	}
-	else if (fnAttr.name() == "useCache") {
-		wrapper->updateCache();
 	}
 	else if (fnAttr.name() == "nearMode") {
 		wrapper->updateNearMode();
@@ -185,6 +185,13 @@ MStatus NuiMayaDeviceGrabber::initialize()
 	stat = addAttribute( aTime );
 	if (!stat) { stat.perror("addAttribute time"); return stat;}
 
+	aUseCache = nAttr.create( "useCache", "uc", MFnNumericData::kBoolean, false );
+	// Attribute will be written to files when this type of node is stored
+	nAttr.setStorable(true);
+	// Attribute is keyable and will show up in the channel box
+	stat = addAttribute( aUseCache );
+	if (!stat) { stat.perror("addAttribute"); return stat;}
+
 	aDeviceOn = nAttr.create( "deviceOn", "do", MFnNumericData::kBoolean, false );
 	// Attribute will be written to files when this type of node is stored
 	nAttr.setStorable(true);
@@ -192,11 +199,11 @@ MStatus NuiMayaDeviceGrabber::initialize()
 	stat = addAttribute( aDeviceOn );
 	if (!stat) { stat.perror("addAttribute"); return stat;}
 
-	aDeviceMode = enumAttr.create( "deviceMode", "dm", NuiRGBDDeviceController::EDeviceMode_VertexColorPlayer, &stat );
+	aDeviceMode = enumAttr.create( "deviceMode", "dm", NuiRGBDDeviceController::EDeviceMode_VertexColorCamera, &stat );
 	if (!stat) { stat.perror("create DeviceMode attribute"); return stat;}
 	stat = enumAttr.addField( "Depth,Color", NuiRGBDDeviceController::EDeviceMode_DepthColor );
 	if (!stat) { stat.perror("add enum type DepthColor"); return stat;}
-	stat = enumAttr.addField( "Depth,Color,Player", NuiRGBDDeviceController::EDeviceMode_VertexColorPlayer );
+	stat = enumAttr.addField( "Depth,Color,Player", NuiRGBDDeviceController::EDeviceMode_VertexColorCamera );
 	if (!stat) { stat.perror("add enum type DepthColorPlayer"); return stat;}
 	stat = enumAttr.addField( "Depth,Color,Skeleton", NuiRGBDDeviceController::EDeviceMode_VertexColorSkeleton );
 	if (!stat) { stat.perror("add enum type DepthColorSkeleton"); return stat;}
@@ -215,13 +222,6 @@ MStatus NuiMayaDeviceGrabber::initialize()
 	CHECK_MSTATUS( enumAttr.setHidden( false ) );
 	CHECK_MSTATUS( enumAttr.setKeyable( false ) );
 	stat = addAttribute( aDeviceMode );
-	if (!stat) { stat.perror("addAttribute"); return stat;}
-
-	aUseCache = nAttr.create( "useCache", "uc", MFnNumericData::kBoolean, false );
-	// Attribute will be written to files when this type of node is stored
-	nAttr.setStorable(true);
-	// Attribute is keyable and will show up in the channel box
-	stat = addAttribute( aUseCache );
 	if (!stat) { stat.perror("addAttribute"); return stat;}
 
 	aNearMode = nAttr.create( "nearMode", "ne", MFnNumericData::kBoolean, false );
@@ -253,6 +253,16 @@ MStatus NuiMayaDeviceGrabber::initialize()
 	nAttr.setStorable(true);
 	// Attribute is keyable and will show up in the channel box
 	stat = addAttribute( aKinFuOn );
+	if (!stat) { stat.perror("addAttribute"); return stat;}
+
+	aVolumeVoxelSize = nAttr.create( "volumeVoxelSize", "vvs", MFnNumericData::kFloat, 0.01f );
+	// Attribute will be written to files when this type of node is stored
+	nAttr.setStorable(true);
+	nAttr.setKeyable(true);
+	nAttr.setMin(0.005f);
+	nAttr.setMax(0.02f);
+	// Attribute is keyable and will show up in the channel box
+	stat = addAttribute( aVolumeVoxelSize );
 	if (!stat) { stat.perror("addAttribute"); return stat;}
 
 	aShowInvalid = nAttr.create("showInvalid", "siv", MFnNumericData::kBoolean, false, &stat);
@@ -542,26 +552,19 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 
 	if(m_pDevice)
 	{
-		do 
+		std::shared_ptr<NuiCompositeFrame> pFrame = m_pDevice->popFrame();
+		if(pFrame)
 		{
-			std::shared_ptr<NuiCompositeFrame> pFrame = m_pDevice->popFrame();
-			if(pFrame)
-			{
-				pFrame->m_depthFrame.SetMinDepth(getShortValue(aMinDepth));
-				pFrame->m_depthFrame.SetMaxDepth(getShortValue(aMaxDepth));
+			pFrame->m_depthFrame.SetMinDepth(getShortValue(aMinDepth));
+			pFrame->m_depthFrame.SetMaxDepth(getShortValue(aMaxDepth));
 
-				if(m_kinfu && m_kinfu->isThreadOn())
-				{
-					m_kinfu->pushbackFrame(pFrame);
-				}
-				m_pCache->pushbackFrame(pFrame);
-				pFrame.reset();
-			}
-			else
+			if(m_kinfu && m_kinfu->isThreadOn())
 			{
-				break;
+				m_kinfu->pushbackFrame(pFrame);
 			}
-		} while (1);
+			m_pCache->pushbackFrame(pFrame);
+			pFrame.reset();
+		}
 	}
 
 	std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
@@ -814,10 +817,26 @@ bool NuiMayaDeviceGrabber::updateDevice()
 		if(returnStatus == MS::kSuccess)
 			deviceMode = inputHandle.asShort();
 
-		if( !m_pDevice->startDevice((DWORD)deviceMode) )
+		bool bUseCache = false;
+		inputHandle = datablock.inputValue( aUseCache, &returnStatus );
+		if(returnStatus == MS::kSuccess)
+			bUseCache = inputHandle.asBool();
+
+		if(bUseCache)
 		{
-			MGlobal::displayError( " Failed to setup the device." );
-			return false;
+			if( !m_pDevice->startFileLoader((DWORD)deviceMode, sTestDataFolder) )
+			{
+				MGlobal::displayError( " Failed to start the file Loader." );
+				return false;
+			}
+		}
+		else
+		{
+			if( !m_pDevice->startDevice((DWORD)deviceMode) )
+			{
+				MGlobal::displayError( " Failed to setup the device." );
+				return false;
+			}
 		}
 	}
 	else if(m_pDevice)
@@ -825,40 +844,6 @@ bool NuiMayaDeviceGrabber::updateDevice()
 		m_pDevice->stopDevice();
 	}
 	return true;
-}
-
-void NuiMayaDeviceGrabber::updateCache()
-{
-	MStatus returnStatus;
-	MDataBlock datablock = forceCache();
-
-	bool bUseCache = false;
-	MDataHandle inputHandle = datablock.inputValue( aUseCache, &returnStatus );
-	if(returnStatus == MS::kSuccess)
-		bUseCache = inputHandle.asBool();
-
-	if(m_pCache)
-		m_pCache->clear();
-
-	if(bUseCache)
-	{
-		if(!m_pCache || !dynamic_cast<NuiFrameCache*>(m_pCache))
-		{
-			SafeDelete(m_pCache);
-			m_pCache = new NuiFrameCache;
-		}
-	}
-	else
-	{
-		if(!m_pCache || !dynamic_cast<NuiFrameBuffer*>(m_pCache))
-		{
-			SafeDelete(m_pCache);
-			m_pCache = new NuiFrameBuffer;
-		}
-	}
-
-	if(m_pPreviewer)
-		m_pPreviewer->updateCache(m_pCache);
 }
 
 void NuiMayaDeviceGrabber::updateaElevationAngle()
@@ -895,8 +880,6 @@ void NuiMayaDeviceGrabber::startPreviewer()
 		m_pPreviewer = new NuiMayaCacheTimer(PreviewerCallingBack);
 	}
 	assert(m_pPreviewer);
-	// Set cache to previewer
-	updateCache();
 	int interval = 100;
 	m_pPreviewer->start(interval);
 }
@@ -978,21 +961,20 @@ void NuiMayaDeviceGrabber::updateKinfu()
 	{
 		if(!m_kinfu)
 		{
-			DWORD deviceMode = NuiRGBDDeviceController::EDeviceMode_VertexColorCamera;
-			m_pDevice->startDevice(deviceMode);
-
 			if(!m_kinfu)
 				m_kinfu = new NuiKinfuManager();
+
+			float voxelSize = 0.01f;
+			inputHandle = datablock.inputValue( aVolumeVoxelSize, &returnStatus );
+			if(returnStatus == MS::kSuccess)
+				voxelSize = inputHandle.asFloat();
+			m_kinfu->resetVolume(voxelSize);
 			m_kinfu->startThread();
 		}
 	}
 	else
 	{
 		SafeDelete(m_kinfu);
-		if( m_pCache && dynamic_cast<NuiRGBDDeviceCircleBuffer*>(m_pCache) )
-		{
-			updateCache();
-		}
 	}
 }
 

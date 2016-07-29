@@ -55,12 +55,12 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	// Color image
 	m_tracker.previousNormalImageToData(pCLData);
 
-	bool returnStatus = m_tracker.previousBufferToData(pCLData);
-	/*bool returnStatus = false;
+	//bool returnStatus = false;//m_tracker.previousBufferToData(pCLData);
+	bool returnStatus = false;
 	if( m_pVolume )
 	{
 		returnStatus = bIsMesh ? m_pVolume->Volume2CLMesh(pCLData) : m_pVolume->Volume2CLVertices(pCLData);
-	}*/
+	}
 
 	return returnStatus;
 }

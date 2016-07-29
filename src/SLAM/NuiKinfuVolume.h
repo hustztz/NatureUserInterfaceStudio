@@ -60,7 +60,6 @@ protected:
 	// Buffers for output
 	cl_mem				m_volumeOutputVerticesCL;
 	cl_mem				m_volumeOutputColorsCL;
-	cl_mem				m_mutexCL;
 	cl_mem				m_vertexSumCL;
 
 	Matrix3frm			m_lastIntegrationRotation;
