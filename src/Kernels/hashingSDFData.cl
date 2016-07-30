@@ -48,7 +48,7 @@ __kernel void alloc_SDFs_kernel(
 			__global struct NuiCLRigidTransform* matrix,
 			__global struct NuiCLHashEntry*	d_hash,
 			__global uint*	d_heap,
-			__global uint*	d_heapCounter,
+			__global volatile uint*	d_heapCounter,
 			__global int*	d_hashBucketMutex,
 			__global uint*	d_bitMask,
 			const float		truncation,
@@ -341,7 +341,7 @@ __kernel void garbageCollectFreeKernel(
 	__global struct NuiCLHashEntry*	d_hashCompactified,
 	__global uint*					d_hashDecision,
 	__global uint*					d_heap,
-	__global uint*					d_heapCounter,
+	__global volatile uint*			d_heapCounter,
 	__global int*					d_hashBucketMutex,
 	const uint						hashNumBuckets,
 	const uint						hashMaxCollisionLinkedListSize

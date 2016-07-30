@@ -35,6 +35,6 @@ __kernel void fetch_SDFs_kernel(
 	if(current_id < max_vertex_size)
 	{
 		vstore3(worldPos, current_id, d_vmap);
-		vstore4(color_value, current_id, d_colormap);
+		//vstore4(color_value, current_id, d_colormap);
 	}
 }

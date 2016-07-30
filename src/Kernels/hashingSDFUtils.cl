@@ -15,18 +15,18 @@ inline static uint computeHashPos(int3 virtualVoxelPos, const uint hashNumBucket
 }
 
 inline static uint consumeHeap( __global uint*	d_heap,
-								__global uint*	d_heapCounter)
+								__global volatile uint*	d_heapCounter)
 {
-	uint addr = atomic_dec(&d_heapCounter[0]);
+	uint addr = atomic_dec(d_heapCounter);
 	//TODO MATTHIAS check some error handling?
 	return vload(addr, d_heap);
 }
 
 inline static void appendHeap(uint ptr,
 							  __global uint*	d_heap,
-							  __global uint*	d_heapCounter)
+							  __global volatile uint*	d_heapCounter)
 {
-	uint addr = atomic_inc(&(d_heapCounter[0]));
+	uint addr = atomic_inc(d_heapCounter);
 	//TODO MATTHIAS check some error handling?
 	d_heap[addr+1] = ptr;
 }
@@ -155,9 +155,9 @@ inline static void deleteHashEntry(uint idx, __global struct NuiCLHashEntry*	d_h
 
 inline static void allocBlock(int3			pos,
 						 __global struct NuiCLHashEntry*	d_hash,
-						 __global uint*	d_heap,
-						 __global uint*	d_heapCounter,
-						 __global int*	d_hashBucketMutex,
+						 __global uint*				d_heap,
+						 __global volatile uint*	d_heapCounter,
+						 __global volatile int*		d_hashBucketMutex,
 						 const uint		hashNumBuckets,
 						 const uint		hashMaxCollisionLinkedListSize)
 {
@@ -355,7 +355,7 @@ inline static bool deleteHashEntryElement(
 	int3			sdfBlock,
 	__global struct NuiCLHashEntry*	d_hash,
 	__global uint*	d_heap,
-	__global uint*	d_heapCounter,
+	__global volatile uint*	d_heapCounter,
 	__global int*	d_hashBucketMutex,
 	const uint		hashNumBuckets,
 	const uint		hashMaxCollisionLinkedListSize

@@ -25,16 +25,16 @@ void	NuiKinfuManager::resetVolume(float voxelSize)
 {
 	SafeDelete(m_pVolume);
 
-	NuiKinfuVolumeConfig volumeConfig;
+	/*NuiKinfuVolumeConfig volumeConfig;
 	volumeConfig.dimensions = Vector3f::Constant(3.0f);
 	volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-	m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);
-	/*NuiHashingSDFConfig sdfConfig;
+	m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);*/
+	NuiHashingSDFConfig sdfConfig;
 	sdfConfig.m_virtualVoxelSize = voxelSize;
 	sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
 	sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
 	NuiHashingRaycastConfig raycastConfig;
-	m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);*/
+	m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);
 }
 
 void	NuiKinfuManager::log(const std::string& fileName) const
@@ -55,7 +55,7 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	// Color image
 	m_tracker.previousNormalImageToData(pCLData);
 
-	//bool returnStatus = false;//m_tracker.previousBufferToData(pCLData);
+	//bool returnStatus = m_tracker.previousBufferToData(pCLData);
 	bool returnStatus = false;
 	if( m_pVolume )
 	{
