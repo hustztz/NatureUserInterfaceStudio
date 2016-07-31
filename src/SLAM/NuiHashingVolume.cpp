@@ -218,6 +218,7 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 
 	if(!m_dirty)
 		return false;
+	m_dirty = false;
 
 	const NuiHashingSDFConfig& hashParams = m_pSDFData->getConfig();
 
@@ -324,6 +325,9 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 		);
 	NUI_CHECK_CL_ERR(err);
 
+	if(vertex_sum <= 0)
+		return false;
+
 	std::vector<SgVec3f>& positions = NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data();
 	if(positions.size() != vertex_sum)
 		positions.resize(vertex_sum);
@@ -391,7 +395,6 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	}
 
 	pCLData->SetStreamDirty(true);
-	m_dirty = false;
 
 	return true;
 }

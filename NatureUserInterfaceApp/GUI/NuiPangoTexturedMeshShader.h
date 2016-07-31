@@ -6,20 +6,22 @@
 // Forwards
 class NuiCLMappableData;
 
-class NuiPangoMeshShader
+class NuiPangoTexturedMeshShader
 {
 public:
-	NuiPangoMeshShader(const std::string& shaderDir);
-	~NuiPangoMeshShader();
+	NuiPangoTexturedMeshShader(const std::string& shaderDir);
+	~NuiPangoTexturedMeshShader();
 
 	bool initializeBuffers(NuiCLMappableData* pData);
-	void drawMesh(const pangolin::OpenGlMatrix& mvp);
+	void drawMesh(const pangolin::OpenGlMatrix& mvp, GLuint textureId);
 	void uninitializeBuffers();
 
 private:
 	pangolin::GlSlProgram m_shader;
 
 	UINT m_indexSize;
+	int m_textureWidth;
+	int m_textureHeight;
 
 	GLuint m_vao;
 	GLuint m_vbos[2];

@@ -1,31 +1,33 @@
-#include "NuiPangoMeshShader.h"
+#include "NuiPangoTexturedMeshShader.h"
 
 #include "Shape\NuiCLMappableData.h"
 
-NuiPangoMeshShader::NuiPangoMeshShader(const std::string& shaderDir)
+NuiPangoTexturedMeshShader::NuiPangoTexturedMeshShader(const std::string& shaderDir)
 	: m_indexSize(0)
+	, m_textureWidth(0)
+	, m_textureHeight(0)
 {
 	std::map<std::string,std::string> program_defines;
-	m_shader.AddShaderFromFile(pangolin::GlSlVertexShader, shaderDir + "/" + "draw_color.vert");
-	m_shader.AddShaderFromFile(pangolin::GlSlFragmentShader, shaderDir + "/" + "surface.frag");
+	m_shader.AddShaderFromFile(pangolin::GlSlVertexShader, shaderDir + "/" + "draw_uv.vert");
+	m_shader.AddShaderFromFile(pangolin::GlSlFragmentShader, shaderDir + "/" + "texture.frag");
 	m_shader.Link();
 }
 
-NuiPangoMeshShader::~NuiPangoMeshShader()
+NuiPangoTexturedMeshShader::~NuiPangoTexturedMeshShader()
 {
 	uninitializeBuffers();
 }
 
-bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
+bool NuiPangoTexturedMeshShader::initializeBuffers(NuiCLMappableData* pData)
 {
 	if(!pData)
 		return false;
 
 	std::shared_ptr<NuiVectorMappableImpl3f> positions = NuiMappableAccessor::asVectorImpl(pData->PositionStream());
-	std::shared_ptr<NuiVectorMappableImpl4f> colors = NuiMappableAccessor::asVectorImpl(pData->ColorStream());
+	std::shared_ptr<NuiVectorMappableImpl2f> uvs = NuiMappableAccessor::asVectorImpl(pData->PatchUVStream());
 	std::shared_ptr<NuiVectorMappableImplui> triIndices =	NuiMappableAccessor::asVectorImpl(pData->TriangleIndices());
 
-	if(!positions->data().size() || !colors->data().size() || !triIndices->data().size())
+	if(!positions->data().size() || !uvs->data().size() || !triIndices->data().size())
 		return false;
 
 	// vbo
@@ -34,7 +36,10 @@ bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
 	glBufferData(GL_ARRAY_BUFFER, sizeof(SgVec3f)*positions->data().size(), positions->data().data(), GL_STREAM_DRAW); // Set the size and data of our VBO and set it to GL_STREAM_DRAW
 
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(SgVec4f)*colors->data().size(), colors->data().data(), GL_STREAM_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(SgVec2f)*uvs->data().size(), uvs->data().data(), GL_STREAM_DRAW);
+
+	m_textureWidth = pData->GetColorImage().GetWidth();
+	m_textureHeight = pData->GetColorImage().GetHeight();
 
 	// ibo
 	glGenBuffers(1, &m_ibo);
@@ -51,11 +56,11 @@ bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
 	glEnableVertexAttribArray(1);
 
 	GLuint vVertex=3;
-	GLuint vColor=4;
+	GLuint vUV=2;
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
 	glVertexAttribPointer((GLuint)0, vVertex, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-	glVertexAttribPointer((GLuint)1, vColor, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
+	glVertexAttribPointer((GLuint)1, vUV, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
 
 	glBindVertexArray(0); // Disable our Vertex Buffer Object
@@ -63,11 +68,18 @@ bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
 	return true;
 }
 
-void NuiPangoMeshShader::drawMesh(const pangolin::OpenGlMatrix& mvp)
+void NuiPangoTexturedMeshShader::drawMesh(const pangolin::OpenGlMatrix& mvp, GLuint textureId)
 {
 	m_shader.Bind();
 
 	m_shader.SetUniform("u_mvp", mvp);
+	if(m_textureWidth > 0 && m_textureHeight > 0)
+		m_shader.SetUniform("u_TextureScale", m_textureWidth, m_textureHeight);
+	m_shader.SetUniform("u_colorSampler", 0);
+
+	glEnable(GL_TEXTURE_2D);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, textureId);
 
 	glBindVertexArray(m_vao);
 
@@ -75,10 +87,13 @@ void NuiPangoMeshShader::drawMesh(const pangolin::OpenGlMatrix& mvp)
 
 	glBindVertexArray(0);
 
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glDisable(GL_TEXTURE_2D);
+	
 	m_shader.Unbind();
 }
 
-void NuiPangoMeshShader::uninitializeBuffers()
+void NuiPangoTexturedMeshShader::uninitializeBuffers()
 {
 	glDeleteVertexArrays(1, &m_vao);
 	glDeleteBuffers(1, &m_vbos[0]);

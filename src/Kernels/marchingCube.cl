@@ -105,8 +105,7 @@ __kernel void marchingCubeKernel(
 					__global float* colormap,
 					__constant int* numVertsTable,
 					__constant int* triTable,
-					volatile __global int* mutex,
-					__global int* vertex_id
+					__global volatile int* vertex_id
                     )
 {
 	const uint voxel_x = get_global_id(0);

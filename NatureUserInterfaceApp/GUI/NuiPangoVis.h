@@ -5,8 +5,9 @@
 // Forwards
 class NuiCLMappableData;
 class NuiPangoCloudShader;
-class NuiPangoTexturedCloudShader;
 class NuiPangoMeshShader;
+class NuiPangoTexturedCloudShader;
+class NuiPangoTexturedMeshShader;
 
 class NuiPangoVis
 {
@@ -66,6 +67,7 @@ private:
 
 	NuiPangoTexturedCloudShader*	m_pTexturedCloudDraw;
 	NuiPangoCloudShader*			m_pCloudDraw;
+	NuiPangoTexturedMeshShader*		m_pTexturedMeshDraw;
 	NuiPangoMeshShader*				m_pMeshDraw;
 
 	pangolin::Var<float> a_drawPointSize;

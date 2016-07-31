@@ -689,6 +689,7 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 
 	if(!m_dirty)
 		return false;
+	m_dirty = false;
 
 	// Set bounding box
 	const Vector3f& voxelSizeMeters = getVoxelSize();
@@ -865,7 +866,6 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	}
 
 	pCLData->SetStreamDirty(true);
-	m_dirty = false;
 
 	NuiTimeLog::instance().tock(sVolume2Vertices);
 	return true;
@@ -882,6 +882,7 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 
 	if(!m_dirty)
 		return true;
+	m_dirty = false;
 
 	// Set bounding box
 	pCLData->SetBoundingBox(SgVec3f(-m_config.dimensions[0]/2, -m_config.dimensions[1]/2, -m_config.dimensions[2]/2), SgVec3f(m_config.dimensions[0]/2, m_config.dimensions[1]/2, m_config.dimensions[2]/2));
@@ -976,6 +977,9 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	clReleaseEvent(timing_event);
 #endif
 
+	if(vertex_sum <= 0 || vertex_sum > MAX_OUTPUT_VERTEX_SIZE)
+		return false;
+	
 	std::vector<SgVec3f>& positions = NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data();
 	if(positions.size() != vertex_sum)
 		positions.resize(vertex_sum);
@@ -1040,7 +1044,6 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	clPointIndices.clear();
 
 	pCLData->SetStreamDirty(true);
-	m_dirty = false;
 
 	return true;
 }

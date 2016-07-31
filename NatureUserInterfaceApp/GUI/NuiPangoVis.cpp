@@ -3,6 +3,7 @@
 #include "NuiPangoCloudShader.h"
 #include "NuiPangoTexturedCloudShader.h"
 #include "NuiPangoMeshShader.h"
+#include "NuiPangoTexturedMeshShader.h"
 
 #include <pangolin/gl/gl.h>
 #include <pangolin/gl/gldraw.h>
@@ -17,6 +18,8 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	: m_showcaseMode(showcaseMode)
 	, m_pCloudDraw(NULL)
 	, m_pTexturedCloudDraw(NULL)
+	, m_pMeshDraw(NULL)
+	, m_pTexturedMeshDraw(NULL)
 	, a_deviceOn("ui.Device On", false, true)
 	, a_pause("ui.Pause", false, true)
 	, a_reset("ui.Reset", false, false)
@@ -118,6 +121,7 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	m_pCloudDraw = new NuiPangoCloudShader(shadersFolder);
 	m_pTexturedCloudDraw = new NuiPangoTexturedCloudShader(shadersFolder);
 	m_pMeshDraw = new NuiPangoMeshShader(shadersFolder);
+	m_pTexturedMeshDraw = new NuiPangoTexturedMeshShader(shadersFolder);
 }
 
 NuiPangoVis::~NuiPangoVis()
@@ -130,6 +134,7 @@ NuiPangoVis::~NuiPangoVis()
 	SafeDelete(m_pCloudDraw);
 	SafeDelete(m_pTexturedCloudDraw);
 	SafeDelete(m_pMeshDraw);
+	SafeDelete(m_pTexturedMeshDraw);
 }
 
 void NuiPangoVis::preCall()
@@ -263,36 +268,50 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 		return;
 
 	bool bHasEvaluateColorImage = false;
-	if(m_pCloudDraw && pData->ColorStream().size())
+	if(pData->PointIndices().size())
 	{
-		if( m_pCloudDraw->initializeBuffers(pData) )
+		if(m_pCloudDraw && pData->ColorStream().size())
 		{
-			m_pCloudDraw->drawPoints(s_cam.GetProjectionModelViewMatrix(), a_drawPointSize);
-			m_pCloudDraw->uninitializeBuffers();
+			if( m_pCloudDraw->initializeBuffers(pData) )
+			{
+				m_pCloudDraw->drawPoints(s_cam.GetProjectionModelViewMatrix(), a_drawPointSize);
+				m_pCloudDraw->uninitializeBuffers();
+			}
+		}
+		else if(m_pTexturedCloudDraw)
+		{
+			if( m_pTexturedCloudDraw->initializeBuffers(pData) )
+			{
+				if( evaluateColorImage(pData)  )
+				{
+					m_pTexturedCloudDraw->drawPoints(s_cam.GetProjectionModelViewMatrix(), rgbTex.tid, a_drawPointSize);
+					bHasEvaluateColorImage = true;
+				}
+				m_pTexturedCloudDraw->uninitializeBuffers();
+			}
 		}
 	}
-	else if(m_pMeshDraw && !pData->PointIndices().size())
+	else if(pData->TriangleIndices().size())
 	{
-		if( m_pMeshDraw->initializeBuffers(pData) )
+		if(m_pMeshDraw && pData->ColorStream().size())
 		{
-			if( evaluateColorImage(pData)  )
+			if( m_pMeshDraw->initializeBuffers(pData) )
 			{
-				m_pMeshDraw->drawMesh(s_cam.GetProjectionModelViewMatrix(), rgbTex.tid);
-				bHasEvaluateColorImage = true;
+				m_pMeshDraw->drawMesh(s_cam.GetProjectionModelViewMatrix());
+				m_pMeshDraw->uninitializeBuffers();
 			}
-			m_pMeshDraw->uninitializeBuffers();
 		}
-	}
-	else if(m_pTexturedCloudDraw)
-	{
-		if( m_pTexturedCloudDraw->initializeBuffers(pData) )
+		else if(m_pTexturedMeshDraw)
 		{
-			if( evaluateColorImage(pData)  )
+			if( m_pTexturedMeshDraw->initializeBuffers(pData) )
 			{
-				m_pTexturedCloudDraw->drawPoints(s_cam.GetProjectionModelViewMatrix(), rgbTex.tid, a_drawPointSize);
-				bHasEvaluateColorImage = true;
+				if( evaluateColorImage(pData)  )
+				{
+					m_pTexturedMeshDraw->drawMesh(s_cam.GetProjectionModelViewMatrix(), rgbTex.tid);
+					bHasEvaluateColorImage = true;
+				}
+				m_pTexturedMeshDraw->uninitializeBuffers();
 			}
-			m_pTexturedCloudDraw->uninitializeBuffers();
 		}
 	}
 
