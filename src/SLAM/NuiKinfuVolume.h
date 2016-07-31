@@ -65,7 +65,6 @@ protected:
 	Matrix3frm			m_lastIntegrationRotation;
 	Vector3f			m_lastIntegrationTranslation;
 
-	int					m_max_output_vertex_size;
 	float				m_integration_metric_threshold;
 	NuiKinfuPointCloud	m_cachedPointCloud;
 	std::atomic<bool>	m_dirty;

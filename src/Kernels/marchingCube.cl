@@ -7,7 +7,6 @@ __kernel void volume2vmapKernel(
 					__global uchar* color_volume,
                     __global float* vmap,
 					__global float* colormap,
-					const int max_vertex_id,
 					__global volatile int* vertex_id
                     )
 {
@@ -50,7 +49,7 @@ __kernel void volume2vmapKernel(
 			}
 
 			int current_id = atomic_inc(vertex_id);
-			if(current_id < max_vertex_id)
+			if(current_id < MAX_OUTPUT_VERTEX_SIZE)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
@@ -70,7 +69,7 @@ __kernel void volume2vmapKernel(
 			}
 
 			int current_id = atomic_inc(vertex_id);
-			if(current_id < max_vertex_id)
+			if(current_id < MAX_OUTPUT_VERTEX_SIZE)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
@@ -106,7 +105,6 @@ __kernel void marchingCubeKernel(
 					__global float* colormap,
 					__constant int* numVertsTable,
 					__constant int* triTable,
-					const int max_vertex_id,
 					volatile __global int* mutex,
 					__global int* vertex_id
                     )
@@ -233,11 +231,9 @@ __kernel void marchingCubeKernel(
         color[10] = color_interp (c[2], c[6], tsdf2, tsdf6);
         color[11] = color_interp (c[3], c[7], tsdf3, tsdf7);
 
-		while(LOCK(mutex));
-		int current_id = *vertex_id;
-		if(current_id+numVerts > max_vertex_id)
+		int current_id = atomic_add(vertex_id, numVerts);
+		if(current_id+numVerts > MAX_OUTPUT_VERTEX_SIZE)
 		{
-			UNLOCK(mutex);
 			break;
 		}
 		for (int i = 0; i < numVerts; i += 3)
@@ -255,8 +251,6 @@ __kernel void marchingCubeKernel(
 			vstore4(color[v2], current_id + i + 1, colormap);
 			vstore4(color[v3], current_id + i + 2, colormap);
 		}
-		*vertex_id = current_id + numVerts;
-		UNLOCK(mutex);
 	}
 }
 

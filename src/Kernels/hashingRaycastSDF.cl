@@ -191,9 +191,9 @@ __kernel void renderKernel(
 	const uint gsizex = get_global_size(0);
 	const int idx = mul24(gidy, gsizex) + gidx;
 						
-	/*vstore3(NAN, idx, vmap);
+	vstore3(NAN, idx, vmap);
 	vstore3(NAN, idx, nmap);
-	vstore4(NAN, idx, colormap);*/
+	vstore4(NAN, idx, colormap);
 
 	float3 camDir = normalize(kinectProjToCamera(gidx, gidy, 1.0f, cameraParams));
 	float3 worldCamPos = transform( (float3)(0.0f, 0.0f, 0.0f), matrix );

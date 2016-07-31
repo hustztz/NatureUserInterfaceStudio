@@ -1,5 +1,7 @@
 #pragma once
 
+#define MAX_OUTPUT_VERTEX_SIZE 1000000
+
 struct TsdfParams
 {
 	float resolution[3];

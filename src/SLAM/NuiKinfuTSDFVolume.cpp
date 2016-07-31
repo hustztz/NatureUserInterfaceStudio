@@ -22,7 +22,6 @@ NuiKinfuTSDFVolume::NuiKinfuTSDFVolume(const NuiKinfuVolumeConfig& config)
 	, m_MB_numVertsTableCL(NULL)
 	, m_MB_triTableCL(NULL)
 {
-	m_max_output_vertex_size = 5 * 3 * m_config.resolution(0) * m_config.resolution(1);
 	m_tsdf_params.resolution[0] = (float)m_config.resolution(0);
 	m_tsdf_params.resolution[1] = (float)m_config.resolution(1);
 	m_tsdf_params.resolution[2] = (float)m_config.resolution(2);
@@ -281,8 +280,6 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputVerticesCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);
@@ -754,8 +751,6 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
-	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);
 
@@ -933,8 +928,6 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_numVertsTableCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_triTableCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);

@@ -113,9 +113,9 @@ void NuiHashingVolume::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &thresSampleDist);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_uint), &thresDist);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &thresDist);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_uint), &rayIncrement);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &rayIncrement);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
@@ -243,6 +243,7 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 
 	cl_mem hashCL = m_pSDFData->getHashCL();
 	cl_mem SDFBlocksCL = m_pSDFData->getSDFBlocksCL();
+	float thresSDF = 0.001f;
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -270,11 +271,11 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_float), &hashParams.m_virtualVoxelSize);
 	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_float), &thresSDF);
+	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputVerticesCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_max_output_vertex_size);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);
@@ -309,6 +310,19 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	std::cout << "volume traversal:" << (time_end - time_start) << std::endl;
 	clReleaseEvent(timing_event);
 #endif
+
+	err = clEnqueueReadBuffer(
+		queue,
+		m_vertexSumCL,
+		CL_TRUE,//blocking
+		0,
+		sizeof(cl_int),
+		&vertex_sum,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
 
 	std::vector<SgVec3f>& positions = NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data();
 	if(positions.size() != vertex_sum)

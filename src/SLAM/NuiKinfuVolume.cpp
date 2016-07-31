@@ -1,12 +1,7 @@
 #include "NuiKinfuVolume.h"
 
-#include "NuiKinfuTransform.h"
+#include "Kernels/gpu_def.h"
 #include "Foundation/NuiDebugMacro.h"
-#include "Foundation/NuiTimeLog.h"
-#include "Foundation/NuiMatrixUtilities.h"
-#include "NuiMarchingCubeTable.h"
-#include "Shape/NuiCLMappableData.h"
-#include "Shape\NuiMeshShape.h"
 
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
@@ -18,7 +13,6 @@ NuiKinfuVolume::NuiKinfuVolume()
 	: m_volumeOutputVerticesCL(NULL)
 	, m_volumeOutputColorsCL(NULL)
 	, m_vertexSumCL(NULL)
-	, m_max_output_vertex_size(3000000)
 	, m_dirty(true)
 	, m_integration_metric_threshold(0.15f)
 {
@@ -46,11 +40,11 @@ void NuiKinfuVolume::AcquireBuffer(bool bHas_color_volume)
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
 	
-	m_volumeOutputVerticesCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_WRITE_ONLY, m_max_output_vertex_size*3*sizeof(float), NULL, &err);
+	m_volumeOutputVerticesCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_WRITE_ONLY, MAX_OUTPUT_VERTEX_SIZE*3*sizeof(float), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	if(bHas_color_volume)
 	{
-		m_volumeOutputColorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_WRITE_ONLY, m_max_output_vertex_size*4*sizeof(float), NULL, &err);
+		m_volumeOutputColorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_WRITE_ONLY, MAX_OUTPUT_VERTEX_SIZE*4*sizeof(float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
 	}
 	m_vertexSumCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &err);

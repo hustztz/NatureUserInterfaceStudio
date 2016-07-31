@@ -10,7 +10,6 @@ __kernel void fetchVolumeKernel(
 					const int3  voxelOffset,
                     __global float* vmap,
 					__global float* colormap,
-					const int max_vertex_size,
 					__global volatile int* vertex_id
                     )
 {
@@ -87,7 +86,7 @@ __kernel void fetchVolumeKernel(
 			}
 
 			int current_id = atomic_inc(vertex_id);
-			if(current_id < max_vertex_size)
+			if(current_id < MAX_OUTPUT_VERTEX_SIZE)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
@@ -107,7 +106,7 @@ __kernel void fetchVolumeKernel(
 			}
 
 			int current_id = atomic_inc(vertex_id);
-			if(current_id < max_vertex_size)
+			if(current_id < MAX_OUTPUT_VERTEX_SIZE)
 			{
 				vstore3(vertex_value, current_id, vmap);
 				vstore4(color_value, current_id, colormap);
