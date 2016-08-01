@@ -1,10 +1,8 @@
 #pragma once
 
 #include "stdafx.h"
-#include "NuiKinfuPointCloud.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
-#include <Eigen/Geometry>
 #include <atomic>
 
 //Forwards
@@ -12,39 +10,33 @@ class NuiKinfuTransform;
 class NuiCLMappableData;
 class NuiMeshShape;
 
-typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
-typedef Eigen::Vector3f Vector3f;
-
 class NuiKinfuVolume
 {
 public:
 	NuiKinfuVolume();
 	~NuiKinfuVolume();
 
-	void setIntegrationMetricThreshold(float threshold) { m_integration_metric_threshold = threshold; }
 	void setDirty() { m_dirty = true; }
+	void clearDirty() { m_dirty = false; }
 
 	virtual bool	log(const std::string& fileName) const = 0;
 	virtual bool	hasColorData() const { return true; }
 	/** \brief Resets tsdf volume data to uninitialized state */
-	virtual void	reset();
-	virtual void	incrementVolume(
+	virtual void	reset() = 0;
+	virtual void	integrateVolume(
 		cl_mem floatDepthsCL,
-		cl_mem colorsCL,
 		cl_mem normalsCL,
+		cl_mem colorsCL,
 		cl_mem cameraParamsCL,
-		const NuiKinfuTransform& currPos,
+		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		) = 0;
-	virtual bool	evaluateVolume(
-		cl_mem floatDepthsCL,
-		cl_mem colorsCL,
-		cl_mem normalsCL,
-		cl_mem renderVertices,
-		cl_mem renderNormals,
-		cl_mem renderColors,
+	virtual void    raycastRender(
+		cl_mem renderVerticesCL,
+		cl_mem renderNormalsCL,
+		cl_mem renderColorsCL,
 		cl_mem cameraParamsCL,
-		const NuiKinfuTransform& currPos,
+		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		) = 0;
 
@@ -62,10 +54,5 @@ protected:
 	cl_mem				m_volumeOutputColorsCL;
 	cl_mem				m_vertexSumCL;
 
-	Matrix3frm			m_lastIntegrationRotation;
-	Vector3f			m_lastIntegrationTranslation;
-
-	float				m_integration_metric_threshold;
-	NuiKinfuPointCloud	m_cachedPointCloud;
 	std::atomic<bool>	m_dirty;
 };

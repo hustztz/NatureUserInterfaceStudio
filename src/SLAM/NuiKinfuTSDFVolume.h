@@ -15,24 +15,22 @@ public:
 	/** \brief Resets tsdf volume data to uninitialized state */
 	virtual void	reset() override;
 	virtual bool	log(const std::string& fileName) const override;
+	virtual bool	hasColorData() const override { return (m_colorVolumeCL ?  true : false); }
 
-	virtual void	incrementVolume(
+	virtual void	integrateVolume(
 		cl_mem floatDepthsCL,
-		cl_mem colorsCL,
 		cl_mem normalsCL,
+		cl_mem colorsCL,
 		cl_mem cameraParamsCL,
-		const NuiKinfuTransform& currPos,
+		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		) override;
-	virtual bool	evaluateVolume(
-		cl_mem floatDepthsCL,
-		cl_mem colorsCL,
-		cl_mem normalsCL,
-		cl_mem renderVertices,
-		cl_mem renderNormals,
-		cl_mem renderColors,
+	virtual void    raycastRender(
+		cl_mem renderVerticesCL,
+		cl_mem renderNormalsCL,
+		cl_mem renderColorsCL,
 		cl_mem cameraParamsCL,
-		const NuiKinfuTransform& currPos,
+		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		) override;
 
@@ -70,8 +68,6 @@ protected:
 	void fetchAndClearZ(int zVoxelTrans);
 
 	Vector3f shiftVolume(const Vector3f& translation);
-	void    Integrate(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem normalsCL, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight);
-	void    RayCast(cl_mem renderVertices, cl_mem renderNormals, cl_mem renderColors, cl_mem cameraParamsCL, const NuiKinfuTransform& currPos, UINT nWidth, UINT nHeight);
 
 private:
 	/** \brief tsdf volume data container */
@@ -89,4 +85,6 @@ private:
 	NuiKinfuVolumeConfig m_config;
 
 	Vector3i			m_voxel_offset;
+
+	NuiKinfuPointCloud	m_cachedPointCloud;
 };

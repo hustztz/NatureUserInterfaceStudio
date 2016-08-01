@@ -31,6 +31,7 @@ __kernel void fetch_SDFs_kernel(
 
 	int3 pi = pi_base + delinearizeVoxelIndex(lidx);
 	float3 worldPos = virtualVoxelPosToWorld(pi, virtualVoxelSize);
+	worldPos.y = - worldPos.y;
 	float4 color_value = (float4)(convert_float(voxel.color[0]) /255.f, convert_float(voxel.color[1]) /255.f, convert_float(voxel.color[2]) /255.f, 1.0f);
 
 	int current_id = atomic_inc(vertex_id);

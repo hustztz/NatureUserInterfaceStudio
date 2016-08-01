@@ -43,7 +43,7 @@ NuiPyramidICP::NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeig
 		m_colorsPrevArrCL[i] = NULL;
 	}
 
-	AcquireBuffers(true);
+	AcquireBuffers(m_configuration.bHasColor);
 }
 
 NuiPyramidICP::~NuiPyramidICP()

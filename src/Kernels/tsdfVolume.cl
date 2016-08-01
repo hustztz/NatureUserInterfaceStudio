@@ -152,7 +152,7 @@ __kernel void integrateTsdfVolumeKernel(
 					vstore2( pack_tsdf(tsdf_new, weight_new), idx, volume );
 				}
 				// Color Volume
-				if(color_volume)
+				if(color_volume && colors)
 				{
 					if( fabs(sdf) < l_params.tranc_dist )
 					{

@@ -28,10 +28,11 @@ public:
 	float	getError() const { return m_error; }
 	float	getCount() const { return m_count; }
 	
-	cl_mem	getNormals() const { return m_normalsArrCL[0]; }
-	cl_mem	getPrevVertices() const { return m_verticesPrevArrCL[0]; }
-	cl_mem	getPrevNormals() const { return m_normalsPrevArrCL[0]; }
-	cl_mem	getPrevColors() const { return m_colorsPrevArrCL[0]; }
+	cl_mem	getColorsCL() const { return m_colorsArrCL[0]; }
+	cl_mem	getNormalsCL() const { return m_normalsArrCL[0]; }
+	cl_mem	getPrevVerticesCL() const { return m_verticesPrevArrCL[0]; }
+	cl_mem	getPrevNormalsCL() const { return m_normalsPrevArrCL[0]; }
+	cl_mem	getPrevColorsCL() const { return m_colorsPrevArrCL[0]; }
 
 protected:
 	void	AcquireBuffers(bool bHasColor);

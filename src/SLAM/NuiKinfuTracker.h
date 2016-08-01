@@ -47,6 +47,7 @@ public:
     const NuiCameraPos&		getCameraPose (int time = -1) const;
 	float					getIcpError() const;
 	float					getIcpCount() const;
+	void					setIntegrationMetricThreshold(float threshold) { m_integration_metric_threshold = threshold; }
 
 	bool					previousBufferToData(NuiCLMappableData* pCLData);
 	bool					previousNormalImageToData(NuiCLMappableData* pCLData);
@@ -60,7 +61,7 @@ protected:
 	void	PassingDepths(float nearPlane, float farPlane);
 	void	WriteDepths(UINT16* pDepths, UINT nPositionsNum, UINT16 minDepth, UINT16 maxDepth);
 	void	WriteCameraParams(const NuiCLCameraParams& camIntri);
-	void	WriteColors(ColorSpacePoint* pDepthToColor, const NuiColorImage& image, UINT nPointsNum);
+	void	WriteColors(ColorSpacePoint* pDepthToColor, const NuiColorImage& image, UINT nPointsNum, cl_mem colorsCL);
 
 private:
 	NuiPyramidICP*	m_icp;
@@ -80,5 +81,7 @@ private:
 	UINT m_nColorWidth, m_nColorHeight;
 
 	std::vector<NuiCameraPos> m_frames;
-	NuiCameraPos			m_initialPos;
+
+	NuiCameraPos		m_lastIntegrationPos;
+	float				m_integration_metric_threshold;
 };

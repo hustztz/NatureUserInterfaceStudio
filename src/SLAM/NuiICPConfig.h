@@ -7,6 +7,7 @@
 
 struct NuiICPConfig
 {
+	bool bHasColor;
 	UINT filter_radius;				// bilateral filter radius
 	float sigma_space2_inv_half;	// gaussian delta
 	float sigma_depth2_inv_half;	// euclidean delta

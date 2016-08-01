@@ -19,23 +19,20 @@ public:
 	virtual void	reset() override;
 	virtual bool	log(const std::string& fileName) const override;
 
-	virtual void	incrementVolume(
+	virtual void	integrateVolume(
 		cl_mem floatDepthsCL,
-		cl_mem colorsCL,
 		cl_mem normalsCL,
+		cl_mem colorsCL,
 		cl_mem cameraParamsCL,
-		const NuiKinfuTransform& currPos,
+		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		) override;
-	virtual bool	evaluateVolume(
-		cl_mem floatDepthsCL,
-		cl_mem colorsCL,
-		cl_mem normalsCL,
-		cl_mem renderVertices,
-		cl_mem renderNormals,
-		cl_mem renderColors,
+	virtual void    raycastRender(
+		cl_mem renderVerticesCL,
+		cl_mem renderNormalsCL,
+		cl_mem renderColorsCL,
 		cl_mem cameraParamsCL,
-		const NuiKinfuTransform& currPos,
+		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		) override;
 
@@ -44,19 +41,6 @@ public:
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
 	void			updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
-protected:
-	void	raycastRender(
-		NuiHashingSDF* pSDF,
-		cl_mem cameraParamsCL,
-		cl_mem transformCL,
-		cl_mem verticesCL,
-		cl_mem normalsCL,
-		cl_mem colorsCL,
-		float rayIncrement,
-		float thresSampleDist,
-		float thresDist,
-		UINT nWidth, UINT nHeight
-		);
 private:
 	NuiHashingSDF*			m_pSDFData;
 	NuiHashingChunkGrid*	m_pChunkGrid;

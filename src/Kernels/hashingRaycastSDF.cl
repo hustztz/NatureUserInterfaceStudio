@@ -193,7 +193,8 @@ __kernel void renderKernel(
 						
 	vstore3(NAN, idx, vmap);
 	vstore3(NAN, idx, nmap);
-	vstore4(NAN, idx, colormap);
+	if(colormap)
+		vstore4(NAN, idx, colormap);
 
 	float3 camDir = normalize(kinectProjToCamera(gidx, gidy, 1.0f, cameraParams));
 	float3 worldCamPos = transform( (float3)(0.0f, 0.0f, 0.0f), matrix );

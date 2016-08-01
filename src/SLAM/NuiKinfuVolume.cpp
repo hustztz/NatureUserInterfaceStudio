@@ -14,26 +14,14 @@ NuiKinfuVolume::NuiKinfuVolume()
 	, m_volumeOutputColorsCL(NULL)
 	, m_vertexSumCL(NULL)
 	, m_dirty(true)
-	, m_integration_metric_threshold(0.15f)
 {
 	AcquireBuffer(true);
-	reset();
 }
 
 NuiKinfuVolume::~NuiKinfuVolume()
 {
 	ReleaseBuffer();
 }
-
-void NuiKinfuVolume::reset()
-{
-	m_lastIntegrationRotation.setIdentity();
-	m_lastIntegrationTranslation = Vector3f::Zero();
-
-	m_cachedPointCloud.clear();
-	m_dirty = true;
-}
-
 
 void NuiKinfuVolume::AcquireBuffer(bool bHas_color_volume)
 {

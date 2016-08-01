@@ -92,8 +92,7 @@ bool	NuiKinfuManager::getMesh(NuiMeshShape* pMesh)
 
 void	NuiKinfuManager::setIntegrationMetricThreshold(float threshold)
 {
-	if(m_pVolume)
-		m_pVolume->setIntegrationMetricThreshold(threshold);
+	m_tracker.setIntegrationMetricThreshold(threshold);
 }
 
 /*virtual*/

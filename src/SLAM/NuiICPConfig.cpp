@@ -3,6 +3,7 @@
 #include <fstream>
 
 NuiICPConfig::NuiICPConfig()
+	: bHasColor(false)
 {
 	filter_radius = 3; //static_cast<int>(sigma_space * 1.5);
 	sigma_space2_inv_half = 0.08f; // 0.5f / (sigma_space * sigma_space) //const float sigma_space = 2.5;     // in pixels

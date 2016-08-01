@@ -4,7 +4,6 @@
 #include "NuiHashingChunkGrid.h"
 #include "NuiKinfuTransform.h"
 
-#include "Foundation/NuiMatrixUtilities.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
@@ -39,7 +38,7 @@ void	NuiHashingVolume::reset()
 	if(m_pChunkGrid)
 		m_pChunkGrid->reset();
 
-	NuiKinfuVolume::reset();
+	setDirty();
 }
 
 void	NuiHashingVolume::updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig)
@@ -57,19 +56,18 @@ void	NuiHashingVolume::updateChunkGridConfig(const NuiHashingChunkGridConfig& ch
 }
 
 void NuiHashingVolume::raycastRender(
-	NuiHashingSDF* pSDF,
+	cl_mem renderVerticesCL,
+	cl_mem renderNormalsCL,
+	cl_mem renderColorsCL,
 	cl_mem cameraParamsCL,
 	cl_mem transformCL,
-	cl_mem verticesCL,
-	cl_mem normalsCL,
-	cl_mem colorsCL,
-	float rayIncrement,
-	float thresSampleDist,
-	float thresDist,
 	UINT nWidth, UINT nHeight
 	)
 {
-	if(!pSDF)
+	if(!m_pSDFData)
+		return;
+
+	if(!renderVerticesCL || !renderNormalsCL || !cameraParamsCL || !transformCL)
 		return;
 
 	// Get the kernel
@@ -81,9 +79,13 @@ void NuiHashingVolume::raycastRender(
 		return;
 	}
 
-	cl_mem hashCL = pSDF->getHashCL();
-	cl_mem SDFBlocksCL = pSDF->getSDFBlocksCL();
-	const NuiHashingSDFConfig& hashParams = pSDF->getConfig();
+	cl_mem hashCL = m_pSDFData->getHashCL();
+	cl_mem SDFBlocksCL = m_pSDFData->getSDFBlocksCL();
+	const NuiHashingSDFConfig& hashParams = m_pSDFData->getConfig();
+
+	float rayIncrement = m_raycastConfig.m_rayIncrementFactor * m_pSDFData->getConfig().m_truncation;
+	float thresSampleDist = m_raycastConfig.m_thresSampleDistFactor * rayIncrement;
+	float thresDist = m_raycastConfig.m_thresDistFactor * rayIncrement;
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -95,11 +97,11 @@ void NuiHashingVolume::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &transformCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &verticesCL);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderVerticesCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &normalsCL);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &colorsCL);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderColorsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &hashCL);
 	NUI_CHECK_CL_ERR(err);
@@ -134,12 +136,12 @@ void NuiHashingVolume::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 }
 
-void	NuiHashingVolume::incrementVolume(
+void	NuiHashingVolume::integrateVolume(
 	cl_mem floatDepthsCL,
-	cl_mem colorsCL,
 	cl_mem normalsCL,
+	cl_mem colorsCL,
 	cl_mem cameraParamsCL,
-	const NuiKinfuTransform& currPos,
+	cl_mem transformCL,
 	UINT nWidth, UINT nHeight
 	)
 {
@@ -158,56 +160,13 @@ void	NuiHashingVolume::incrementVolume(
 		floatDepthsCL,
 		colorsCL,
 		cameraParamsCL,
-		currPos.getTransformCL(),
+		transformCL,
 		m_pChunkGrid ? m_pChunkGrid->getBitMaskCL() : NULL,
 		streamingVoxelExtends,
 		streamingGridDimensions,
 		streamingMinGridPos
 		);
-	m_lastIntegrationRotation = currPos.getRotation();
-	m_lastIntegrationTranslation = currPos.getTranslation();
 	setDirty();
-}
-
-bool	NuiHashingVolume::evaluateVolume(
-	cl_mem floatDepthsCL,
-	cl_mem colorsCL,
-	cl_mem normalsCL,
-	cl_mem renderVertices,
-	cl_mem renderNormals,
-	cl_mem renderColors,
-	cl_mem cameraParamsCL,
-	const NuiKinfuTransform& currPos,
-	UINT nWidth, UINT nHeight
-	)
-{
-	///////////////////////////////////////////////////////////////////////////////////////////
-	// Integration check - We do not integrate volume if camera does not move.  
-	float rnorm = NuiMatrixUtilities::rodrigues2(currPos.getRotation().inverse() * m_lastIntegrationRotation).norm();
-	float tnorm = (currPos.getTranslation() - m_lastIntegrationTranslation).norm();
-	const float alpha = 1.f;
-	bool integrate = (rnorm + alpha * tnorm)/2 >= m_integration_metric_threshold;
-	// Integrate
-	if (integrate)
-	{
-		incrementVolume(floatDepthsCL, colorsCL, normalsCL, cameraParamsCL, currPos, nWidth, nHeight);
-	}
-	float rayIncrement = m_raycastConfig.m_rayIncrementFactor * m_pSDFData->getConfig().m_truncation;
-	float thresSampleDist = m_raycastConfig.m_thresSampleDistFactor * rayIncrement;
-	float thresDist = m_raycastConfig.m_thresDistFactor * rayIncrement;
-	raycastRender(
-		m_pSDFData,
-		cameraParamsCL,
-		currPos.getTransformCL(),
-		renderVertices,
-		renderNormals,
-		renderColors,
-		rayIncrement,
-		thresSampleDist,
-		thresDist,
-		nWidth, nHeight
-		);
-	return integrate;
 }
 
 bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
@@ -362,18 +321,6 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	//Push the cached point cloud
-	m_cachedPointCloud.readLock();
-	const int cachedVertexSize = m_cachedPointCloud.pointSize();
-	const int point_count = cachedVertexSize + vertex_sum;
-	if(positions.size() != point_count)
-		positions.resize(point_count);
-	memcpy((void*)(positions.data()+vertex_sum), m_cachedPointCloud.getVertices(), cachedVertexSize*sizeof(SgVec3f));
-	if(colors.size() != point_count)
-		colors.resize(point_count);
-	memcpy((void*)(colors.data()+vertex_sum), m_cachedPointCloud.getColors(), cachedVertexSize*sizeof(SgVec4f));
-	m_cachedPointCloud.readUnlock();
-
 	std::vector<unsigned int>& clTriangleIndices =
 		NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
 	clTriangleIndices.clear();
@@ -384,10 +331,10 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 
 	std::vector<unsigned int>& clPointIndices =
 		NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
-	if(clPointIndices.size() != point_count)
+	if(clPointIndices.size() != vertex_sum)
 	{
-		clPointIndices.resize(point_count);
-		for (int i = 0; i < point_count; ++i)
+		clPointIndices.resize(vertex_sum);
+		for (int i = 0; i < vertex_sum; ++i)
 		{
 			clPointIndices[i] = i;
 		}
