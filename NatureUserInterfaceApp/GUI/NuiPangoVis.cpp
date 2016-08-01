@@ -21,15 +21,14 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	, m_pMeshDraw(NULL)
 	, m_pTexturedMeshDraw(NULL)
 	, a_deviceOn("ui.Device On", false, true)
-	, a_pause("ui.Pause", false, true)
 	, a_reset("ui.Reset", false, false)
 	, a_fileToFrame("ui.Frame Loader On", false, true)
 	, a_frameToFile("ui.Frame Saver On", false, true)
 	, a_depthNearPlane("ui.Depth Near Plane", 400, 400, 4500)
 	, a_depthFarPlane("ui.Depth Far Plane", 4200, 400, 4500)
+	, a_drawPointSize("ui.Draw Point Size", 2.0f, 1.0f, 10.0f)
 	, a_drawFrustum("ui.Draw Frustum", false, true)
 	, a_followPose("ui.Follow Pose", true, true)
-	, a_drawPointSize("ui.Draw Point Size", 2.0f, 1.0f, 10.0f)
 	, a_drawBoundingBox("ui.Draw Bounding Box", true, true)
 	, a_drawColorImage("ui.Draw Color Image", true, true)
 	, a_drawGlobalModel("ui.Draw Global Model", true, true)
@@ -38,7 +37,9 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	, a_drawGraph("ui.Draw Graph", false, true)
 	, a_drawKeyPoints("ui.Draw Key Points", false, true)
 	, a_kinFuOn("ui.KinFu On", false, true)
+	, a_kinFuPause("ui.KinFu Pause", false, false)
 	, a_trackColors("ui.Track Colors", true, true)
+	, a_hashingVolume("ui.Hashing Volume", false, true)
 	, a_volumeVoxelSize("ui.Volume Voxel Size", 0.01f, 0.005f, 0.02f)
 	, a_translateBasisX("ui.Tracker Basis X", 0.f, -10.0f, 10.0f)
 	, a_translateBasisZ("ui.Tracker Basis Z", 0.f, -10.0f, 10.0f)
@@ -110,10 +111,7 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 			.AddDisplay(*a_inPlot);
 	}
 
-	if(m_showcaseMode)
-	{
-		pangolin::RegisterKeyPressCallback(' ', pangolin::SetVarFunctor<bool>("ui.Reset", true));
-	}
+	pangolin::RegisterKeyPressCallback(pangolin::PANGO_CTRL + 'r', pangolin::SetVarFunctor<bool>("ui.View Reset", true));
 
 	// Set kernel dir
 	std::string shadersFolder = getenv("NUI_LOCATION");
@@ -379,10 +377,16 @@ void NuiPangoVis::updateView(NuiCLMappableData* pData)
 
 void NuiPangoVis::render(NuiCLMappableData* pData)
 {
-	if( a_followPose )
+	if(!a_followPose && a_followPose.GuiChanged())
+	{
+		// Reset view
+		s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(0,0,-2, 0,0,0, pangolin::AxisY));
+	}
+	else if( a_followPose )
 	{
 		updateView(pData);
 	}
+
 	preCall();
 	draw(pData);
 	postCall();

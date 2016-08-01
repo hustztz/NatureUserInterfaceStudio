@@ -12,7 +12,7 @@
 NuiHashingSDF::NuiHashingSDF(NuiHashingSDFConfig config)
 	: m_config(config)
 	, m_numIntegratedFrames(0)
-	, m_bGarbageCollectionEnabled(false)
+	, m_bGarbageCollectionEnabled(true)
 	, m_garbageCollectionStarve(10)
 {
 	AcquireBuffers();

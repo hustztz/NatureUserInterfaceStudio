@@ -115,7 +115,7 @@ void NuiGuiController::handleGuiChanged()
 			m_pKinfu->pauseThread();
 			m_pKinfu->setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
 			m_pKinfu->setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
-			m_pKinfu->resetVolume(m_gui->a_volumeVoxelSize);
+			m_pKinfu->resetVolume(m_gui->a_volumeVoxelSize, m_gui->a_hashingVolume);
 
 			m_pKinfu->startThread();
 		}

@@ -968,7 +968,7 @@ void NuiMayaDeviceGrabber::updateKinfu()
 			inputHandle = datablock.inputValue( aVolumeVoxelSize, &returnStatus );
 			if(returnStatus == MS::kSuccess)
 				voxelSize = inputHandle.asFloat();
-			m_kinfu->resetVolume(voxelSize);
+			m_kinfu->resetVolume(voxelSize, false);
 			m_kinfu->startThread();
 		}
 	}

@@ -61,8 +61,9 @@ public:
 	Matrix4frm getTransform() const
 	{
 		Matrix4frm transform;
+		transform.setIdentity();
 		transform.topLeftCorner(3, 3) = m_rotation;
-		transform.topRightCorner(1, 3) = m_translation;
+		transform.block<1, 3>(3, 0) = m_translation;
 		return transform;
 	}
 

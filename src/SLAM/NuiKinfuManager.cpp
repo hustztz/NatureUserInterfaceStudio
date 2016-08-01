@@ -21,20 +21,26 @@ NuiKinfuManager::~NuiKinfuManager()
 	SafeDelete(m_pVolume);
 }
 
-void	NuiKinfuManager::resetVolume(float voxelSize)
+void	NuiKinfuManager::resetVolume(float voxelSize, bool bHashingSDF)
 {
 	SafeDelete(m_pVolume);
 
-	NuiKinfuVolumeConfig volumeConfig;
-	volumeConfig.dimensions = Vector3f::Constant(3.0f);
-	volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-	m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);
-	/*NuiHashingSDFConfig sdfConfig;
-	sdfConfig.m_virtualVoxelSize = voxelSize;
-	sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
-	sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
-	NuiHashingRaycastConfig raycastConfig;
-	m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);*/
+	if(bHashingSDF)
+	{
+		NuiHashingSDFConfig sdfConfig;
+		sdfConfig.m_virtualVoxelSize = voxelSize;
+		sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
+		sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
+		NuiHashingRaycastConfig raycastConfig;
+		m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);
+	}
+	else
+	{
+		NuiKinfuVolumeConfig volumeConfig;
+		volumeConfig.dimensions = Vector3f::Constant(3.0f);
+		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
+		m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);
+	}
 }
 
 void	NuiKinfuManager::log(const std::string& fileName) const

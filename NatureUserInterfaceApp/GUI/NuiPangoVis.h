@@ -30,7 +30,6 @@ protected:
 
 public:
 	pangolin::Var<bool> a_deviceOn;
-	pangolin::Var<bool> a_pause;
 	pangolin::Var<bool> a_reset;
 
 	pangolin::Var<bool> a_fileToFrame;
@@ -40,7 +39,9 @@ public:
 	pangolin::Var<int> a_depthFarPlane;
 
 	pangolin::Var<bool> a_kinFuOn;
+	pangolin::Var<bool> a_kinFuPause;
 	pangolin::Var<bool> a_trackColors;
+	pangolin::Var<bool> a_hashingVolume;
 	pangolin::Var<float> a_volumeVoxelSize;
 	pangolin::Var<float> a_translateBasisX;
 	pangolin::Var<float> a_translateBasisZ;
