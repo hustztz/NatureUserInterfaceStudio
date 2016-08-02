@@ -554,10 +554,6 @@ void    NuiKinfuTSDFVolume::integrateVolume(
 		);
 	NUI_CHECK_CL_ERR(err);
 
-#ifdef _DEBUG
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-#endif
 #ifdef _GPU_PROFILER
 	clFinish(queue);
 	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
@@ -688,6 +684,10 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
 
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
@@ -871,6 +871,9 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
 
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(

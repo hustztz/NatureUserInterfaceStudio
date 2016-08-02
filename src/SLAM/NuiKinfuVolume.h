@@ -6,7 +6,6 @@
 #include <atomic>
 
 //Forwards
-class NuiKinfuTransform;
 class NuiCLMappableData;
 class NuiMeshShape;
 

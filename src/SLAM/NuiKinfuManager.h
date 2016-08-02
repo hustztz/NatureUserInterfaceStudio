@@ -30,6 +30,7 @@ public:
 	void	setAutoReset(bool autoReset) { m_bAutoReset = autoReset; }
 	void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
 	void	setIntegrationMetricThreshold(float threshold);
+	void	setColorTracker(bool bHasColor) { m_trackerConfig.bHasColor = bHasColor; }
 	void	log(const std::string& fileName) const;
 
 private:
@@ -43,5 +44,6 @@ private:
 	NuiKinfuVolume*						m_pVolume;
 
 	bool								m_bAutoReset;
+	NuiICPConfig						m_trackerConfig;
 	Vector3f							m_translateBasis;
 };

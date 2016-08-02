@@ -137,8 +137,7 @@ bool	NuiKinfuManager::process ()
 	{
 		const UINT nImageWidth = pCompositeFrame->m_colorFrame.GetWidth();
 		const UINT nImageHeight = pCompositeFrame->m_colorFrame.GetHeight();
-		NuiICPConfig trackerConfig;
-		m_tracker.initialize(trackerConfig, nPointWidth, nPointHeight, nImageWidth, nImageHeight);
+		m_tracker.initialize(m_trackerConfig, nPointWidth, nPointHeight, nImageWidth, nImageHeight);
 	}
 
 	NuiTimeLog::instance().tick(sTrackerName);
