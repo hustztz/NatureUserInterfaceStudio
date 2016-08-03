@@ -1,3 +1,4 @@
+#include "NuiGuiHWMappable.h"
 #include "NuiPangoMeshShader.h"
 
 #include "Shape\NuiCLMappableData.h"
@@ -21,20 +22,10 @@ bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
 	if(!pData)
 		return false;
 
-	std::shared_ptr<NuiVectorMappableImpl3f> positions = NuiMappableAccessor::asVectorImpl(pData->PositionStream());
-	std::shared_ptr<NuiVectorMappableImpl4f> colors = NuiMappableAccessor::asVectorImpl(pData->ColorStream());
 	std::shared_ptr<NuiVectorMappableImplui> triIndices =	NuiMappableAccessor::asVectorImpl(pData->TriangleIndices());
 
-	if(!positions->data().size() || !colors->data().size() || !triIndices->data().size())
+	if(!pData->PositionStream().size() || !pData->ColorStream().size() || !triIndices->data().size())
 		return false;
-
-	// vbo
-	glGenBuffers(2, m_vbos); // Generate our Vertex Buffer Object
-	glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]); // Bind our Vertex Buffer Object
-	glBufferData(GL_ARRAY_BUFFER, sizeof(SgVec3f)*positions->data().size(), positions->data().data(), GL_STREAM_DRAW); // Set the size and data of our VBO and set it to GL_STREAM_DRAW
-
-	glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(SgVec4f)*colors->data().size(), colors->data().data(), GL_STREAM_DRAW);
 
 	// ibo
 	glGenBuffers(1, &m_ibo);
@@ -52,9 +43,9 @@ bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
 
 	GLuint vVertex=3;
 	GLuint vColor=4;
-	glBindBuffer(GL_ARRAY_BUFFER, m_vbos[0]);
+	glBindBuffer(GL_ARRAY_BUFFER, NuiGuiHWMappable::asHWVertexBuffer(pData->PositionStream()));
 	glVertexAttribPointer((GLuint)0, vVertex, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
-	glBindBuffer(GL_ARRAY_BUFFER, m_vbos[1]);
+	glBindBuffer(GL_ARRAY_BUFFER, NuiGuiHWMappable::asHWVertexBuffer(pData->ColorStream()));
 	glVertexAttribPointer((GLuint)1, vColor, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
 
@@ -80,8 +71,11 @@ void NuiPangoMeshShader::drawMesh(const pangolin::OpenGlMatrix& mvp)
 
 void NuiPangoMeshShader::uninitializeBuffers()
 {
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
 	glDeleteVertexArrays(1, &m_vao);
-	glDeleteBuffers(1, &m_vbos[0]);
-	glDeleteBuffers(1, &m_vbos[1]);
 	glDeleteBuffers(1, &m_ibo);
 }

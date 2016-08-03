@@ -92,6 +92,8 @@ void NuiPangoTexturedCloudShader::uninitializeBuffers()
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
 	glDeleteVertexArrays(1, &m_vao);
 	glDeleteBuffers(1, &m_ibo);
 }

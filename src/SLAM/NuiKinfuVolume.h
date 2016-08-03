@@ -44,13 +44,10 @@ public:
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) = 0;
 
 protected:
-	void			AcquireBuffer(bool bHas_color_volume);
+	void			AcquireBuffer();
 	void			ReleaseBuffer();
 
 protected:
-	// Buffers for output
-	cl_mem				m_volumeOutputVerticesCL;
-	cl_mem				m_volumeOutputColorsCL;
 	cl_mem				m_vertexSumCL;
 
 	std::atomic<bool>	m_dirty;

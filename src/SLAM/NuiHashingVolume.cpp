@@ -4,10 +4,12 @@
 #include "NuiHashingChunkGrid.h"
 #include "NuiKinfuTransform.h"
 
+#include "Kernels/gpu_def.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
+#include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 
 #include "Shape/NuiCLMappableData.h"
 
@@ -223,6 +225,30 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 		);
 	NUI_CHECK_CL_ERR(err);
 
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->PositionStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->ColorStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
+
+	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
+	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		positionsGL,
+		colorsGL
+	};
+
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
 	// Set kernel arguments
 	cl_uint idx = 0;
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &hashCL);
@@ -233,9 +259,9 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_float), &thresSDF);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputVerticesCL);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &positionsGL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &colorsGL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);
@@ -264,6 +290,13 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 		);
 	NUI_CHECK_CL_ERR(err);
 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
 #ifdef _GPU_PROFILER
 	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
 	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
@@ -287,47 +320,8 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	if(vertex_sum <= 0)
 		return false;
 
-	std::vector<SgVec3f>& positions = NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data();
-	if(positions.size() != vertex_sum)
-		positions.resize(vertex_sum);
-
-	clEnqueueReadBuffer(
-		queue,
-		m_volumeOutputVerticesCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 3 * sizeof(float),
-		positions.data(),
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	std::vector<SgVec4f>& colors = NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data();
-	if(colors.size() != vertex_sum)
-		colors.resize(vertex_sum);
-
-	clEnqueueReadBuffer(
-		queue,
-		m_volumeOutputColorsCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 4 * sizeof(float),
-		colors.data(),
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	std::vector<unsigned int>& clTriangleIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
-	clTriangleIndices.clear();
-
-	std::vector<unsigned int>& clWireframeIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data();
-	clWireframeIndices.clear();
+	NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data().clear();
+	NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data().clear();
 
 	std::vector<unsigned int>& clPointIndices =
 		NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();

@@ -250,6 +250,12 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+	cl_context       context = NuiOpenCLGlobal::instance().clContext();
+
+	cl_mem volumeOutputVerticesCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, voxelRange(0)*voxelRange(1)*voxelRange(2)*sizeof(cl_float3), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+	cl_mem volumeOutputColorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, voxelRange(0)*voxelRange(1)*voxelRange(2)*sizeof(cl_float4), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
 
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
@@ -278,9 +284,9 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int3), m_voxel_offset.data());
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputVerticesCL);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &volumeOutputVerticesCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
+	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &volumeOutputColorsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
 	NUI_CHECK_CL_ERR(err);
@@ -320,7 +326,7 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 	m_cachedPointCloud.resizePoints(originalSize + vertex_sum);
 	err = clEnqueueReadBuffer(
 		queue,
-		m_volumeOutputVerticesCL,
+		volumeOutputVerticesCL,
 		CL_FALSE,//blocking
 		0,
 		vertex_sum * 3 * sizeof(float),
@@ -333,7 +339,7 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 
 	err = clEnqueueReadBuffer(
 		queue,
-		m_volumeOutputColorsCL,
+		volumeOutputColorsCL,
 		CL_FALSE,//blocking
 		0,
 		vertex_sum * 4 * sizeof(float),
@@ -345,6 +351,11 @@ void NuiKinfuTSDFVolume::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	v
 	NUI_CHECK_CL_ERR(err);
 
 	m_cachedPointCloud.writeUnlock();
+
+	err = NuiGPUMemManager::instance().ReleaseMemObjectCL(volumeOutputVerticesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = NuiGPUMemManager::instance().ReleaseMemObjectCL(volumeOutputColorsCL);
+	NUI_CHECK_CL_ERR(err);
 }
 
 void NuiKinfuTSDFVolume::fetchAndClearX(int xVoxelTrans)
@@ -653,7 +664,7 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	if(!pCLData)
 		return false;
 
-	if(!m_volumeCL || !m_volumeOutputVerticesCL || !m_vertexSumCL)
+	if(!m_volumeCL || !m_vertexSumCL)
 		return false;
 
 	if(!m_dirty)
@@ -686,15 +697,6 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->PositionStream().size() )
-	{
-		NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
-	}
-	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->ColorStream().size() )
-	{
-		NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
-	}
-
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
 		queue,
@@ -712,6 +714,15 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	// 
 	err = clFinish(queue);
 	NUI_CHECK_CL_ERR(err);
+
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->PositionStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->ColorStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
 
 	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
 	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
@@ -838,7 +849,7 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	if(!pCLData)
 		return false;
 
-	if(!m_volumeCL || !m_volumeOutputVerticesCL || !m_vertexSumCL)
+	if(!m_volumeCL || !m_vertexSumCL)
 		return false;
 
 	if(!m_dirty)
@@ -860,10 +871,7 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-	// 
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-
+	
 	cl_int vertex_sum = 0;
 	err = clEnqueueWriteBuffer(
 		queue,
@@ -877,6 +885,20 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
+	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		positionsGL,
+		colorsGL
+	};
+
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 
 	// Set kernel arguments
 	cl_uint idx = 0;
@@ -886,9 +908,9 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_colorVolumeCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_volumeOutputVerticesCL);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &positionsGL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_volumeOutputColorsCL);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &colorsGL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_numVertsTableCL);
 	NUI_CHECK_CL_ERR(err);
@@ -921,6 +943,13 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 		);
 	NUI_CHECK_CL_ERR(err);
 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
 	err = clEnqueueReadBuffer(
 		queue,
 		m_vertexSumCL,
@@ -943,40 +972,8 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 
 	if(vertex_sum <= 0 || vertex_sum > MAX_OUTPUT_VERTEX_SIZE)
 		return false;
-	
-	std::vector<SgVec3f>& positions = NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data();
-	if(positions.size() != vertex_sum)
-		positions.resize(vertex_sum);
 
-	err = clEnqueueReadBuffer(
-		queue,
-		m_volumeOutputVerticesCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 3 * sizeof(float),
-		positions.data(),
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	std::vector<SgVec4f>& colors = NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data();
-	if(colors.size() != vertex_sum)
-		colors.resize(vertex_sum);
-
-	err = clEnqueueReadBuffer(
-		queue,
-		m_volumeOutputColorsCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 4 * sizeof(float),
-		colors.data(),
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
+	NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data().clear();
 
 	std::vector<unsigned int>& clTriangleIndices =
 		NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
@@ -1002,10 +999,6 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 		}
 		pCLData->SetIndexingDirty(true);
 	}
-
-	std::vector<unsigned int>& clPointIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
-	clPointIndices.clear();
 
 	pCLData->SetStreamDirty(true);
 
