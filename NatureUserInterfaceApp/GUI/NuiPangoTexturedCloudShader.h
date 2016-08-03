@@ -24,6 +24,5 @@ private:
 	int m_textureHeight;
 
 	GLuint m_vao;
-	GLuint m_vbos[2];
 	GLuint m_ibo;
 };

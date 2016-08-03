@@ -18,7 +18,6 @@
 
 NuiKinfuTracker::NuiKinfuTracker(NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 	: m_icp(NULL)
-	, m_positionsGL(NULL)
 	, m_rawDepthsCL(NULL)
 	, m_floatDepthsCL(NULL)
 	, m_colorUVsCL(NULL)
@@ -40,7 +39,6 @@ NuiKinfuTracker::NuiKinfuTracker(NuiICPConfig& icpConfig, UINT nWidth, UINT nHei
 
 NuiKinfuTracker::NuiKinfuTracker()
 	: m_icp(NULL)
-	, m_positionsGL(NULL)
 	, m_rawDepthsCL(NULL)
 	, m_floatDepthsCL(NULL)
 	, m_colorUVsCL(NULL)
@@ -48,7 +46,6 @@ NuiKinfuTracker::NuiKinfuTracker()
 	, m_colorsCL(NULL)
 	, m_cameraParamsCL(NULL)
 	, m_outputColorImageCL(NULL)
-	, m_outputColorsCL(NULL)
 	, m_integration_metric_threshold(0.15f)
 	, m_nWidth(0)
 	, m_nHeight(0)
@@ -63,7 +60,6 @@ NuiKinfuTracker::~NuiKinfuTracker()
 	SafeDelete(m_icp);
 
 	ReleaseBuffers();
-	ReleaseGLBuffer();
 }
 
 void NuiKinfuTracker::initialize(const NuiICPConfig& icpConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
@@ -73,7 +69,6 @@ void NuiKinfuTracker::initialize(const NuiICPConfig& icpConfig, UINT nWidth, UIN
 		SafeDelete(m_icp);
 
 		ReleaseBuffers();
-		ReleaseGLBuffer();
 	}
 	if(!m_icp)
 	{
@@ -152,32 +147,6 @@ void NuiKinfuTracker::AcquireBuffers(bool bHasColor)
 	// Output
 	m_outputColorImageCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(BGRQUAD), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_outputColorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*4*sizeof(cl_float), NULL, &err);
-	NUI_CHECK_CL_ERR(err);
-}
-
-bool NuiKinfuTracker::AcquireGLBuffer(NuiCLMappableData* pCLData)
-{
-	assert(pCLData);
-	if(!pCLData)
-		return false;
-
-	m_positionsGL =
-		NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
-	if (!m_positionsGL)
-	{
-		NUI_ERROR("Failed to get positions of the buffer\n");
-		return false;
-	}
-
-	// Acquire OpenGL objects before use
-	cl_mem glObjs[] = {
-		m_positionsGL
-	};
-	openclutil::enqueueAcquireHWObjects(
-		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
-
-	return true;
 }
 
 void NuiKinfuTracker::ReleaseBuffers()
@@ -217,27 +186,6 @@ void NuiKinfuTracker::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_outputColorImageCL = NULL;
 	}
-	if (m_outputColorsCL) {
-		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_outputColorsCL);
-		NUI_CHECK_CL_ERR(err);
-		m_outputColorsCL = NULL;
-	}
-}
-
-void NuiKinfuTracker::ReleaseGLBuffer()
-{
-	if(!m_positionsGL)
-		return;
-	assert(m_positionsGL);
-
-	cl_mem glObjs[] = {
-		m_positionsGL
-	};
-	// Release OpenGL objects
-	openclutil::enqueueReleaseHWObjects(
-		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
-
-	m_positionsGL = NULL;
 }
 
 void NuiKinfuTracker::PassingDepths(float nearPlane, float farPlane)
@@ -587,23 +535,13 @@ bool NuiKinfuTracker::previousBufferToData(NuiCLMappableData* pCLData)
 	if(!m_icp)
 		return false;
 
-	/*if ( !AcquireGLBuffer(pCLData) )
-	{
-		return false;
-	}*/
-
 	const UINT nPointsNum = m_nWidth * m_nHeight;
 
 	pCLData->SetBoundingBox(SgVec3f(-256.0f / 370.0f, -212.0f / 370.0f, 0.4f),
 		SgVec3f((m_nWidth-256.0f) / 370.0f, (m_nHeight-212.0f) / 370.0f, 4.0f));
 
-	std::vector<unsigned int>& clTriangleIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
-	clTriangleIndices.clear();
-
-	std::vector<unsigned int>& clWireframeIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data();
-	clWireframeIndices.clear();
+	NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data().clear();
+	NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data().clear();
 
 	std::vector<unsigned int>& clPointIndices =
 		NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
@@ -617,62 +555,70 @@ bool NuiKinfuTracker::previousBufferToData(NuiCLMappableData* pCLData)
 		pCLData->SetIndexingDirty(true);
 	}
 	
-	// OpenCL command queue and device
-	/*cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-	err = clEnqueueCopyBuffer(
-		queue,
-		m_verticesArrCL[0],
-		m_positionsGL,
-		0,
-		0,
-		nPointsNum * 3 * sizeof(float),
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-	pCLData->SetStreamDirty(false);*/
-
-	std::vector<SgVec3f>& positions = NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data();
-	if(positions.size() != nPointsNum)
-		positions.resize(nPointsNum);
+	if( nPointsNum != pCLData->PositionStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data().resize(nPointsNum);
+	}
 
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
 	cl_mem prevVertices = m_icp->getPrevVerticesCL();
+	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		positionsGL
+	};
 
-	clEnqueueReadBuffer(
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	err = clEnqueueCopyBuffer(
 		queue,
 		prevVertices,
-		CL_FALSE,//blocking
+		positionsGL,
+		0,
 		0,
 		nPointsNum * 3 * sizeof(float),
-		positions.data(),
 		0,
 		NULL,
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	std::vector<SgVec4f>& colors = NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data();
-	if(colors.size() != nPointsNum)
-		colors.resize(nPointsNum);
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
 
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	// Output colors
 	cl_mem prevColorsCL = m_icp->getPrevColorsCL();
 	if(prevColorsCL)
 	{
+		if( nPointsNum != pCLData->ColorStream().size() )
+		{
+			NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(nPointsNum);
+		}
+
 		// Get the kernel
 		cl_kernel rgbaKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_RGBA_TO_FLOAT4);
 		assert(rgbaKernel);
 		if (rgbaKernel && prevColorsCL)
 		{
+			cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
+
+			// Acquire OpenGL objects before use
+			glObjs[0] = colorsGL;
+			openclutil::enqueueAcquireHWObjects(
+				sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
 			// Set kernel arguments
 			cl_uint idx = 0;
 			err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &prevColorsCL);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_outputColorsCL);
+			err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &colorsGL);
 			NUI_CHECK_CL_ERR(err);
 
 			size_t kernelGlobalSize[1] = { nPointsNum };
@@ -689,18 +635,12 @@ bool NuiKinfuTracker::previousBufferToData(NuiCLMappableData* pCLData)
 				);
 			NUI_CHECK_CL_ERR(err);
 
-			clEnqueueReadBuffer(
-				queue,
-				m_outputColorsCL,
-				CL_FALSE,//blocking
-				0,
-				nPointsNum * 4 * sizeof(float),
-				colors.data(),
-				0,
-				NULL,
-				NULL
-				);
+			err = clFinish(queue);
 			NUI_CHECK_CL_ERR(err);
+
+			// Release OpenGL objects
+			openclutil::enqueueReleaseHWObjects(
+				sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 		}
 		else
 		{
@@ -709,8 +649,6 @@ bool NuiKinfuTracker::previousBufferToData(NuiCLMappableData* pCLData)
 	}
 
 	pCLData->SetStreamDirty(true);
-
-	//ReleaseGLBuffer();
 
 	return true;
 }

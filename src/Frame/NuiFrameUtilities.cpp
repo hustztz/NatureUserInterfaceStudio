@@ -5,6 +5,8 @@
 #include "Shape\NuiCLMappableData.h"
 #include "Shape\NuiMeshShape.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
+#include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
+#include "OpenCLUtilities/NuiOpenCLUtil.h"
 
 #include <boost/smart_ptr.hpp>
 #include <opencv2/core.hpp>
@@ -235,18 +237,41 @@ namespace NuiFrameUtilities
 		CameraSpacePoint* pDepthToCamera = pCompositeFrame->m_cameraMapFrame.GetBuffer();
 		if(!pDepthToCamera)
 			return false;
+
+		// OpenCL command queue and device
+		cl_int           err = CL_SUCCESS;
+		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 		
-		std::shared_ptr<NuiVectorMappableImpl3f> positions = NuiMappableAccessor::asVectorImpl(pData->PositionStream());
-		if(positions->data().size() != nFramePointsNum)
-			positions->data().resize(nFramePointsNum);
-		pCompositeFrame->m_cameraMapFrame.ReadFrameLock();
-		errno_t err = memcpy_s(positions->data().data(), sizeof(SgVec3f)*nFramePointsNum, pDepthToCamera, sizeof(CameraSpacePoint)*nFramePointsNum);
-		pCompositeFrame->m_cameraMapFrame.ReadFrameUnlock();
-		if(0 != err)
+		if( nFramePointsNum != pData->PositionStream().size() )
 		{
-			std::cerr << "Error : Failed to copy the position buffer in frameToCLData." << std::endl;
-			return false;
+			NuiMappableAccessor::asVectorImpl(pData->PositionStream())->data().resize(nFramePointsNum);
 		}
+
+		cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pData->PositionStream());
+		// Acquire OpenGL objects before use
+		cl_mem glObjs[] = {
+			positionsGL
+		};
+
+		openclutil::enqueueAcquireHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+		clEnqueueWriteBuffer(
+			queue,
+			positionsGL,
+			CL_TRUE,
+			0,
+			nFramePointsNum * sizeof(SgVec3f),
+			pDepthToCamera,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+		
+		// Release OpenGL objects
+		openclutil::enqueueReleaseHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 
 		// Normals
 		if (nFramePointsNum != pData->NormalStream().size())
@@ -271,23 +296,44 @@ namespace NuiFrameUtilities
 		ColorSpacePoint* pDepthToColor = pCompositeFrame->m_colorMapFrame.GetBuffer();
 		if(!pDepthToColor)
 			return false;
-		
-		std::shared_ptr<NuiVectorMappableImpl2f> uvs = NuiMappableAccessor::asVectorImpl(pData->PatchUVStream());
-		if(uvs->data().size() != nColorMapNum)
-			uvs->data().resize(nColorMapNum);
-		pCompositeFrame->m_colorMapFrame.ReadFrameLock();
-		errno_t err = memcpy_s(uvs->data().data(), sizeof(SgVec2f)*nColorMapNum, pDepthToColor, sizeof(ColorSpacePoint)*nColorMapNum);
-		pCompositeFrame->m_colorMapFrame.ReadFrameUnlock();
-		if(0 != err)
+
+		// OpenCL command queue and device
+		cl_int           err = CL_SUCCESS;
+		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+		if( nColorMapNum != pData->PatchUVStream().size() )
 		{
-			std::cerr << "Error : Failed to copy the uv buffer in frameToCLData." << std::endl;
-			return false;
+			NuiMappableAccessor::asVectorImpl(pData->PatchUVStream())->data().resize(nColorMapNum);
 		}
 
+		cl_mem uvsGL = NuiOpenCLBufferFactory::asPatch2fBufferCL(pData->PatchUVStream());
+		// Acquire OpenGL objects before use
+		cl_mem glObjs[] = {
+			uvsGL
+		};
+
+		openclutil::enqueueAcquireHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+		clEnqueueWriteBuffer(
+			queue,
+			uvsGL,
+			CL_TRUE,
+			0,
+			nColorMapNum * sizeof(SgVec2f),
+			pDepthToColor,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+
+		// Release OpenGL objects
+		openclutil::enqueueReleaseHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+		
 		// Colors
-		std::vector<SgVec4f>& clColors =
-			NuiMappableAccessor::asVectorImpl(pData->ColorStream())->data();
-		clColors.clear();
+		NuiMappableAccessor::asVectorImpl(pData->ColorStream())->data().clear();
 
 		return true;
 	}

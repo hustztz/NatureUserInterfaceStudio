@@ -55,8 +55,6 @@ public:
 protected:
 	void	AcquireBuffers(bool bHasColor);
 	void	ReleaseBuffers();
-	bool	AcquireGLBuffer(NuiCLMappableData* pCLData);
-	void	ReleaseGLBuffer();
 
 	void	PassingDepths(float nearPlane, float farPlane);
 	void	WriteDepths(UINT16* pDepths, UINT nPositionsNum, UINT16 minDepth, UINT16 maxDepth);
@@ -67,7 +65,6 @@ private:
 	NuiPyramidICP*	m_icp;
 	NuiKinfuTransform m_transform;
 
-	cl_mem m_positionsGL;
 	cl_mem m_rawDepthsCL;
 	cl_mem m_floatDepthsCL;
 	cl_mem m_colorUVsCL;
@@ -75,7 +72,6 @@ private:
 	cl_mem m_colorsCL;
 	cl_mem m_cameraParamsCL;
 	cl_mem m_outputColorImageCL;
-	cl_mem m_outputColorsCL;
 
 	UINT m_nWidth, m_nHeight;
 	UINT m_nColorWidth, m_nColorHeight;

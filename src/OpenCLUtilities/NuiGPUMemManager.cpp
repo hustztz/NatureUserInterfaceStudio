@@ -250,9 +250,9 @@ cl_mem NuiGPUMemManager::CreateCLObjectFromHWBuffer(
     if (!bufobj)
         return nullptr;
 
-    assert(ogsbuf);
+    /*assert(ogsbuf);
     if (!ogsbuf)
-        return nullptr;
+        return nullptr;*/
 
     // Lock ogs resource first
     pLockMayaResourceHandleFn(ogsbuf, type);

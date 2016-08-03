@@ -2,7 +2,9 @@
 
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
+#include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 #include "NuiGuiOpenCLUtilities.h"
+#include "NuiGuiHWMappable.h"
 
 #include "DeviceManager/NuiRGBDDeviceController.h"
 
@@ -35,24 +37,26 @@ NuiGuiController::NuiGuiController()
 			printf("Failed to initialize OpenCL.\n");
 
 		// Register buffer functions, register more if needed in the future
-		/*NuiOpenCLBufferFactory::RegisterAsUInt32IndexBufferCLFn(
-			NuiMayaHWMappable::asUInt32IndexBufferCL);
+		NuiOpenCLBufferFactory::RegisterAsUInt32IndexBufferCLFn(
+			NuiGuiHWMappable::asUInt32IndexBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsPosition3fBufferCLFn(
-			NuiMayaHWMappable::asPosition3fBufferCL);
+			NuiGuiHWMappable::asPosition3fBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsColor4fBufferCLFn(
-			NuiMayaHWMappable::asColor4fBufferCL);
+			NuiGuiHWMappable::asColor4fBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsNormal3fBufferCLFn(
-			NuiMayaHWMappable::asNormal3fBufferCL);
+			NuiGuiHWMappable::asNormal3fBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsPatchUV2fBufferCLFn(
-			NuiMayaHWMappable::asTexture2fBufferCL);
+			NuiGuiHWMappable::asTexture2fBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsTexture1fBufferCLFn(
-			NuiMayaHWMappable::asTexture1fBufferCL);*/
+			NuiGuiHWMappable::asTexture1fBufferCL);
 
 		// Register functions for NuiGPUMemManager
 		NuiGPUMemManager::RegisterInformRenderHoldGPU(NuiGuiOpenCLUtilities::informRenderHoldGPU);
 		NuiGPUMemManager::RegisterInformRenderReleaseGPU(NuiGuiOpenCLUtilities::informRenderReleaseGPU);
 		NuiGPUMemManager::RegisterLockRenderResourceHandle(NuiGuiOpenCLUtilities::lockResourceHandle);
 		NuiGPUMemManager::RegisterUnlockRenderResourceHandle(NuiGuiOpenCLUtilities::unlockResourceHandle);
+
+		NuiOpenCLGlobal::instance().isGL(true);
 	}
 
 }

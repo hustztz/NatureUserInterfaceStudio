@@ -53,7 +53,7 @@ __kernel void integrateTsdfVolumeKernel(
 	struct NuiCLRigidTransform mat = *matrix;
 	const float v_g_x = (convert_float(voxel_x - resolution_x/2) + 0.5f) * l_params.cell_size[0] - mat.t[0];
 	const float v_g_y = (convert_float(voxel_y - resolution_y/2) + 0.5f) * l_params.cell_size[1] - mat.t[1];
-	float v_g_z = (- resolution_z/4 + 0.5f) * l_params.cell_size[2] - mat.t[2];
+	float v_g_z = ( + 0.5f) * l_params.cell_size[2] - mat.t[2];
 
 	float v_g_part_norm = v_g_x * v_g_x + v_g_y * v_g_y;
 
