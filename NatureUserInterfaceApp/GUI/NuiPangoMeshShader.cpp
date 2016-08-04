@@ -19,20 +19,10 @@ NuiPangoMeshShader::~NuiPangoMeshShader()
 
 bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
 {
-	if(!pData)
+	if(!pData || !pData->PositionStream().size() || !pData->ColorStream().size() || !pData->TriangleIndices().size())
 		return false;
 
-	std::shared_ptr<NuiVectorMappableImplui> triIndices =	NuiMappableAccessor::asVectorImpl(pData->TriangleIndices());
-
-	if(!pData->PositionStream().size() || !pData->ColorStream().size() || !triIndices->data().size())
-		return false;
-
-	// ibo
-	glGenBuffers(1, &m_ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int)*triIndices->data().size(), triIndices->data().data(), GL_STREAM_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	m_indexSize = (int)triIndices->data().size();
+	m_indexSize = (UINT)pData->TriangleIndices().size();
 
 	// vba
 	glGenVertexArrays(1, &m_vao); // Create our Vertex Array Object
@@ -47,7 +37,7 @@ bool NuiPangoMeshShader::initializeBuffers(NuiCLMappableData* pData)
 	glVertexAttribPointer((GLuint)0, vVertex, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
 	glBindBuffer(GL_ARRAY_BUFFER, NuiGuiHWMappable::asHWVertexBuffer(pData->ColorStream()));
 	glVertexAttribPointer((GLuint)1, vColor, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, NuiGuiHWMappable::asHWIndexBuffer(pData->TriangleIndices()));
 
 	glBindVertexArray(0); // Disable our Vertex Buffer Object
 
@@ -75,7 +65,7 @@ void NuiPangoMeshShader::uninitializeBuffers()
 	glDisableVertexAttribArray(1);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	glDeleteVertexArrays(1, &m_vao);
-	glDeleteBuffers(1, &m_ibo);
 }

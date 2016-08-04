@@ -21,23 +21,12 @@ NuiPangoTexturedCloudShader::~NuiPangoTexturedCloudShader()
 
 bool NuiPangoTexturedCloudShader::initializeBuffers(NuiCLMappableData* pData)
 {
-	if(!pData)
-		return false;
-
-	std::shared_ptr<NuiVectorMappableImplui> clPointIndices =	NuiMappableAccessor::asVectorImpl(pData->PointIndices());
-
-	if(!pData->PositionStream().size() || !pData->PatchUVStream().size() || !clPointIndices->data().size())
+	if(!pData || !pData->PositionStream().size() || !pData->PatchUVStream().size() || !pData->PointIndices().size())
 		return false;
 
 	m_textureWidth = pData->GetColorImage().GetWidth();
 	m_textureHeight = pData->GetColorImage().GetHeight();
-
-	// ibo
-	glGenBuffers(1, &m_ibo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int)*clPointIndices->data().size(), clPointIndices->data().data(), GL_STREAM_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	m_indexSize = (int)clPointIndices->data().size();
+	m_indexSize = (UINT)pData->PointIndices().size();
 
 	// vba
 	glGenVertexArrays(1, &m_vao); // Create our Vertex Array Object
@@ -52,7 +41,7 @@ bool NuiPangoTexturedCloudShader::initializeBuffers(NuiCLMappableData* pData)
 	glVertexAttribPointer((GLuint)0, vVertex, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
 	glBindBuffer(GL_ARRAY_BUFFER, NuiGuiHWMappable::asHWVertexBuffer(pData->PatchUVStream()));
 	glVertexAttribPointer((GLuint)1, vUV, GL_FLOAT, GL_FALSE, 0, 0); // Set up our vertex attributes pointer
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, NuiGuiHWMappable::asHWIndexBuffer(pData->PointIndices()));
 
 	glBindVertexArray(0); // Disable our Vertex Buffer Object
 
@@ -93,7 +82,7 @@ void NuiPangoTexturedCloudShader::uninitializeBuffers()
 	glDisableVertexAttribArray(1);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	glDeleteVertexArrays(1, &m_vao);
-	glDeleteBuffers(1, &m_ibo);
 }

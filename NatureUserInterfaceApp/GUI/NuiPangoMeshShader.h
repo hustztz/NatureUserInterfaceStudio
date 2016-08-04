@@ -22,5 +22,4 @@ private:
 	UINT m_indexSize;
 
 	GLuint m_vao;
-	GLuint m_ibo;
 };

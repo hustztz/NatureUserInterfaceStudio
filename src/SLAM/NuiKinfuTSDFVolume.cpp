@@ -671,17 +671,6 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 		return false;
 	clearDirty();
 
-	// Set bounding box
-	const Vector3f& voxelSizeMeters = getVoxelSize();
-	pCLData->SetBoundingBox(SgVec3f(
-		m_voxel_offset(0)*voxelSizeMeters(0)-m_config.dimensions[0]/2,
-		m_voxel_offset(1)*voxelSizeMeters(1)-m_config.dimensions[1]/2,
-		m_voxel_offset(2)*voxelSizeMeters(2)-m_config.dimensions[2]/2),
-		SgVec3f(
-		m_voxel_offset(0)*voxelSizeMeters(0)+m_config.dimensions[0]/2,
-		m_voxel_offset(1)*voxelSizeMeters(1)+m_config.dimensions[1]/2,
-		m_voxel_offset(2)*voxelSizeMeters(2)+m_config.dimensions[2]/2));
-
 	cl_kernel fetchKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_FETCH_VOLUME);
 	assert(fetchKernel);
@@ -824,18 +813,31 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 
 	NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data().clear();
 	NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data().clear();
-
-	std::vector<unsigned int>& clPointIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
-	if(clPointIndices.size() != vertex_sum)
+	if(pCLData->PointIndices().size() != MAX_OUTPUT_VERTEX_SIZE)
 	{
-		clPointIndices.resize(vertex_sum);
-		for (int i = 0; i < vertex_sum; ++i)
+		std::vector<unsigned int>& clPointIndices =
+			NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
+		if(clPointIndices.size() != MAX_OUTPUT_VERTEX_SIZE)
 		{
-			clPointIndices[i] = i;
+			clPointIndices.resize(MAX_OUTPUT_VERTEX_SIZE);
+			for (int i = 0; i < MAX_OUTPUT_VERTEX_SIZE; ++i)
+			{
+				clPointIndices[i] = i;
+			}
+			pCLData->SetIndexingDirty(true);
 		}
-		pCLData->SetIndexingDirty(true);
 	}
+
+	// Set bounding box
+	const Vector3f& voxelSizeMeters = getVoxelSize();
+	pCLData->SetBoundingBox(SgVec3f(
+		m_voxel_offset(0)*voxelSizeMeters(0)-m_config.dimensions[0]/2,
+		m_voxel_offset(1)*voxelSizeMeters(1)-m_config.dimensions[1]/2,
+		m_voxel_offset(2)*voxelSizeMeters(2)-m_config.dimensions[2]/2),
+		SgVec3f(
+		m_voxel_offset(0)*voxelSizeMeters(0)+m_config.dimensions[0]/2,
+		m_voxel_offset(1)*voxelSizeMeters(1)+m_config.dimensions[1]/2,
+		m_voxel_offset(2)*voxelSizeMeters(2)+m_config.dimensions[2]/2));
 
 	pCLData->SetStreamDirty(true);
 
@@ -855,10 +857,7 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	if(!m_dirty)
 		return true;
 	clearDirty();
-
-	// Set bounding box
-	pCLData->SetBoundingBox(SgVec3f(-m_config.dimensions[0]/2, -m_config.dimensions[1]/2, -m_config.dimensions[2]/2), SgVec3f(m_config.dimensions[0]/2, m_config.dimensions[1]/2, m_config.dimensions[2]/2));
-
+	
 	cl_kernel marchingCubeKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_MARCHING_CUBE);
 	assert(marchingCubeKernel);
@@ -889,6 +888,14 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	err = clFinish(queue);
 	NUI_CHECK_CL_ERR(err);
 
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->PositionStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->ColorStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
 	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
 	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
 	// Acquire OpenGL objects before use
@@ -1000,6 +1007,9 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 		pCLData->SetIndexingDirty(true);
 	}
 
+	// Set bounding box
+	pCLData->SetBoundingBox(SgVec3f(-m_config.dimensions[0]/2, -m_config.dimensions[1]/2, -m_config.dimensions[2]/2), SgVec3f(m_config.dimensions[0]/2, m_config.dimensions[1]/2, m_config.dimensions[2]/2));
+	
 	pCLData->SetStreamDirty(true);
 
 	return true;
