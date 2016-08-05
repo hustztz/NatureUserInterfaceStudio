@@ -366,3 +366,4 @@ struct NuiGuiHWMappable
 		return hwImpl ? hwImpl->clBuffer(mappable.name().c_str()) : NULL;
 	}
 };
+

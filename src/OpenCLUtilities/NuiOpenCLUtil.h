@@ -74,6 +74,9 @@ namespace openclutil
     // Create an OpenCL buffer object from a GL/DX 3D texture (shared resource)
     extern cl_mem createCLObjectFromHWTexture3D(cl_mem_flags flags, void* textureResHandle);
 
+	// Create an OpenCL buffer object from a GL/DX 2D texture (shared resource)
+	extern cl_mem createCLObjectFromHWTexture2D(cl_mem_flags flags, void* textureResHandle);
+
     // Lock a GL/DX object for OpenCL computation
     extern void enqueueAcquireHWObjects(cl_uint num_objects, const cl_mem* mem_objects,
         cl_uint num_events_in_wait_list = 0, const cl_event* event_wait_list = nullptr, cl_event* event = nullptr);

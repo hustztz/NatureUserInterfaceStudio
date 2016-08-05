@@ -562,6 +562,9 @@ bool NuiKinfuTracker::previousBufferToData(NuiCLMappableData* pCLData)
 
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
 
 	cl_mem prevVertices = m_icp->getPrevVerticesCL();
 	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
@@ -676,6 +679,9 @@ bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
 
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
 
 	// Set kernel arguments
 	cl_uint idx = 0;

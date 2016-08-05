@@ -404,6 +404,49 @@ namespace openclutil
         return mem;
     }
 
+	cl_mem createCLObjectFromHWTexture2D(cl_mem_flags flags, void* textureResHandle)
+	{
+		cl_int err = CL_SUCCESS;
+		cl_mem mem = NULL;
+		cl_context context = NuiOpenCLGlobal::instance().clContext();
+
+		if (NuiOpenCLGlobal::instance().isGL())
+		{
+			mem = clCreateFromGLTexture2D(
+				context,
+				flags,
+				GL_TEXTURE_2D,
+				0,
+				*((GLuint*)textureResHandle),
+				&err);
+			NUI_CHECK_CL_ERR(err);
+		}
+#ifdef _WIN32
+		else if (isUsingNVOpenCLDevice() && clCreateFromD3D11Texture2DNV)
+		{
+			mem = clCreateFromD3D11Texture2DNV(
+				context,
+				flags,
+				(ID3D11Texture2D*)textureResHandle,
+				0,
+				&err);
+			NUI_CHECK_CL_ERR(err);
+		}
+		else if (clCreateFromD3D11Texture2DKHR)
+		{
+			mem = clCreateFromD3D11Texture2DKHR(
+				context,
+				flags,
+				(ID3D11Texture2D*)textureResHandle,
+				0,
+				&err);
+			NUI_CHECK_CL_ERR(err);
+		}
+#endif
+
+		return mem;
+	}
+
     // Lock a GL/DX object for OpenCL computation
     void enqueueAcquireHWObjects(cl_uint num_objects, const cl_mem* mem_objects,
         cl_uint num_events_in_wait_list, const cl_event* event_wait_list, cl_event* event)

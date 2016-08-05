@@ -59,7 +59,7 @@ bool	NuiKinfuManager::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	pCLData->SetCameraParams( m_tracker.getCameraPose() );
 
 	// Color image
-	//m_tracker.previousNormalImageToData(pCLData);
+	m_tracker.previousNormalImageToData(pCLData);
 
 	//bool returnStatus = m_tracker.previousBufferToData(pCLData);
 	bool returnStatus = false;

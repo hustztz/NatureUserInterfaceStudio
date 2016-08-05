@@ -817,15 +817,12 @@ bool NuiKinfuTSDFVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	{
 		std::vector<unsigned int>& clPointIndices =
 			NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
-		if(clPointIndices.size() != MAX_OUTPUT_VERTEX_SIZE)
+		clPointIndices.resize(MAX_OUTPUT_VERTEX_SIZE);
+		for (int i = 0; i < MAX_OUTPUT_VERTEX_SIZE; ++i)
 		{
-			clPointIndices.resize(MAX_OUTPUT_VERTEX_SIZE);
-			for (int i = 0; i < MAX_OUTPUT_VERTEX_SIZE; ++i)
-			{
-				clPointIndices[i] = i;
-			}
-			pCLData->SetIndexingDirty(true);
+			clPointIndices[i] = i;
 		}
+		pCLData->SetIndexingDirty(true);
 	}
 
 	// Set bounding box
@@ -982,15 +979,16 @@ bool NuiKinfuTSDFVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 
 	NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data().clear();
 
-	std::vector<unsigned int>& clTriangleIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
-	std::vector<unsigned int>& clWireframeIndices =
-		NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data();
-	if(clTriangleIndices.size() != vertex_sum)
+	if(pCLData->TriangleIndices().size() != MAX_OUTPUT_VERTEX_SIZE)
 	{
-		clTriangleIndices.resize(vertex_sum);
-		clWireframeIndices.resize(vertex_sum*2);
-		for (int i = 0; i < vertex_sum; ++i)
+		std::vector<unsigned int>& clTriangleIndices =
+			NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
+		std::vector<unsigned int>& clWireframeIndices =
+			NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data();
+
+		clTriangleIndices.resize(MAX_OUTPUT_VERTEX_SIZE);
+		clWireframeIndices.resize(MAX_OUTPUT_VERTEX_SIZE*2);
+		for (int i = 0; i < MAX_OUTPUT_VERTEX_SIZE; ++i)
 		{
 			clTriangleIndices[i] = i;
 			if(i % 3 == 2)

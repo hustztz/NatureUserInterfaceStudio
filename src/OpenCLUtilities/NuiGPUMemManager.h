@@ -7,7 +7,8 @@
 enum class NuiGPUMemSharedType
 {
     XG_GPUMEM_SHARED_VB,
-    XG_GPUMEM_SHARED_IB
+    XG_GPUMEM_SHARED_IB,
+	XG_GPUMEM_SHARED_Tex
 };
 
 // Some Maya helper functions need to be reigistered
@@ -124,6 +125,15 @@ public:
         NuiGPUMemSharedType type,
         const char* debugName = nullptr
         );
+
+	// Create cl buffer from shared vertex buffer
+	cl_mem CreateCLTextureFromHWBuffer(
+		cl_mem_flags flags,
+		void* bufobj,
+		void* ogsbuf,
+		NuiGPUMemSharedType type,
+		const char* debugName = nullptr
+		);
 
     // Release cl mem object
     cl_int ReleaseMemObjectCL(cl_mem& b);
