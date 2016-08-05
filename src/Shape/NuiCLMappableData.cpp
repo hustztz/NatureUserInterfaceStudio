@@ -42,7 +42,8 @@ void NuiCLMappableData::Clear()
 	uvs->data().clear();
 	NuiMappableAccessor::reset(m_patchUVStream);
 
-	m_colorImage.Clear();
+	NuiTextureMappableAccessor::reset(ColorTex());
+
 	m_boundingBoxMin.setValue(0.0f, 0.0f, 0.0f);
 	m_boundingBoxMax.setValue(0.0f, 0.0f, 0.0f);
 
@@ -114,5 +115,7 @@ void NuiCLMappableData::relaxToCPU()
 {
 	NuiMappableAccessor::relaxToCPU(m_positionStream);
 	//
+
+	NuiTextureMappableAccessor::relaxToCPU(ColorTex());
 }
 

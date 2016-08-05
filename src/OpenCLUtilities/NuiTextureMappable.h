@@ -1,3 +1,5 @@
+#pragma once
+
 #include <memory>
 #include <cassert>
 
@@ -10,6 +12,7 @@ struct NuiTextureMappableImpl
 	{
 	}
 
+	virtual void		 update(const void* buffer, int width, int height) = 0;
 	virtual int          width() const = 0;
 	virtual int          height() const = 0;
 	virtual void*        data() const = 0;
@@ -58,41 +61,96 @@ public:
 	{
 		return static_cast<bool>(_impl);
 	}
-
+protected:
+	friend struct NuiTextureMappableAccessor;
 	std::shared_ptr<NuiTextureMappableImpl> _impl;
 };
 
-class NuiImageMappableBuffer
+class NuiImageMappableImpl : public NuiTextureMappableImpl
 {
 public:
-	NuiImageMappableBuffer(const NuiTextureMappable& buffer)
+	NuiImageMappableImpl() {}
+	virtual ~NuiImageMappableImpl()
 	{
-		BGRQUAD* pColors = m_colorImage.AllocateBuffer(buffer.width(), buffer.height());
-		if(buffer.data() && pColors)
-			memcpy(pColors, buffer.data(), sizeof(BGRQUAD)*buffer.width()*buffer.height());
+		_img.Clear();
 	}
 
-	~NuiImageMappableBuffer()
+	virtual void		 update(const void* buffer, int width, int height) override
 	{
-		m_colorImage.Clear();
+		BGRQUAD* pColors = _img.AllocateBuffer(width, height);
+		if(pColors && buffer)
+			 memcpy(pColors, buffer, sizeof(BGRQUAD)*width*height);
 	}
-
-	int width() const
+	virtual int          width() const override
 	{
-		return m_colorImage.GetWidth();
+		return _img.GetWidth();
 	}
-
-	int height() const
+	virtual int          height() const override
 	{
-		return m_colorImage.GetHeight();
+		return _img.GetHeight();
 	}
-
-	const BGRQUAD* data() const
+	virtual void*        data() const override
 	{
-		assert(buffer.data());
-		return buffer.data();
+		return _img.GetBuffer();
 	}
-
+	virtual NuiImageMappableImpl* clone() const override
+	{
+		NuiImageMappableImpl* impl = new NuiImageMappableImpl();
+		impl->update(_img.GetBuffer(), _img.GetWidth(), _img.GetHeight());
+		return impl;
+	}
+	
 private:
-	NuiColorImage		m_colorImage;
+	NuiColorImage  _img;
+};
+
+struct NuiTextureMappableAccessor
+{
+	template<typename U>
+	static const std::shared_ptr<U> asImpl(const NuiTextureMappable& mappable)
+	{
+		return std::dynamic_pointer_cast<U>(mappable._impl);
+	}
+
+	template<typename U>
+	static std::shared_ptr<U> asImpl(NuiTextureMappable& mappable)
+	{
+		return std::dynamic_pointer_cast<U>(mappable._impl);
+	}
+
+	template<typename U>
+	static void setImpl(NuiTextureMappable& mappable, std::shared_ptr<U>& impl)
+	{
+		mappable._impl = std::static_pointer_cast<NuiTextureMappableImpl>(impl);
+	}
+
+	static void reset(NuiTextureMappable& mappable)
+	{
+		mappable._impl = nullptr;
+	}
+
+	static void updateImpl(NuiTextureMappable& mappable, int width, int height, const void* data)
+	{
+		if(width != mappable.width() || height != mappable.height())
+		{
+			mappable._impl->relaxToCPU();
+			mappable._impl = nullptr;
+		}
+
+		if(!mappable._impl)
+		{
+			std::shared_ptr<NuiImageMappableImpl> ptr(new NuiImageMappableImpl());
+			setImpl<NuiImageMappableImpl>(mappable, ptr);
+		}
+
+		mappable._impl->update(data, width, height);
+	}
+
+	static void relaxToCPU(NuiTextureMappable& mappable)
+	{
+		if(mappable._impl)
+		{
+			mappable._impl->relaxToCPU();
+		}
+	}
 };

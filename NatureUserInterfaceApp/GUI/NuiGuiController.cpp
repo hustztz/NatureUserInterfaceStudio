@@ -5,6 +5,7 @@
 #include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 #include "NuiGuiOpenCLUtilities.h"
 #include "NuiGuiHWMappable.h"
+#include "NuiGuiHWTextureMappable.h"
 
 #include "DeviceManager/NuiRGBDDeviceController.h"
 
@@ -49,6 +50,8 @@ NuiGuiController::NuiGuiController()
 			NuiGuiHWMappable::asTexture2fBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsTexture1fBufferCLFn(
 			NuiGuiHWMappable::asTexture1fBufferCL);
+		NuiOpenCLBufferFactory::RegisterAsTexture2DCLFn(
+			NuiGuiHWTextureMappable::asHWTextureBufferSharedWithCL);
 
 		// Register functions for NuiGPUMemManager
 		NuiGPUMemManager::RegisterInformRenderHoldGPU(NuiGuiOpenCLUtilities::informRenderHoldGPU);

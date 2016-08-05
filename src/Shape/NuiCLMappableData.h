@@ -1,9 +1,9 @@
 #pragma once
 
 #include "stdafx.h"
-#include "NuiImageBuffer.h"
 #include "Shape/NuiCameraPos.h"
 #include "OpenCLUtilities/NuiMappable.h"
+#include "OpenCLUtilities/NuiTextureMappable.h"
 
 class NuiCLMappableData
 {
@@ -34,6 +34,8 @@ public:
 	NuiMappable3f&		NormalStream() { return m_normalStream; }
 	NuiMappable2f&		PatchUVStream() { return m_patchUVStream; }
 
+	NuiTextureMappable&	ColorTex() { return m_colorTex; }
+
 	UINT				GetPositionNum() const { return (UINT)(m_positionStream.size()); }
 	const float*		GetPositionValue(UINT idx) const;
 	bool				SetPositionValue(UINT idx, float x, float y, float z);
@@ -43,10 +45,6 @@ public:
 
 	UINT				WidthStep() const { return m_nWidthStep; }
 	void				WidthStep(UINT w) { m_nWidthStep = w; }
-
-	void				SetColorImage(const NuiColorImage& image) { m_colorImage = image; }
-	const NuiColorImage&	GetColorImage() const { return m_colorImage; }
-	NuiColorImage&		GetColorImage() { return m_colorImage; }
 
 	void				SetCameraParams(const NuiCameraPos& cam) { m_camParams = cam; }
 	const NuiCameraPos&	GetCameraParams() const { return m_camParams; }
@@ -74,7 +72,7 @@ private:
 	NuiMappable3f		m_normalStream;
 	NuiMappable2f		m_patchUVStream;
 
-	NuiColorImage		m_colorImage;
+	NuiTextureMappable	m_colorTex;
 	NuiCameraPos		m_camParams;
 
 	SgVec3f				m_boundingBoxMin;

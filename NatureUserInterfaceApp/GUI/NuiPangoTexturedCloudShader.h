@@ -13,7 +13,7 @@ public:
 	~NuiPangoTexturedCloudShader();
 
 	bool initializeBuffers(NuiCLMappableData* pData);
-	void drawPoints(const pangolin::OpenGlMatrix& mvp, GLuint textureId, float pointSize);
+	void drawPoints(const pangolin::OpenGlMatrix& mvp, float pointSize);
 	void uninitializeBuffers();
 
 private:
@@ -22,6 +22,6 @@ private:
 	UINT m_indexSize;
 	int m_textureWidth;
 	int m_textureHeight;
-
+	GLuint m_texId;
 	GLuint m_vao;
 };

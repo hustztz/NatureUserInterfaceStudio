@@ -25,8 +25,7 @@ protected:
 
 	void drawFrustum(NuiCLMappableData* pData);
 	void drawBoundingBox(NuiCLMappableData* pData);
-	void displayImg(const std::string & id, pangolin::GlTexture* img);
-	bool evaluateColorImage(NuiCLMappableData* pData);
+	void displayImg(const std::string & id, NuiCLMappableData* pData);
 
 public:
 	pangolin::Var<bool> a_deviceOn;
@@ -85,7 +84,4 @@ private:
 	pangolin::Plotter *a_resPlot,	*a_inPlot;
 
 	pangolin::OpenGlRenderState s_cam;
-
-	pangolin::GlTexture rgbTex;
-	pangolin::TypedImage rgbImg;
 };

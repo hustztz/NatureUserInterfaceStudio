@@ -13,7 +13,7 @@ public:
 	~NuiPangoTexturedMeshShader();
 
 	bool initializeBuffers(NuiCLMappableData* pData);
-	void drawMesh(const pangolin::OpenGlMatrix& mvp, GLuint textureId);
+	void drawMesh(const pangolin::OpenGlMatrix& mvp);
 	void uninitializeBuffers();
 
 private:
@@ -22,6 +22,6 @@ private:
 	UINT m_indexSize;
 	int m_textureWidth;
 	int m_textureHeight;
-
+	GLuint m_texId;
 	GLuint m_vao;
 };

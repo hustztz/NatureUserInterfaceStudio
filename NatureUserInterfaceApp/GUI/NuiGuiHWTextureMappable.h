@@ -1,9 +1,9 @@
-#include "stdafx.h"
+#pragma once
+
 #include "OpenCLUtilities/NuiTextureMappable.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
-#include <pangolin/gl/glsl.h>
 #include <pangolin/pangolin.h>
 
 class NuiGuiTextureMappableImpl : public NuiTextureMappableImpl
@@ -12,35 +12,35 @@ public:
 	NuiGuiTextureMappableImpl()
 		: _clBuffer(NULL)
 	{
-		_rgbTex.Delete();
-		pangolin::FreeImage(_rgbImg);
 	}
 
 	NuiGuiTextureMappableImpl(void* buffer, int width, int height)
 		: _clBuffer(NULL)
 	{
-		if(buffer && width*height > 0)
-		{
-			if(width != _rgbTex.width || height != _rgbTex.height)
-				_rgbTex.Reinitialise(width, height);
-
-			if(width != _rgbImg.w || height != _rgbImg.h)
-			{
-				pangolin::FreeImage(_rgbImg);
-				_rgbImg.Alloc(width, height, pangolin::VideoFormatFromString("RGBA"));
-			}
-
-			memcpy(_rgbImg.ptr, buffer, width*height * sizeof(BGRQUAD));
-
-			_rgbTex.Upload(_rgbImg.ptr, GL_BGRA, GL_UNSIGNED_BYTE);
-		}
+		update(buffer, width, height);
 	}
 
 	~ NuiGuiTextureMappableImpl()
 	{
-		_rgbTex.Delete();
-		pangolin::FreeImage(_rgbImg);
-		_clBuffer = NULL;
+		relaxToCPU();
+	}
+
+	virtual void update(const void* buffer, int width, int height) override
+	{
+		if(width != _rgbTex.width || height != _rgbTex.height)
+			_rgbTex.Reinitialise(width, height);
+
+		if(width != _rgbImg.w || height != _rgbImg.h)
+		{
+			pangolin::FreeImage(_rgbImg);
+			_rgbImg.Alloc(width, height, pangolin::VideoFormatFromString("RGBA"));
+		}
+
+		if(_rgbImg.ptr && buffer && width*height > 0)
+		{
+			memcpy(_rgbImg.ptr, buffer, width*height * sizeof(BGRQUAD));
+			_rgbTex.Upload(_rgbImg.ptr, GL_BGRA, GL_UNSIGNED_BYTE);
+		}
 	}
 
 	virtual int width() const override
@@ -55,17 +55,22 @@ public:
 
 	virtual void* data() const override
 	{
-		return _rgbTex.ptr;
+		return _rgbImg.ptr;
 	}
 
 	virtual NuiTextureMappableImpl* clone() const override
 	{
-		return new NuiGuiTextureMappableImpl(_rgbImg.ptr, _rgbImg.w, _rgbImg.h);
+		return new NuiGuiTextureMappableImpl(_rgbImg.ptr, (int)_rgbImg.w, (int)_rgbImg.h);
 	}
 
 	GLuint data()
 	{
 		return _rgbTex.IsValid() ? _rgbTex.tid : 0;
+	}
+
+	void render()
+	{
+		_rgbTex.RenderToViewport(true);
 	}
 
 	cl_mem clBuffer()
@@ -97,10 +102,10 @@ public:
 			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(_clBuffer);
 			NUI_CHECK_CL_ERR(err);
 			_clBuffer = nullptr;
-			_rgbTex.Delete();
 		}
 
 		// Realize to system memory
+		_rgbTex.Delete();
 		pangolin::FreeImage(_rgbImg);
 		//});
 	}
@@ -116,30 +121,43 @@ struct NuiGuiHWTextureMappable
 	{
 		// Get the underlying buffer impl
 		std::shared_ptr<NuiGuiTextureMappableImpl> hwImpl =
-			std::dynamic_pointer_cast<NuiGuiTextureMappableImpl>(mappable._impl);
+			NuiTextureMappableAccessor::asImpl<NuiGuiTextureMappableImpl>(mappable);
 		if (hwImpl)
 			return hwImpl->data();
 
 		// Copy to hardware buffer
-		NuiImageMappableBuffer buffer(mappable);
-		hwImpl.reset(new NuiGuiTextureMappableImpl(buffer.data(), buffer.width(), buffer.height()));
+		hwImpl.reset(new NuiGuiTextureMappableImpl(mappable.data(), mappable.width(), mappable.height()));
 
 		// Change to hardware buffer in-place
-		mappable._impl = std::static_pointer_cast<NuiTextureMappableImpl>(hwImpl);
+		 NuiTextureMappableAccessor::setImpl(mappable, hwImpl);
 		return hwImpl->data();
+	}
+
+	static void renderHWTextureBuffer(NuiTextureMappable& mappable)
+	{
+		// Get the underlying buffer impl
+		std::shared_ptr<NuiGuiTextureMappableImpl> hwImpl =
+			NuiTextureMappableAccessor::asImpl<NuiGuiTextureMappableImpl>(mappable);
+		if (!hwImpl)
+		{
+			// Copy to hardware buffer
+			hwImpl.reset(new NuiGuiTextureMappableImpl(mappable.data(), mappable.width(), mappable.height()));
+
+			// Change to hardware buffer in-place
+			NuiTextureMappableAccessor::setImpl(mappable, hwImpl);
+		}
+
+		hwImpl->render();
 	}
 
 	static cl_mem asHWTextureBufferSharedWithCL(NuiTextureMappable& mappable)
 	{
-		if(mappable.width()*mappable.height() == 0)
-			return NULL;
-
 		// Convert to hw texture buffer
 		asHWTextureBuffer(mappable);
 
 		// Create OpenCL wrapper object
 		std::shared_ptr<NuiGuiTextureMappableImpl> hwImpl =
-			std::dynamic_pointer_cast<NuiGuiTextureMappableImpl>(mappable._impl);
+			NuiTextureMappableAccessor::asImpl<NuiGuiTextureMappableImpl>(mappable);
 		return hwImpl ? hwImpl->clBuffer() : NULL;
 	}
-}
+};

@@ -249,21 +249,18 @@ __kernel void UV2color(
 	vstore4((uchar4)(0, 0, 0, 0), idx, colors);
 }
 
-__kernel void float3_to_RGBA_kernel(
+__kernel void float3_to_texture_kernel(
 					__global float* floatColors,
-					__global uchar* RGBAs
+					write_only image2d_t tex
 						)
 {
-	const uint idx = get_global_id(0);
+	const int gidx = get_global_id(0);
+	const int gidy = get_global_id(1);
+    const int gsizex = get_global_size(0);
+	const int idx = mul24(gidy, gsizex)+gidx;
 
 	float3 color = vload3(idx, floatColors);
-	uchar4 new_color = (uchar4)(
-		convert_uchar(color.x * 255.0f),
-		convert_uchar(color.y * 255.0f),
-		convert_uchar(color.z * 255.0f),
-		255
-		);
-	vstore4(new_color, idx, RGBAs);
+	write_imagef(tex, (int2)(gidx, gidy), (float4)(color, 1.0f));
 }
 
 __kernel void RGBA_to_float4_kernel(

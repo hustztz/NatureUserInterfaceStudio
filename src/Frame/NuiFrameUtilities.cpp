@@ -355,7 +355,12 @@ namespace NuiFrameUtilities
 		//if(std::abs(m_depthFrame.GetTimeStamp() - m_colorFrame.GetTimeStamp()) < cHalfADepthFrameMs)
 		{
 			pCompositeFrame->m_colorFrame.ReadFrameLock();
-			pData->SetColorImage( pCompositeFrame->m_colorFrame.GetImage() );
+			NuiTextureMappableAccessor::updateImpl(
+				pData->ColorTex(),
+				pCompositeFrame->m_colorFrame.GetWidth(),
+				pCompositeFrame->m_colorFrame.GetHeight(),
+				pCompositeFrame->m_colorFrame.GetBuffer()
+				);
 			pCompositeFrame->m_colorFrame.ReadFrameUnlock();
 		}
 

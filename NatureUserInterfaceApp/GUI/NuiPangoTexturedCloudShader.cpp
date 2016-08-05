@@ -1,4 +1,5 @@
 #include "NuiGuiHWMappable.h"
+#include "NuiGuiHWTextureMappable.h"
 #include "NuiPangoTexturedCloudShader.h"
 #include "Shape\NuiCLMappableData.h"
 
@@ -24,8 +25,9 @@ bool NuiPangoTexturedCloudShader::initializeBuffers(NuiCLMappableData* pData)
 	if(!pData || !pData->PositionStream().size() || !pData->PatchUVStream().size() || !pData->PointIndices().size())
 		return false;
 
-	m_textureWidth = pData->GetColorImage().GetWidth();
-	m_textureHeight = pData->GetColorImage().GetHeight();
+	m_textureWidth = pData->ColorTex().width();
+	m_textureHeight = pData->ColorTex().height();
+	m_texId = NuiGuiHWTextureMappable::asHWTextureBuffer(pData->ColorTex());
 	m_indexSize = (UINT)pData->PointIndices().size();
 
 	// vba
@@ -48,7 +50,7 @@ bool NuiPangoTexturedCloudShader::initializeBuffers(NuiCLMappableData* pData)
 	return true;
 }
 
-void NuiPangoTexturedCloudShader::drawPoints(const pangolin::OpenGlMatrix& mvp, GLuint textureId, float pointSize)
+void NuiPangoTexturedCloudShader::drawPoints(const pangolin::OpenGlMatrix& mvp, float pointSize)
 {
 	m_shader.Bind();
 
@@ -62,7 +64,7 @@ void NuiPangoTexturedCloudShader::drawPoints(const pangolin::OpenGlMatrix& mvp, 
 
 	glEnable(GL_TEXTURE_2D);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureId);
+	glBindTexture(GL_TEXTURE_2D, m_texId);
 
 	glBindVertexArray(m_vao);
 

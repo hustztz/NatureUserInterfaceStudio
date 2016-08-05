@@ -1,4 +1,5 @@
 #include "NuiGuiHWMappable.h"
+#include "NuiGuiHWTextureMappable.h"
 #include "NuiPangoTexturedMeshShader.h"
 
 #include "Shape\NuiCLMappableData.h"
@@ -24,8 +25,9 @@ bool NuiPangoTexturedMeshShader::initializeBuffers(NuiCLMappableData* pData)
 	if(!pData || !pData->PositionStream().size() || !pData->PatchUVStream().size() || !pData->TriangleIndices().size())
 		return false;
 
-	m_textureWidth = pData->GetColorImage().GetWidth();
-	m_textureHeight = pData->GetColorImage().GetHeight();
+	m_textureWidth = pData->ColorTex().width();
+	m_textureHeight = pData->ColorTex().height();
+	m_texId = NuiGuiHWTextureMappable::asHWTextureBuffer(pData->ColorTex());
 	m_indexSize = (UINT)pData->TriangleIndices().size();
 
 	// vba
@@ -48,7 +50,7 @@ bool NuiPangoTexturedMeshShader::initializeBuffers(NuiCLMappableData* pData)
 	return true;
 }
 
-void NuiPangoTexturedMeshShader::drawMesh(const pangolin::OpenGlMatrix& mvp, GLuint textureId)
+void NuiPangoTexturedMeshShader::drawMesh(const pangolin::OpenGlMatrix& mvp)
 {
 	m_shader.Bind();
 
@@ -59,7 +61,7 @@ void NuiPangoTexturedMeshShader::drawMesh(const pangolin::OpenGlMatrix& mvp, GLu
 
 	glEnable(GL_TEXTURE_2D);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, textureId);
+	glBindTexture(GL_TEXTURE_2D, m_texId);
 
 	glBindVertexArray(m_vao);
 

@@ -1,3 +1,4 @@
+#include "NuiGuiHWTextureMappable.h"
 #include "NuiPangoVis.h"
 
 #include "NuiPangoCloudShader.h"
@@ -127,8 +128,6 @@ NuiPangoVis::~NuiPangoVis()
 	delete a_inPlot;
 	delete a_resPlot;
 	
-	pangolin::FreeImage(rgbImg);
-
 	SafeDelete(m_pCloudDraw);
 	SafeDelete(m_pTexturedCloudDraw);
 	SafeDelete(m_pMeshDraw);
@@ -221,43 +220,14 @@ void NuiPangoVis::drawBoundingBox(NuiCLMappableData* pData)
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-void NuiPangoVis::displayImg(const std::string & id, pangolin::GlTexture* img)
+void NuiPangoVis::displayImg(const std::string & id, NuiCLMappableData* pData)
 {
 	glDisable(GL_DEPTH_TEST);
 
 	pangolin::Display(id).Activate();
-	img->RenderToViewport(true);
+	NuiGuiHWTextureMappable::renderHWTextureBuffer(pData->ColorTex());
 
 	glEnable(GL_DEPTH_TEST);
-}
-
-bool NuiPangoVis::evaluateColorImage(NuiCLMappableData* pData)
-{
-	if(!pData)
-		return false;
-
-	const NuiColorImage& colorImage = pData->GetColorImage();
-	const UINT nColorWidth = colorImage.GetWidth();
-	const UINT nColorHeight = colorImage.GetHeight();
-	const UINT nColorNum = nColorWidth * nColorHeight;
-	BGRQUAD* pColorBuffer = colorImage.GetBuffer();
-	if(!pColorBuffer || nColorNum == 0)
-		return false;
-
-	if(nColorWidth != rgbTex.width || nColorHeight != rgbTex.height)
-		rgbTex.Reinitialise(nColorWidth, nColorHeight);
-
-	if(nColorWidth != rgbImg.w || nColorHeight != rgbImg.h)
-	{
-		pangolin::FreeImage(rgbImg);
-		rgbImg.Alloc(nColorWidth, nColorHeight, pangolin::VideoFormatFromString("RGBA"));
-	}
-
-	memcpy(rgbImg.ptr, pColorBuffer, nColorNum * sizeof(BGRQUAD));
-
-	rgbTex.Upload(rgbImg.ptr, GL_BGRA, GL_UNSIGNED_BYTE);
-
-	return true;
 }
 
 void NuiPangoVis::draw(NuiCLMappableData* pData)
@@ -265,7 +235,6 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 	if(!pData)
 		return;
 
-	bool bHasEvaluateColorImage = false;
 	if(pData->PointIndices().size())
 	{
 		if(m_pCloudDraw && pData->ColorStream().size())
@@ -280,11 +249,7 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 		{
 			if( m_pTexturedCloudDraw->initializeBuffers(pData) )
 			{
-				if( evaluateColorImage(pData)  )
-				{
-					m_pTexturedCloudDraw->drawPoints(s_cam.GetProjectionModelViewMatrix(), rgbTex.tid, a_drawPointSize);
-					bHasEvaluateColorImage = true;
-				}
+				m_pTexturedCloudDraw->drawPoints(s_cam.GetProjectionModelViewMatrix(), a_drawPointSize);
 				m_pTexturedCloudDraw->uninitializeBuffers();
 			}
 		}
@@ -303,11 +268,7 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 		{
 			if( m_pTexturedMeshDraw->initializeBuffers(pData) )
 			{
-				if( evaluateColorImage(pData)  )
-				{
-					m_pTexturedMeshDraw->drawMesh(s_cam.GetProjectionModelViewMatrix(), rgbTex.tid);
-					bHasEvaluateColorImage = true;
-				}
+				m_pTexturedMeshDraw->drawMesh(s_cam.GetProjectionModelViewMatrix());
 				m_pTexturedMeshDraw->uninitializeBuffers();
 			}
 		}
@@ -325,14 +286,7 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 		}
 		if( a_drawColorImage )
 		{
-			if( !bHasEvaluateColorImage )
-			{
-				bHasEvaluateColorImage = evaluateColorImage(pData);
-			}
-			if( bHasEvaluateColorImage  )
-			{
-				displayImg("GrabberImage", &rgbTex);
-			}
+			displayImg("GrabberImage", pData);
 		}
 	}
 

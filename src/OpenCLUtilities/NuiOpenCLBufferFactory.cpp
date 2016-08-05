@@ -7,6 +7,7 @@ FN_asColor4fBufferCL NuiOpenCLBufferFactory::pAsColor4fBufferCLFn = nullptr;
 FN_asNormal3fBufferCL NuiOpenCLBufferFactory::pAsNormal3fBufferCLFn = nullptr;
 FN_asPatchUV2fBufferCL NuiOpenCLBufferFactory::pAsPatchUV2fBufferCLFn = nullptr;
 FN_asTexture1fBufferCL NuiOpenCLBufferFactory::pAsTexture1fBufferCLFn = nullptr;
+FN_asTexture2DCL NuiOpenCLBufferFactory::pAsTexture2DCLFn = nullptr;
 
 cl_mem NuiOpenCLBufferFactory::asUInt32IndexBufferCL(NuiMappableui& m)
 {
@@ -60,4 +61,13 @@ cl_mem NuiOpenCLBufferFactory::asTexture1fBufferCL(NuiMappablef& m)
         return nullptr;
     }
     return pAsTexture1fBufferCLFn(m);
+}
+
+cl_mem NuiOpenCLBufferFactory::asTexture2DCL(NuiTextureMappable& m)
+{
+	assert(pAsTexture2DCLFn);
+	if (!pAsTexture2DCLFn) {
+		return nullptr;
+	}
+	return pAsTexture2DCLFn(m);
 }

@@ -667,7 +667,7 @@ bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
 
 	// Get the kernel
 	cl_kernel rgbaKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_FLOAT3_TO_RGBA);
+		NuiOpenCLKernelManager::instance().acquireKernel(E_FLOAT3_TO_TEXTURE);
 	assert(rgbaKernel);
 	if (!rgbaKernel)
 	{
@@ -676,6 +676,16 @@ bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
 	}
 
 	cl_mem prevNormals = m_icp->getPrevNormalsCL();
+	if( m_nWidth != pCLData->ColorTex().width() || m_nHeight != pCLData->ColorTex().height())
+	{
+		NuiTextureMappableAccessor::updateImpl(
+			pCLData->ColorTex(),
+			m_nWidth,
+			m_nHeight,
+			NULL
+			);
+	}
+	cl_mem texGL = NuiOpenCLBufferFactory::asTexture2DCL(pCLData->ColorTex());
 
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
@@ -683,19 +693,27 @@ bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
 	err = clFinish(queue);
 	NUI_CHECK_CL_ERR(err);
 
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		texGL
+	};
+
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
 	// Set kernel arguments
 	cl_uint idx = 0;
 	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &prevNormals);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_outputColorImageCL);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &texGL);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate 
-	size_t kernelGlobalSize[1] = { m_nWidth * m_nHeight };
+	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		rgbaKernel,
-		1,
+		2,
 		nullptr,
 		kernelGlobalSize,
 		nullptr,
@@ -705,19 +723,12 @@ bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	BGRQUAD* normalBuffer = pCLData->GetColorImage().AllocateBuffer(m_nWidth, m_nHeight);
-	clEnqueueReadBuffer(
-		queue,
-		m_outputColorImageCL,
-		CL_FALSE,//blocking
-		0,
-		pCLData->GetColorImage().GetBufferSize(),
-		normalBuffer,
-		0,
-		NULL,
-		NULL
-		);
+	err = clFinish(queue);
 	NUI_CHECK_CL_ERR(err);
+
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 
 	return true;
 }
