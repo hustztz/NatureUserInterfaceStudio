@@ -30,7 +30,7 @@ public:
 	virtual void    raycastRender(
 		cl_mem renderVerticesCL,
 		cl_mem renderNormalsCL,
-		cl_mem renderColorsCL,
+		cl_mem renderIntensitiesCL,
 		cl_mem cameraParamsCL,
 		cl_mem transformCL,
 		UINT nWidth, UINT nHeight

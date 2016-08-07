@@ -59,7 +59,7 @@ protected:
 	void	PassingDepths(float nearPlane, float farPlane);
 	void	WriteDepths(UINT16* pDepths, UINT nPositionsNum, UINT16 minDepth, UINT16 maxDepth);
 	void	WriteCameraParams(const NuiCLCameraParams& camIntri);
-	void	WriteColors(ColorSpacePoint* pDepthToColor, const NuiColorImage& image, UINT nPointsNum, cl_mem colorsCL);
+	void	WriteColors(ColorSpacePoint* pDepthToColor, const NuiColorImage& image, UINT nPointsNum);
 
 private:
 	NuiPyramidICP*	m_icp;
@@ -71,7 +71,6 @@ private:
 	cl_mem m_colorImageCL;
 	cl_mem m_colorsCL;
 	cl_mem m_cameraParamsCL;
-	cl_mem m_outputColorImageCL;
 
 	UINT m_nWidth, m_nHeight;
 	UINT m_nColorWidth, m_nColorHeight;

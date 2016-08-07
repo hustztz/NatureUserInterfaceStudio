@@ -175,7 +175,7 @@ __kernel void renderKernel(
 			__global struct NuiCLRigidTransform* matrix,
 			__global float* vmap,
 			__global float* nmap,
-			__global uchar* colormap,
+			__global float* intensityMap,
 			__global struct NuiCLHashEntry*	d_hash,
 			__global struct NuiCLVoxel*		d_SDFBlocks,
 			const float		virtualVoxelSize,
@@ -193,8 +193,8 @@ __kernel void renderKernel(
 						
 	vstore3(NAN, idx, vmap);
 	vstore3(NAN, idx, nmap);
-	if(colormap)
-		vstore4(NAN, idx, colormap);
+	if(intensityMap)
+		vstore(NAN, idx, intensityMap);
 
 	float3 camDir = normalize(kinectProjToCamera(gidx, gidy, 1.0f, cameraParams));
 	float3 worldCamPos = transform( (float3)(0.0f, 0.0f, 0.0f), matrix );
@@ -247,8 +247,11 @@ __kernel void renderKernel(
 						float depth = intersection.sdf / depthToRayLength; // Convert ray length to depth depthToRayLength
 
 						vstore3( kinectDepthToSkeleton(gidx, gidy, depth, cameraParams) , idx, vmap);
-						if(colormap)
-							vstore4( (uchar4)(intersection.color[0], intersection.color[1], intersection.color[2], 255) , idx, colormap);
+						if(intensityMap)
+						{
+							float intensity = 0.299f*(convert_float(intersection.color[0])/255.0f) + 0.587f*(convert_float(intersection.color[1])/255.0f) + 0.114f*(convert_float(intersection.color[2])/255.0f);
+							vstore( intensity, idx, intensityMap);
+						}
 
 						//if(useGradients)
 						{

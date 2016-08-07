@@ -580,7 +580,7 @@ void    NuiKinfuTSDFVolume::integrateVolume(
 void    NuiKinfuTSDFVolume::raycastRender(
 	cl_mem renderVerticesCL,
 	cl_mem renderNormalsCL,
-	cl_mem renderColorsCL,
+	cl_mem renderIntensitiesCL,
 	cl_mem cameraParamsCL,
 	cl_mem transformCL,
 	UINT nWidth, UINT nHeight)
@@ -620,7 +620,7 @@ void    NuiKinfuTSDFVolume::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderColorsCL);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderIntensitiesCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_int3), voxelWrap.data());
 	NUI_CHECK_CL_ERR(err);

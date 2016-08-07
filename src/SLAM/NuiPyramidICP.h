@@ -19,7 +19,7 @@ public:
 
 	bool	log(const std::string& fileName) const;
 
-	void	input(cl_mem floatDepthsCL, cl_mem cameraParamsCL);
+	void	input(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL);
 	bool	run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
 	void	transformPrevs(cl_mem transformCL);
 	void	resizePrevs();
@@ -28,14 +28,14 @@ public:
 	float	getError() const { return m_error; }
 	float	getCount() const { return m_count; }
 	
-	cl_mem	getColorsCL() const { return m_colorsArrCL[0]; }
+	cl_mem	getIntensitiesCL() const { return m_intensitiesArrCL[0]; }
 	cl_mem	getNormalsCL() const { return m_normalsArrCL[0]; }
 	cl_mem	getPrevVerticesCL() const { return m_verticesPrevArrCL[0]; }
 	cl_mem	getPrevNormalsCL() const { return m_normalsPrevArrCL[0]; }
-	cl_mem	getPrevColorsCL() const { return m_colorsPrevArrCL[0]; }
+	cl_mem	getPrevIntensitiesCL() const { return m_intensitiesPrevArrCL[0]; }
 
 protected:
-	void	AcquireBuffers(bool bHasColor);
+	void	AcquireBuffers(bool bHasIntensity);
 	void	ReleaseBuffers();
 
 	void	GenerateGaussianBuffer();
@@ -47,7 +47,7 @@ protected:
 	void    ResizePrevMaps();
 	void	TransformPrevMaps(cl_mem transformCL);
 	void    CopyPrevMaps();
-	void	CopyPrevColorMaps();
+	void	CopyPrevIntensityMaps();
 
 private:
 	cl_mem m_gaussianCL;
@@ -55,10 +55,10 @@ private:
 	GPUBuffers m_depthsArrCL;
 	GPUBuffers m_verticesArrCL;
 	GPUBuffers m_normalsArrCL;
-	GPUBuffers m_colorsArrCL;
+	GPUBuffers m_intensitiesArrCL;
 	GPUBuffers m_verticesPrevArrCL;
 	GPUBuffers m_normalsPrevArrCL;
-	GPUBuffers m_colorsPrevArrCL;
+	GPUBuffers m_intensitiesPrevArrCL;
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 

@@ -28,19 +28,19 @@ NuiPyramidICP::NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeig
 	m_depthsArrCL.resize(m_iterations.size());
 	m_verticesArrCL.resize(m_iterations.size());
 	m_normalsArrCL.resize(m_iterations.size());
-	m_colorsArrCL.resize(m_iterations.size());
+	m_intensitiesArrCL.resize(m_iterations.size());
 	m_verticesPrevArrCL.resize(m_iterations.size());
 	m_normalsPrevArrCL.resize(m_iterations.size());
-	m_colorsPrevArrCL.resize(m_iterations.size());
+	m_intensitiesPrevArrCL.resize(m_iterations.size());
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
 		m_depthsArrCL[i] = NULL;
 		m_verticesArrCL[i] = NULL;
 		m_normalsArrCL[i] = NULL;
-		m_colorsArrCL[i] = NULL;
+		m_intensitiesArrCL[i] = NULL;
 		m_verticesPrevArrCL[i] = NULL;
 		m_normalsPrevArrCL[i] = NULL;
-		m_colorsPrevArrCL[i] = NULL;
+		m_intensitiesPrevArrCL[i] = NULL;
 	}
 
 	AcquireBuffers(m_configuration.bHasColor);
@@ -51,7 +51,7 @@ NuiPyramidICP::~NuiPyramidICP()
 	ReleaseBuffers();
 }
 
-void NuiPyramidICP::AcquireBuffers(bool bHasColor)
+void NuiPyramidICP::AcquireBuffers(bool bHasIntensity)
 {
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
@@ -68,11 +68,11 @@ void NuiPyramidICP::AcquireBuffers(bool bHasColor)
 		NUI_CHECK_CL_ERR(err);
 		m_normalsPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
-		if(bHasColor)
+		if(bHasIntensity)
 		{
-			m_colorsArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(BGRQUAD), NULL, &err);
+			m_intensitiesArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(cl_float), NULL, &err);
 			NUI_CHECK_CL_ERR(err);
-			m_colorsPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(BGRQUAD), NULL, &err);
+			m_intensitiesPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(cl_float), NULL, &err);
 			NUI_CHECK_CL_ERR(err);
 		}
 	}
@@ -110,10 +110,10 @@ void NuiPyramidICP::ReleaseBuffers()
 			NUI_CHECK_CL_ERR(err);
 			m_normalsArrCL[i] = NULL;
 		}
-		if (m_colorsArrCL[i]) {
-			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorsArrCL[i]);
+		if (m_intensitiesArrCL[i]) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_intensitiesArrCL[i]);
 			NUI_CHECK_CL_ERR(err);
-			m_colorsArrCL[i] = NULL;
+			m_intensitiesArrCL[i] = NULL;
 		}
 		if (m_verticesPrevArrCL[i]) {
 			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_verticesPrevArrCL[i]);
@@ -125,10 +125,10 @@ void NuiPyramidICP::ReleaseBuffers()
 			NUI_CHECK_CL_ERR(err);
 			m_normalsPrevArrCL[i] = NULL;
 		}
-		if (m_colorsPrevArrCL[i]) {
-			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorsPrevArrCL[i]);
+		if (m_intensitiesPrevArrCL[i]) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_intensitiesPrevArrCL[i]);
 			NUI_CHECK_CL_ERR(err);
-			m_colorsPrevArrCL[i] = NULL;
+			m_intensitiesPrevArrCL[i] = NULL;
 		}
 	}
 	if (m_corespsBlocksCL) {
@@ -148,7 +148,7 @@ bool NuiPyramidICP::log(const std::string& fileName) const
 	return m_configuration.log(fileName);
 }
 
-void NuiPyramidICP::input(cl_mem floatDepthsCL, cl_mem cameraParamsCL)
+void NuiPyramidICP::input(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL)
 {
 	// filter the input depth map
 	SmoothDepths(floatDepthsCL);
@@ -726,7 +726,7 @@ void NuiPyramidICP::TransformPrevMaps(cl_mem transformCL)
 		);
 		NUI_CHECK_CL_ERR(err);
 	}
-	CopyPrevColorMaps();
+	CopyPrevIntensityMaps();
 }
 
 void NuiPyramidICP::CopyPrevMaps()
@@ -764,28 +764,28 @@ void NuiPyramidICP::CopyPrevMaps()
 			);
 		NUI_CHECK_CL_ERR(err);
 	}
-	CopyPrevColorMaps();
+	CopyPrevIntensityMaps();
 }
 
-void NuiPyramidICP::CopyPrevColorMaps()
+void NuiPyramidICP::CopyPrevIntensityMaps()
 {
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
-		if(!m_colorsArrCL[i] || !m_colorsPrevArrCL[i])
+		if(!m_intensitiesArrCL[i] || !m_intensitiesPrevArrCL[i])
 			continue;
 
 		const UINT nPointsNum = (m_nWidth >> i) * (m_nHeight >> i);
 
 		err = clEnqueueCopyBuffer(
 			queue,
-			m_colorsArrCL[i],
-			m_colorsPrevArrCL[i],
+			m_intensitiesArrCL[i],
+			m_intensitiesPrevArrCL[i],
 			0,
 			0,
-			nPointsNum * 4 * sizeof(cl_uchar),
+			nPointsNum * sizeof(cl_float),
 			0,
 			NULL,
 			NULL
