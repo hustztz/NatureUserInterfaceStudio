@@ -279,3 +279,34 @@ __kernel void intensity_to_float4_kernel(
 		);
 	vstore4(new_color, idx, floatColors);
 }
+
+__kernel void bgra_to_intensity_kernel(
+					__global uchar* bgras,
+					__global float* intensities
+						)
+{
+	const uint idx = get_global_id(0);
+
+	uchar4 color = vload4(idx, bgras);
+	float intensity = 0.299f*(convert_float(bgra.z)/255.0f) + 0.587f*(convert_float(bgra.y)/255.0f) + 0.114f*(convert_float(bgra.x)/255.0f);
+	vstore3(intensity, idx, (float3)(intensities, NAN, NAN));
+}
+
+__kernel void intensity_derivatives_kernel(
+					__global float* intensities
+						)
+{
+	const int gidx = get_global_id(0);
+	const int gidy = get_global_id(1);
+    const int gsizex = get_global_size(0);
+	const int gsizey = get_global_size(1);
+	const int idx = mul24(gidy, gsizex)+gidx;
+
+	float3 intensityAndDerivatives = vload3(idx, intensities);
+	if(gidx > 0 && gidx < gsizex-1 && gidy > 0 && gidy < gsizey-1)
+	{
+
+	}
+
+	vstore3(intensity, idx, intensityAndDerivatives);
+}

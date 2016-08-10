@@ -70,9 +70,9 @@ void NuiPyramidICP::AcquireBuffers(bool bHasIntensity)
 		NUI_CHECK_CL_ERR(err);
 		if(bHasIntensity)
 		{
-			m_intensitiesArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(cl_float), NULL, &err);
+			m_intensitiesArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
 			NUI_CHECK_CL_ERR(err);
-			m_intensitiesPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(cl_float), NULL, &err);
+			m_intensitiesPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
 			NUI_CHECK_CL_ERR(err);
 		}
 	}
@@ -152,8 +152,7 @@ void NuiPyramidICP::input(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraPa
 {
 	// filter the input depth map
 	SmoothDepths(floatDepthsCL);
-	// half sample the input depth maps into the pyramid levels
-	PyrDown();
+	ColorsToIntensity(colorsCL);
 	NormalEst(cameraParamsCL);
 }
 
@@ -162,7 +161,9 @@ bool NuiPyramidICP::run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Ei
 	if(!cameraParamsCL || !pTransform)
 		return false;
 
-	return IterativeClosestPoint(cameraParamsCL, pTransform, hint);
+	return m_intensitiesArrCL[0] ?
+		IntensityIterativeClosestPoint(cameraParamsCL, pTransform, hint) :
+		IterativeClosestPoint(cameraParamsCL, pTransform, hint);
 }
 
 void NuiPyramidICP::transformPrevs(cl_mem transformCL)
@@ -283,10 +284,8 @@ void NuiPyramidICP::SmoothDepths(cl_mem floatDepthsCL)
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-}
 
-void NuiPyramidICP::PyrDown()
-{
+	// half sample the input depth maps into the pyramid levels
 	// Get the kernel
 	cl_kernel pyrDownKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_ESTIMATE_HALF_SAMPLE);
@@ -296,10 +295,6 @@ void NuiPyramidICP::PyrDown()
 		NUI_ERROR("Get kernel 'E_ESTIMATE_HALF_SAMPLE' failed!\n");
 		return;
 	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
 	for (UINT i = 1; i < m_iterations.size(); ++i)
 	{
@@ -326,7 +321,89 @@ void NuiPyramidICP::PyrDown()
 			0,
 			NULL,
 			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+	}
+}
+
+void NuiPyramidICP::ColorsToIntensity(cl_mem colorsCL)
+{
+	if(!colorsCL)
+		return;
+
+	// Get the kernel
+	cl_kernel convertKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_BGRA_TO_INTENSITY);
+	assert(convertKernel);
+	if (!convertKernel)
+	{
+		NUI_ERROR("Get kernel 'E_BGRA_TO_INTENSITY' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(convertKernel, idx++, sizeof(cl_mem), &colorsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(convertKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[0]);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[1] = { m_nWidth * m_nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		convertKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
 		);
+	NUI_CHECK_CL_ERR(err);
+
+	// half sample the input depth maps into the pyramid levels
+	// Get the kernel
+	cl_kernel pyrDownKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_ESTIMATE_HALF_SAMPLE);
+	assert(pyrDownKernel);
+	if (!pyrDownKernel)
+	{
+		NUI_ERROR("Get kernel 'E_ESTIMATE_HALF_SAMPLE' failed!\n");
+		return;
+	}
+
+	for (UINT i = 1; i < m_iterations.size(); ++i)
+	{
+		// Set kernel arguments
+		cl_uint idx = 0;
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i-1]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
+		NUI_CHECK_CL_ERR(err);
+
+		// Run kernel to calculate 
+		size_t kernelGlobalSize[2] = { m_nWidth>>i, m_nHeight>>i };
+		err = clEnqueueNDRangeKernel(
+			queue,
+			pyrDownKernel,
+			2,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
 		NUI_CHECK_CL_ERR(err);
 	}
 }
@@ -794,8 +871,8 @@ void NuiPyramidICP::CopyPrevIntensityMaps()
 	}
 }
 
-//bool NuiPyramidICP::ColorIterativeClosestPoint(NuiCameraPos* pPos, Eigen::Affine3f *hint)
-//{
+bool NuiPyramidICP::IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+{
 //	// Get the kernel
 //	cl_kernel colorIcpKernel =
 //		NuiOpenCLKernelManager::instance().acquireKernel(E_COLOR_ICP_BLOCK);
@@ -1037,5 +1114,5 @@ void NuiPyramidICP::CopyPrevIntensityMaps()
 //	pPos->setRotation(Rcurr);
 //	pPos->setTranslation(tcurr);
 //
-//	return true;
-//}
+	return true;
+}

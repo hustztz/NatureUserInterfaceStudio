@@ -229,8 +229,8 @@ __kernel void raycastKernel(
 
 			if(color_volume && intensityMap)
 			{
-				uchar4 rgba = vload4( idx, color_volume );
-				float intensity = 0.299f*(convert_float(rgba.x)/255.0f) + 0.587f*(convert_float(rgba.y)/255.0f) + 0.114f*(convert_float(rgba.z)/255.0f);
+				uchar4 bgra = vload4( idx, color_volume );
+				float intensity = 0.299f*(convert_float(bgra.z)/255.0f) + 0.587f*(convert_float(bgra.y)/255.0f) + 0.114f*(convert_float(bgra.x)/255.0f);
 				vstore(intensity, id, intensityMap);
 			}
 

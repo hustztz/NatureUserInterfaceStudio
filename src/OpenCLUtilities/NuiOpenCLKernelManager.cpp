@@ -39,6 +39,8 @@ static const char * const KernelNames[] =
 	"resize_maps_kernel",						  "transformMaps.cl",
 	"float3_to_texture_kernel",					  "transformMaps.cl",
 	"intensity_to_float4_kernel",				  "transformMaps.cl",
+	"bgra_to_intensity_kernel",					  "transformMaps.cl",
+	"intensity_derivatives_kernel",				  "transformMaps.cl",
 	"icp_kernel",								  "icp.cl",
 	"icp_block_kernel",							  "icp.cl",
 	"color_icp_block_kernel",					  "icp.cl",
