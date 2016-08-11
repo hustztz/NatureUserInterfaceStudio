@@ -43,7 +43,7 @@ static const char * const KernelNames[] =
 	"intensity_derivatives_kernel",				  "transformMaps.cl",
 	"icp_kernel",								  "icp.cl",
 	"icp_block_kernel",							  "icp.cl",
-	"color_icp_block_kernel",					  "icp.cl",
+	"intensity_icp_block_kernel",				  "icp.cl",
 	"compute_sums",								  "icp.cl",
 	"initializeVolume",							  "tsdfVolume.cl",
 	"initializeColorVolume",					  "tsdfVolume.cl",

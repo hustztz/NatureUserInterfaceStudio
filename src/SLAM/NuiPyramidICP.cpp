@@ -168,17 +168,192 @@ bool NuiPyramidICP::run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Ei
 
 void NuiPyramidICP::transformPrevs(cl_mem transformCL)
 {
-	TransformPrevMaps(transformCL);
+	// Get the kernel
+	cl_kernel transformKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_TRANSFORM_MAPS);
+	assert(transformKernel);
+	if (!transformKernel)
+	{
+		NUI_ERROR("Get kernel 'E_TRANSFORM_MAPS' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	for (UINT i = 0; i < m_iterations.size(); ++i)
+	{
+		cl_uint idx = 0;
+		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &transformCL);
+		NUI_CHECK_CL_ERR(err);
+
+		// Run kernel to calculate
+		size_t kernelGlobalSize[2] = { m_nWidth >> i, m_nHeight >> i };
+		err = clEnqueueNDRangeKernel(
+			queue,
+			transformKernel,
+			2,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+	}
+	CopyPrevIntensityMaps();
 }
 
 void NuiPyramidICP::resizePrevs()
 {
-	ResizePrevMaps();
+	// half sample the input depth maps into the pyramid levels
+	// Get the kernel
+	cl_kernel pyrDownKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_ESTIMATE_HALF_SAMPLE);
+	assert(pyrDownKernel);
+	if (!pyrDownKernel)
+	{
+		NUI_ERROR("Get kernel 'E_ESTIMATE_HALF_SAMPLE' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+	cl_uint idx = 0;
+	size_t kernelGlobalSize[2];
+
+	for (UINT i = 1; i < m_iterations.size(); ++i)
+	{
+		// Vertices
+		idx = 0;
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
+		NUI_CHECK_CL_ERR(err);
+
+		// Run kernel to calculate
+		kernelGlobalSize[0] = m_nWidth >> i;
+		kernelGlobalSize[1] = m_nHeight >> i;
+		err = clEnqueueNDRangeKernel(
+			queue,
+			pyrDownKernel,
+			2,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+
+		// Normals
+		idx = 0;
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i-1]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
+		NUI_CHECK_CL_ERR(err);
+
+		// Run kernel to calculate
+		err = clEnqueueNDRangeKernel(
+			queue,
+			pyrDownKernel,
+			2,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+
+		// Intensities
+		if(m_intensitiesArrCL[i])
+		{
+			// Set kernel arguments
+			idx = 0;
+			err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i-1]);
+			NUI_CHECK_CL_ERR(err);
+			err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i]);
+			NUI_CHECK_CL_ERR(err);
+			err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
+			NUI_CHECK_CL_ERR(err);
+			err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
+			NUI_CHECK_CL_ERR(err);
+
+			// Run kernel to calculate
+			err = clEnqueueNDRangeKernel(
+				queue,
+				pyrDownKernel,
+				2,
+				nullptr,
+				kernelGlobalSize,
+				nullptr,
+				0,
+				NULL,
+				NULL
+				);
+			NUI_CHECK_CL_ERR(err);
+		}
+	}
 }
 
 void NuiPyramidICP::copyPrevs()
 {
-	CopyPrevMaps();
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	for (UINT i = 0; i < m_iterations.size(); ++i)
+	{
+		const UINT nPointsNum = (m_nWidth >> i) * (m_nHeight >> i);
+
+		err = clEnqueueCopyBuffer(
+			queue,
+			m_verticesArrCL[i],
+			m_verticesPrevArrCL[i],
+			0,
+			0,
+			nPointsNum * 3 * sizeof(float),
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+
+		err = clEnqueueCopyBuffer(
+			queue,
+			m_normalsArrCL[i],
+			m_normalsPrevArrCL[i],
+			0,
+			0,
+			nPointsNum * 3 * sizeof(float),
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+	}
+	CopyPrevIntensityMaps();
 }
 
 void NuiPyramidICP::GenerateGaussianBuffer()
@@ -328,7 +503,7 @@ void NuiPyramidICP::SmoothDepths(cl_mem floatDepthsCL)
 
 void NuiPyramidICP::ColorsToIntensity(cl_mem colorsCL)
 {
-	if(!colorsCL)
+	if(!colorsCL || !m_intensitiesArrCL[0])
 		return;
 
 	// Get the kernel
@@ -338,6 +513,15 @@ void NuiPyramidICP::ColorsToIntensity(cl_mem colorsCL)
 	if (!convertKernel)
 	{
 		NUI_ERROR("Get kernel 'E_BGRA_TO_INTENSITY' failed!\n");
+		return;
+	}
+	// Get the kernel
+	cl_kernel derivativesKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_INTENSITY_DERIVATIVES);
+	assert(derivativesKernel);
+	if (!derivativesKernel)
+	{
+		NUI_ERROR("Get kernel 'E_INTENSITY_DERIVATIVES' failed!\n");
 		return;
 	}
 
@@ -353,11 +537,31 @@ void NuiPyramidICP::ColorsToIntensity(cl_mem colorsCL)
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate 
-	size_t kernelGlobalSize[1] = { m_nWidth * m_nHeight };
+	size_t kernelGlobalSizeOneDegree[1] = { m_nWidth * m_nHeight };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		convertKernel,
 		1,
+		nullptr,
+		kernelGlobalSizeOneDegree,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	// Set kernel arguments
+	idx = 0;
+	err = clSetKernelArg(derivativesKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[0]);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		derivativesKernel,
+		2,
 		nullptr,
 		kernelGlobalSize,
 		nullptr,
@@ -381,7 +585,7 @@ void NuiPyramidICP::ColorsToIntensity(cl_mem colorsCL)
 	for (UINT i = 1; i < m_iterations.size(); ++i)
 	{
 		// Set kernel arguments
-		cl_uint idx = 0;
+		idx = 0;
 		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i-1]);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i]);
@@ -391,11 +595,31 @@ void NuiPyramidICP::ColorsToIntensity(cl_mem colorsCL)
 		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
 		NUI_CHECK_CL_ERR(err);
 
-		// Run kernel to calculate 
-		size_t kernelGlobalSize[2] = { m_nWidth>>i, m_nHeight>>i };
+		// Run kernel to calculate
+		kernelGlobalSize[0] = m_nWidth>>i;
+		kernelGlobalSize[1] = m_nHeight>>i;
 		err = clEnqueueNDRangeKernel(
 			queue,
 			pyrDownKernel,
+			2,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+
+		// Set kernel arguments
+		idx = 0;
+		err = clSetKernelArg(derivativesKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i-1]);
+		NUI_CHECK_CL_ERR(err);
+
+		// Run kernel to calculate 
+		err = clEnqueueNDRangeKernel(
+			queue,
+			derivativesKernel,
 			2,
 			nullptr,
 			kernelGlobalSize,
@@ -708,140 +932,6 @@ bool NuiPyramidICP::IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransfo
 #endif
 
 	return true;
-}
-
-void    NuiPyramidICP::ResizePrevMaps()
-{
-	// Get the kernel
-	cl_kernel resizeKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_RESIZE_MAPS);
-	assert(resizeKernel);
-	if (!resizeKernel)
-	{
-		NUI_ERROR("Get kernel 'E_RESIZE_MAPS' failed!\n");
-		return;
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-	cl_uint idx = 0;
-	size_t kernelGlobalSize[2];
-
-	for (UINT i = 1; i < m_iterations.size(); ++i)
-	{
-		idx = 0;
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-
-		// Run kernel to calculate
-		kernelGlobalSize[0] = m_nWidth >> i;
-		kernelGlobalSize[1] = m_nHeight >> i;
-		err = clEnqueueNDRangeKernel(
-			queue,
-			resizeKernel,
-			2,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-		);
-		NUI_CHECK_CL_ERR(err);
-	}
-}
-
-void NuiPyramidICP::TransformPrevMaps(cl_mem transformCL)
-{
-	// Get the kernel
-	cl_kernel transformKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_TRANSFORM_MAPS);
-	assert(transformKernel);
-	if (!transformKernel)
-	{
-		NUI_ERROR("Get kernel 'E_TRANSFORM_MAPS' failed!\n");
-		return;
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	for (UINT i = 0; i < m_iterations.size(); ++i)
-	{
-		cl_uint idx = 0;
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &transformCL);
-		NUI_CHECK_CL_ERR(err);
-
-		// Run kernel to calculate
-		size_t kernelGlobalSize[2] = { m_nWidth >> i, m_nHeight >> i };
-		err = clEnqueueNDRangeKernel(
-			queue,
-			transformKernel,
-			2,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-		);
-		NUI_CHECK_CL_ERR(err);
-	}
-	CopyPrevIntensityMaps();
-}
-
-void NuiPyramidICP::CopyPrevMaps()
-{
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	for (UINT i = 0; i < m_iterations.size(); ++i)
-	{
-		const UINT nPointsNum = (m_nWidth >> i) * (m_nHeight >> i);
-
-		err = clEnqueueCopyBuffer(
-			queue,
-			m_verticesArrCL[i],
-			m_verticesPrevArrCL[i],
-			0,
-			0,
-			nPointsNum * 3 * sizeof(float),
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-
-		err = clEnqueueCopyBuffer(
-			queue,
-			m_normalsArrCL[i],
-			m_normalsPrevArrCL[i],
-			0,
-			0,
-			nPointsNum * 3 * sizeof(float),
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-	}
-	CopyPrevIntensityMaps();
 }
 
 void NuiPyramidICP::CopyPrevIntensityMaps()

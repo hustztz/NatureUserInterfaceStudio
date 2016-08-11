@@ -288,8 +288,10 @@ __kernel void bgra_to_intensity_kernel(
 	const uint idx = get_global_id(0);
 
 	uchar4 color = vload4(idx, bgras);
-	float intensity = 0.299f*(convert_float(bgra.z)/255.0f) + 0.587f*(convert_float(bgra.y)/255.0f) + 0.114f*(convert_float(bgra.x)/255.0f);
-	vstore3(intensity, idx, (float3)(intensities, NAN, NAN));
+	float intensity = NAN;
+	if(color.w > 0)
+		intensity = 0.299f*(convert_float(color.z)/255.0f) + 0.587f*(convert_float(color.y)/255.0f) + 0.114f*(convert_float(color.x)/255.0f);
+	vstore3((float3)(intensity, NAN, NAN), idx, intensities);
 }
 
 __kernel void intensity_derivatives_kernel(
@@ -300,13 +302,41 @@ __kernel void intensity_derivatives_kernel(
 	const int gidy = get_global_id(1);
     const int gsizex = get_global_size(0);
 	const int gsizey = get_global_size(1);
-	const int idx = mul24(gidy, gsizex)+gidx;
+	int idx = mul24(gidy, gsizex)+gidx;
 
 	float3 intensityAndDerivatives = vload3(idx, intensities);
+	if( isnan(intensityAndDerivatives.x) )
+		return;
+
 	if(gidx > 0 && gidx < gsizex-1 && gidy > 0 && gidy < gsizey-1)
 	{
+		idx --;
+		float intensity01 = vload3(idx, intensities).x;
+		idx += 2;
+		float intensity21 = vload3(idx, intensities).x;
+		idx = idx - gsizey;
+		float intensity20 = vload3(idx, intensities).x;
+		idx --;
+		float intensity10 = vload3(idx, intensities).x;
+		idx --;
+		float intensity00 = vload3(idx, intensities).x;
+		idx = idx + 2*gsizey;
+		float intensity02 = vload3(idx, intensities).x;
+		idx ++;
+		float intensity12 = vload3(idx, intensities).x;
+		idx ++;
+		float intensity22 = vload3(idx, intensities).x;
 
+		intensityAndDerivatives.y = (-1.0f)*intensity00 + (1.0f)*intensity20 +
+						  (-2.0f)*intensity01 + (2.0f)*intensity21 +
+						  (-1.0f)*intensity02 + (1.0f)*intensity22;
+		intensityAndDerivatives.y /= 8.0f;
+			
+		intensityAndDerivatives.z = (-1.0f)*intensity00 + (-2.0f)*intensity10 + (-1.0f)*intensity20 + 
+						  ( 1.0f)*intensity02 + ( 2.0f)*intensity12 + ( 1.0f)*intensity22;
+		intensityAndDerivatives.z /= 8.0f;
+		
+		vstore3(intensityAndDerivatives, idx, intensities);
 	}
-
-	vstore3(intensity, idx, intensityAndDerivatives);
+	
 }

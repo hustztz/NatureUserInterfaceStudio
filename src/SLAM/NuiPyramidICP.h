@@ -44,9 +44,6 @@ protected:
 	void	NormalEst(cl_mem cameraParamsCL);
 	bool	IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
 	bool	IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
-	void    ResizePrevMaps();
-	void	TransformPrevMaps(cl_mem transformCL);
-	void    CopyPrevMaps();
 	void	CopyPrevIntensityMaps();
 
 private:
