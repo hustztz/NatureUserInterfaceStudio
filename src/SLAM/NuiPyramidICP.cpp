@@ -218,6 +218,15 @@ void NuiPyramidICP::resizePrevs()
 {
 	// half sample the input depth maps into the pyramid levels
 	// Get the kernel
+	cl_kernel resizeKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_RESIZE_MAPS);
+	assert(resizeKernel);
+	if (!resizeKernel)
+	{
+		NUI_ERROR("Get kernel 'E_RESIZE_MAPS' failed!\n");
+		return;
+	}
+
 	cl_kernel pyrDownKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_ESTIMATE_HALF_SAMPLE);
 	assert(pyrDownKernel);
@@ -237,13 +246,13 @@ void NuiPyramidICP::resizePrevs()
 	{
 		// Vertices
 		idx = 0;
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
+		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
+		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i-1]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
+		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
+		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
 
 		// Run kernel to calculate
@@ -251,7 +260,7 @@ void NuiPyramidICP::resizePrevs()
 		kernelGlobalSize[1] = m_nHeight >> i;
 		err = clEnqueueNDRangeKernel(
 			queue,
-			pyrDownKernel,
+			resizeKernel,
 			2,
 			nullptr,
 			kernelGlobalSize,
@@ -261,32 +270,7 @@ void NuiPyramidICP::resizePrevs()
 			NULL
 			);
 		NUI_CHECK_CL_ERR(err);
-
-		// Normals
-		idx = 0;
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
-		NUI_CHECK_CL_ERR(err);
-
-		// Run kernel to calculate
-		err = clEnqueueNDRangeKernel(
-			queue,
-			pyrDownKernel,
-			2,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-
+		
 		// Intensities
 		if(m_intensitiesArrCL[i])
 		{
