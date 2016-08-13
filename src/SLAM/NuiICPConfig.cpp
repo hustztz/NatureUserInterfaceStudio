@@ -12,6 +12,8 @@ NuiICPConfig::NuiICPConfig()
 	depth_threshold = 0.3f; //meters
 	dist_threshold = 0.1f; //meters
 	normal_threshold = sin (20.f * 3.14159254f / 180.f); //0.8f;
+	color_dist_threshold = 0.1f;
+	color_gradiant_min = 0.2f;
 	track_threshold = 0.15f;
 	iterations.push_back( 5 );
 	iterations.push_back( 5 );

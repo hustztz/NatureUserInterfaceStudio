@@ -127,8 +127,10 @@ __kernel void transform_maps_kernel(
 __kernel void resize_maps_kernel(
             __global		float*	vertices,
             __global		float*	normals,
+			__global		float*	intensities,
 			__global		float*	verticesDst,
-            __global		float*	normalsDst
+            __global		float*	normalsDst,
+			__global		float*	intensitiesDst
         )
 {
 	const uint gidx = get_global_id(0);
@@ -144,6 +146,8 @@ __kernel void resize_maps_kernel(
 	float3 vmap = (float3)(0.0f, 0.0f, 0.0f);
 	uint ncount = 0;
 	float3 nmap = (float3)(0.0f, 0.0f, 0.0f);
+	uint icount = 0;
+	float3 imap = (float3)(0.0f, 0.0f, 0.0f);
 
 	uint srcId = mul24(src_y, src_size_x)+src_x;
 	float3 vmap_src = vload3(srcId, vertices);
@@ -156,6 +160,15 @@ __kernel void resize_maps_kernel(
 		{
 			nmap += nmap_src;
 			ncount ++;
+		}
+		if(intensities)
+		{
+			float3 imap_src = vload3(srcId, intensities);
+			if( !_isnan3(imap_src) )
+			{
+				imap += imap_src;
+				icount ++;
+			}
 		}
 	}
 
@@ -171,6 +184,15 @@ __kernel void resize_maps_kernel(
 			nmap += nmap_src;
 			ncount ++;
 		}
+		if(intensities)
+		{
+			float3 imap_src = vload3(srcId, intensities);
+			if( !_isnan3(imap_src) )
+			{
+				imap += imap_src;
+				icount ++;
+			}
+		}
 	}
 
 	srcId += src_size_x;
@@ -185,6 +207,15 @@ __kernel void resize_maps_kernel(
 			nmap += nmap_src;
 			ncount ++;
 		}
+		if(intensities)
+		{
+			float3 imap_src = vload3(srcId, intensities);
+			if( !_isnan3(imap_src) )
+			{
+				imap += imap_src;
+				icount ++;
+			}
+		}
 	};
 	
 	srcId --;
@@ -198,6 +229,15 @@ __kernel void resize_maps_kernel(
 		{
 			nmap += nmap_src;
 			ncount ++;
+		}
+		if(intensities)
+		{
+			float3 imap_src = vload3(srcId, intensities);
+			if( !_isnan3(imap_src) )
+			{
+				imap += imap_src;
+				icount ++;
+			}
 		}
 	};
 
@@ -217,6 +257,18 @@ __kernel void resize_maps_kernel(
 	else
 	{
 		vstore3(nmap / ncount, dstId, normalsDst);
+	}
+
+	if(intensitiesDst)
+	{
+		if( 0 == icount )
+		{
+			vstore3((float3)(NAN, NAN, NAN), dstId, intensitiesDst);
+		}
+		else
+		{
+			vstore3(imap / icount, dstId, intensitiesDst);
+		}
 	}
 }
 
@@ -291,11 +343,12 @@ __kernel void bgra_to_intensity_kernel(
 	float intensity = NAN;
 	if(color.w > 0)
 		intensity = 0.299f*(convert_float(color.z)/255.0f) + 0.587f*(convert_float(color.y)/255.0f) + 0.114f*(convert_float(color.x)/255.0f);
-	vstore3((float3)(intensity, NAN, NAN), idx, intensities);
+	vstore(intensity, idx, intensities);
 }
 
 __kernel void intensity_derivatives_kernel(
-					__global float* intensities
+					__global float* intensities,
+					__global float* intensityDerivs
 						)
 {
 	const int gidx = get_global_id(0);
@@ -304,39 +357,56 @@ __kernel void intensity_derivatives_kernel(
 	const int gsizey = get_global_size(1);
 	int idx = mul24(gidy, gsizex)+gidx;
 
-	float3 intensityAndDerivatives = vload3(idx, intensities);
-	if( isnan(intensityAndDerivatives.x) )
+	float intensity = vload(idx, intensities);
+	if( isnan(intensity) )
 		return;
 
 	if(gidx > 0 && gidx < gsizex-1 && gidy > 0 && gidy < gsizey-1)
 	{
 		idx --;
-		float intensity01 = vload3(idx, intensities).x;
+		float intensity01 = vload(idx, intensities);
+		if( isnan(intensity01) )
+			return;
 		idx += 2;
-		float intensity21 = vload3(idx, intensities).x;
+		float intensity21 = vload(idx, intensities);
+		if( isnan(intensity21) )
+			return;
 		idx = idx - gsizey;
-		float intensity20 = vload3(idx, intensities).x;
+		float intensity20 = vload(idx, intensities);
+		if( isnan(intensity20) )
+			return;
 		idx --;
-		float intensity10 = vload3(idx, intensities).x;
+		float intensity10 = vload(idx, intensities);
+		if( isnan(intensity10) )
+			return;
 		idx --;
-		float intensity00 = vload3(idx, intensities).x;
+		float intensity00 = vload(idx, intensities);
+		if( isnan(intensity00) )
+			return;
 		idx = idx + 2*gsizey;
-		float intensity02 = vload3(idx, intensities).x;
+		float intensity02 = vload(idx, intensities);
+		if( isnan(intensity02) )
+			return;
 		idx ++;
-		float intensity12 = vload3(idx, intensities).x;
+		float intensity12 = vload(idx, intensities);
+		if( isnan(intensity12) )
+			return;
 		idx ++;
-		float intensity22 = vload3(idx, intensities).x;
+		float intensity22 = vload(idx, intensities);
+		if( isnan(intensity22) )
+			return;
 
-		intensityAndDerivatives.y = (-1.0f)*intensity00 + (1.0f)*intensity20 +
+		float2 derivative;
+		derivative.x = (-1.0f)*intensity00 + (1.0f)*intensity20 +
 						  (-2.0f)*intensity01 + (2.0f)*intensity21 +
 						  (-1.0f)*intensity02 + (1.0f)*intensity22;
-		intensityAndDerivatives.y /= 8.0f;
+		derivative.x /= 8.0f;
 			
-		intensityAndDerivatives.z = (-1.0f)*intensity00 + (-2.0f)*intensity10 + (-1.0f)*intensity20 + 
+		derivative.y = (-1.0f)*intensity00 + (-2.0f)*intensity10 + (-1.0f)*intensity20 + 
 						  ( 1.0f)*intensity02 + ( 2.0f)*intensity12 + ( 1.0f)*intensity22;
-		intensityAndDerivatives.z /= 8.0f;
+		derivative.y /= 8.0f;
 		
-		vstore3(intensityAndDerivatives, idx, intensities);
+		vstore2(derivative, idx, intensityDerivs);
 	}
 	
 }

@@ -15,6 +15,8 @@ struct NuiICPConfig
 	float depth_threshold;      // 1D distance threshold for depth leap
 	float dist_threshold;       // 3D distance threshold for ICP correspondences
 	float normal_threshold;     // dot product normal threshold for ICP correspondences
+	float color_dist_threshold;       // 
+	float color_gradiant_min;     // 
 	float track_threshold;      // percent of tracked pixels to accept tracking result
 	std::vector<UINT> iterations;  // max number of iterations per level
 

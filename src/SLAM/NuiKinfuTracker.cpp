@@ -654,7 +654,7 @@ bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
 		return false;
 	}
 
-	cl_mem prevNormals = m_icp->getPrevNormalsCL();
+	cl_mem prevData = m_icp->getPrevVerticesCL();
 	if( m_nWidth != pCLData->ColorTex().width() || m_nHeight != pCLData->ColorTex().height())
 	{
 		NuiTextureMappableAccessor::updateImpl(
@@ -682,7 +682,7 @@ bool	NuiKinfuTracker::previousNormalImageToData(NuiCLMappableData* pCLData)
 
 	// Set kernel arguments
 	cl_uint idx = 0;
-	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &prevNormals);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &prevData);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &texGL);
 	NUI_CHECK_CL_ERR(err);

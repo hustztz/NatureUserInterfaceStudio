@@ -243,7 +243,7 @@ __kernel void icp_block_kernel(
 					float3 referenceVertex = vload3(refPixel, verticesPrev);
 					if( !_isnan3(referenceVertex) )
 					{
-						float3 diff = referenceVertex - projectedVertex;
+						float3 diff = fabs(referenceVertex - projectedVertex);
 						float dist = fast_length (diff);
 						if (dist < distThres)
 						{
@@ -314,6 +314,30 @@ __kernel void compute_sums
 	reduce(lid, thid, localBuffer, corespsBuffer, WORK_GROUP_SIZE);
 }
 
+inline static float3 evalR_dAlpha(float3 eulerAngle, float3 pInputTransformed)
+{
+	return (float3)
+		(dot((float3)(-sin(eulerAngle.x)*cos(eulerAngle.y), -cos(eulerAngle.x)*cos(eulerAngle.z)-sin(eulerAngle.x)*sin(eulerAngle.y)*sin(eulerAngle.z), cos(eulerAngle.x)*sin(eulerAngle.z)-sin(eulerAngle.x)*sin(eulerAngle.y)*cos(eulerAngle.z)), pInputTransformed),
+		dot((float3)(cos(eulerAngle.x)*cos(eulerAngle.y), -sin(eulerAngle.x)*cos(eulerAngle.z)+cos(eulerAngle.x)*sin(eulerAngle.y)*sin(eulerAngle.z), sin(eulerAngle.x)*sin(eulerAngle.z)+cos(eulerAngle.x)*sin(eulerAngle.y)*cos(eulerAngle.z)), pInputTransformed),
+		0.0f);
+}
+
+inline static float3 evalR_dBeta(float3 eulerAngle, float3 pInputTransformed)
+{
+	return (float3)
+		(dot((float3)(-cos(eulerAngle.x)*sin(eulerAngle.y), cos(eulerAngle.x)*cos(eulerAngle.y)*sin(eulerAngle.z), cos(eulerAngle.x)*cos(eulerAngle.y)*cos(eulerAngle.z)), pInputTransformed),
+		dot((float3)(-sin(eulerAngle.x)*sin(eulerAngle.y), sin(eulerAngle.x)*cos(eulerAngle.y)*sin(eulerAngle.z), sin(eulerAngle.x)*cos(eulerAngle.y)*sin(eulerAngle.z)), pInputTransformed),
+		dot((float3)(-cos(eulerAngle.y), -sin(eulerAngle.y)*sin(eulerAngle.z), -sin(eulerAngle.y)*cos(eulerAngle.z)), pInputTransformed));
+}
+
+inline static float3 evalR_dGamma(float3 eulerAngle, float3 pInputTransformed)
+{
+	return (float3)
+		(dot((float3)(0.0f, sin(eulerAngle.x)*sin(eulerAngle.z)+sin(eulerAngle.x)*cos(eulerAngle.y)*sin(eulerAngle.z), sin(eulerAngle.x)*cos(eulerAngle.z)-cos(eulerAngle.x)*sin(eulerAngle.y)*sin(eulerAngle.z)), pInputTransformed),
+		dot((float3)(0.0f, -cos(eulerAngle.x)*sin(eulerAngle.z)+sin(eulerAngle.x)*sin(eulerAngle.y)*cos(eulerAngle.z), -cos(eulerAngle.x)*cos(eulerAngle.z)-sin(eulerAngle.x)*sin(eulerAngle.y)*sin(eulerAngle.z)), pInputTransformed),
+		dot((float3)(0.0f, cos(eulerAngle.y)*cos(eulerAngle.z), -cos(eulerAngle.y)*sin(eulerAngle.z)), pInputTransformed));
+}
+
 __kernel void intensity_icp_block_kernel(
 			const			int		div,
 			__constant		struct  NuiCLCameraParams* cameraParams,
@@ -326,9 +350,13 @@ __kernel void intensity_icp_block_kernel(
 			__global		float*	verticesPrev,
             __global		float*	normalsPrev,
 			__global		float*	intensitiesPrev,
+			__global		float*	intensityDerivsPrev,
 			__global		struct	NuiCLRigidTransform* previousMatrix,
+			const			float3	deltaEulerAngles,
 			const			float	distThres,
 			const			float	angleThres,
+			const			float	colorThres,
+			const			float	colorGradiantMin,
 			__global		float*	corespsSumBuffer
         )
 {
@@ -365,21 +393,54 @@ __kernel void intensity_icp_block_kernel(
 			{
 				int refPixel = mul24(projPixel.y, nImageWidth)+projPixel.x;
 				float3 referenceNormal = vload3(refPixel, normalsPrev);
-				if( !_isnan3(referenceNormal) )
+				float referenceIntensity = vload(refPixel, intensitiesPrev);
+				if( !_isnan3(referenceNormal) && !isnan(referenceIntensity) )
 				{
 					float3 referenceVertex = vload3(refPixel, verticesPrev);
 					if( !_isnan3(referenceVertex) )
 					{
-						float3 diff = referenceVertex - projectedVertex;
+						float3 diff = fabs(referenceVertex - projectedVertex);
 						float dist = fast_length (diff);
 						if (dist < distThres)
 						{
+							const float3 phiAlpha = evalR_dAlpha(deltaEulerAngles, projectedPos);
+							const float3 phiBeta = evalR_dBeta(deltaEulerAngles, projectedPos);
+							const float3 phiGamma = evalR_dGamma(deltaEulerAngles, projectedPos);
+
 							float3 projectedNormal = rotate3(ncurr, Rcurr1, Rcurr2);
 							float sine = fast_length (cross (projectedNormal, referenceNormal));
 							if (sine < angleThres)
 							{
-								float3 row0 = cross (projectedVertex, referenceNormal);
-								float coresp[7] = { row0.x, row0.y, row0.z, referenceNormal.x, referenceNormal.y, referenceNormal.z, dot (referenceNormal, diff) };
+								// Point-Plane
+								const float weightDepth = max(0.0f, (1.0f-dist/distThres));
+								float coresp[7] = {
+									weightDepth*dot(-referenceNormal,phiAlpha),
+									weightDepth*dot(-referenceNormal,phiBeta),
+									weightDepth*dot(-referenceNormal,phiGamma),
+									weightDepth*referenceNormal.x, weightDepth*referenceNormal.y, weightDepth*referenceNormal.z,
+									weightDepth*dot (referenceNormal, diff) };
+
+								// Color
+								float icurr = vload(gid, intensities);
+								if( !isnan(icurr) )
+								{
+									float diffIntensity = fabs(icurr - referenceIntensity);
+									float2 referenceIDeriv = vload2(refPixel, intensityDerivsPrev);
+									if(diffIntensity < colorThres && !_isnan2(referenceIDeriv) && fast_length(referenceIDeriv) > colorGradiantMin)
+									{
+										const float weightColor = max(0.0f, 1.0f-diffIntensity/colorThres);
+										float3 tmp0Intensity = (float3)(referenceIDeriv.x * intr_fx / projectedPos.z,
+																		referenceIDeriv.y * intr_fy / projectedPos.z,
+																		(referenceIDeriv.x * intr_cx + referenceIDeriv.y * intr_cy) / projectedPos.z - (referenceIDeriv.x * projectedPos.x + referenceIDeriv.y * projectedPos.y) / (projectedPos.z*projectedPos.z));
+										coresp[0] += weightColor*dot(tmp0Intensity,phiAlpha);
+										coresp[1] += weightColor*dot(tmp0Intensity,phiBeta);
+										coresp[2] += weightColor*dot(tmp0Intensity,phiGamma);
+										coresp[3] += weightColor*tmp0Intensity.x;
+										coresp[4] += weightColor*tmp0Intensity.y;
+										coresp[5] += weightColor*tmp0Intensity.z;
+										coresp[6] += weightColor*diffIntensity;
+									}
+								}
 	
 								uint shift = 0;
 								for (uint i = 0; i < 6; ++i)        //rows

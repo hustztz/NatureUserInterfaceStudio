@@ -56,6 +56,7 @@ private:
 	GPUBuffers m_verticesPrevArrCL;
 	GPUBuffers m_normalsPrevArrCL;
 	GPUBuffers m_intensitiesPrevArrCL;
+	GPUBuffers m_intensityDerivsPrevArrCL;
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 
