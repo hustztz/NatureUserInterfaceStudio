@@ -13,7 +13,7 @@ public:
 
 	void	reset();
 	void	resetHashBucketMutexBuffer();
-	void	integrate(
+	UINT	integrate(
 		UINT nWidth, UINT nHeight,
 		cl_mem floatDepthsCL,
 		cl_mem colorsCL,
@@ -26,6 +26,7 @@ public:
 
 	const NuiHashingSDFConfig& getConfig() const { return m_config; }
 	cl_mem	getHashCL() const { return m_hashCL; }
+	cl_mem	getHashCompactifiedCL() const { return m_hashCompactified; }
 	cl_mem	getHeapCL() const { return m_heapCL; }
 	cl_mem	getHeapCountCL() const { return m_heapCountCL; }
 	cl_mem	getHashBucketMutexCL() const { return m_hashBucketMutexCL; }

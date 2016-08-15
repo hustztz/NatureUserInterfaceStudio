@@ -6,6 +6,8 @@
 #include "NuiHashingChunkGridConfig.h"
 #include "Foundation/SgVec3T.h"
 
+#include <GL/glew.h>
+
 // Forwards
 class NuiHashingSDF;
 class NuiHashingChunkGrid;
@@ -41,9 +43,15 @@ public:
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
 	void			updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
+protected:
+	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL);
 private:
-	NuiHashingSDF*			m_pSDFData;
-	NuiHashingChunkGrid*	m_pChunkGrid;
+	NuiHashingSDF*				m_pSDFData;
+	NuiHashingChunkGrid*		m_pChunkGrid;
+
+	UINT						m_numOccupiedBlocks;
 
 	NuiHashingRaycastConfig		m_raycastConfig;
+	GLuint						m_raycastVbo[1];
+	cl_mem						m_raycastVertexBufferGL;
 };

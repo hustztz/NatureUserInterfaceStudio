@@ -36,7 +36,7 @@ void NuiHashingSDF::reset()
 	resetHashBucketMutexBuffer();
 }
 
-void NuiHashingSDF::integrate(
+UINT NuiHashingSDF::integrate(
 	UINT nWidth, UINT nHeight,
 	cl_mem floatDepthsCL,
 	cl_mem colorsCL,
@@ -53,19 +53,21 @@ void NuiHashingSDF::integrate(
 
 	//generate a linear hash array with only occupied entries
 	UINT numOccupiedBlocks = compactifyHashEntries(cameraParamsCL, transformCL);
-	if(0 == numOccupiedBlocks)
-		return;
-
-	//volumetrically integrate the depth data into the depth SDFBlocks
-	integrateDepthMap(numOccupiedBlocks, floatDepthsCL, colorsCL, cameraParamsCL, transformCL);
-
-	if(m_bGarbageCollectionEnabled)
+	if(0 != numOccupiedBlocks)
 	{
-		bool bGarbageCollectionStarve = (m_numIntegratedFrames > 0) && (m_numIntegratedFrames % m_garbageCollectionStarve == 0);
-		garbageCollect(bGarbageCollectionStarve, numOccupiedBlocks, cameraParamsCL);
+		//volumetrically integrate the depth data into the depth SDFBlocks
+		integrateDepthMap(numOccupiedBlocks, floatDepthsCL, colorsCL, cameraParamsCL, transformCL);
+
+		if(m_bGarbageCollectionEnabled)
+		{
+			bool bGarbageCollectionStarve = (m_numIntegratedFrames > 0) && (m_numIntegratedFrames % m_garbageCollectionStarve == 0);
+			garbageCollect(bGarbageCollectionStarve, numOccupiedBlocks, cameraParamsCL);
+		}
+
+		m_numIntegratedFrames++;
 	}
 
-	m_numIntegratedFrames++;
+	return numOccupiedBlocks;
 }
 
 void NuiHashingSDF::AcquireBuffers()

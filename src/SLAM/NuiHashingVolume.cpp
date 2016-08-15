@@ -16,9 +16,25 @@
 NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const NuiHashingRaycastConfig& raycastConfig)
 	: m_pSDFData(NULL)
 	, m_pChunkGrid(NULL)
+	, m_numOccupiedBlocks(0)
 	, m_raycastConfig(raycastConfig)
+	, m_raycastVertexBufferGL(NULL)
 {
 	m_pSDFData = new NuiHashingSDF(sdfConfig);
+
+	glGenBuffers(1, m_raycastVbo); // Generate our Vertex Buffer Object
+	glBindBuffer(GL_ARRAY_BUFFER, m_raycastVbo[0]); // Bind our Vertex Buffer Object
+	glBufferData(GL_ARRAY_BUFFER, sdfConfig.m_numSDFBlocks * 6, NULL, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	cl_int           err = CL_SUCCESS;
+	cl_context       context = NuiOpenCLGlobal::instance().clContext();
+	m_raycastVertexBufferGL = clCreateFromGLBuffer(
+		context,
+		CL_MEM_READ_WRITE,
+		m_raycastVbo[0],
+		&err);
+	NUI_CHECK_CL_ERR(err);
 
 	reset();
 }
@@ -27,6 +43,11 @@ NuiHashingVolume::~NuiHashingVolume()
 {
 	SafeDelete(m_pSDFData);
 	SafeDelete(m_pChunkGrid);
+
+	cl_int           err = CL_SUCCESS;
+	err = clReleaseMemObject(m_raycastVertexBufferGL);
+	NUI_CHECK_CL_ERR(err);
+	glDeleteBuffers(1, m_raycastVbo);
 }
 
 bool NuiHashingVolume::log(const std::string& fileName) const
@@ -39,6 +60,7 @@ void	NuiHashingVolume::reset()
 	m_pSDFData->reset();
 	if(m_pChunkGrid)
 		m_pChunkGrid->reset();
+	m_numOccupiedBlocks = 0;
 
 	setDirty();
 }
@@ -57,6 +79,61 @@ void	NuiHashingVolume::updateChunkGridConfig(const NuiHashingChunkGridConfig& ch
 	}
 }
 
+void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL)
+{
+	if(!m_pSDFData || !m_numOccupiedBlocks)
+		return;
+
+	if(!cameraParamsCL || !transformCL || !m_raycastVertexBufferGL)
+		return;
+
+	// Get the kernel
+	cl_kernel intervalSplatKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAY_INTERVAL_SPLAT);
+	assert(intervalSplatKernel);
+	if (!intervalSplatKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_RAY_INTERVAL_SPLAT' failed!\n");
+		return;
+	}
+
+	cl_mem hashCompactifiedCL = m_pSDFData->getHashCompactifiedCL();
+	const NuiHashingSDFConfig& hashParams = m_pSDFData->getConfig();
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &m_raycastVertexBufferGL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &hashCompactifiedCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_float), &hashParams.m_virtualVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t kernelGlobalSize[1] = { m_numOccupiedBlocks };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		intervalSplatKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+
+}
+
 void NuiHashingVolume::raycastRender(
 	cl_mem renderVerticesCL,
 	cl_mem renderNormalsCL,
@@ -66,11 +143,13 @@ void NuiHashingVolume::raycastRender(
 	UINT nWidth, UINT nHeight
 	)
 {
-	if(!m_pSDFData)
+	if(!m_pSDFData || !m_numOccupiedBlocks)
 		return;
 
 	if(!renderVerticesCL || !renderNormalsCL || !cameraParamsCL || !transformCL)
 		return;
+
+	rayIntervalSplatting(cameraParamsCL, transformCL);
 
 	// Get the kernel
 	cl_kernel raycastKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAYCAST_SDF);
@@ -157,7 +236,7 @@ void	NuiHashingVolume::integrateVolume(
 		streamingGridDimensions = streamingConfig.m_gridDimensions;
 		streamingMinGridPos = streamingConfig.m_minGridPos;
 	}
-	m_pSDFData->integrate(
+	m_numOccupiedBlocks = m_pSDFData->integrate(
 		nWidth, nHeight,
 		floatDepthsCL,
 		colorsCL,
@@ -168,7 +247,8 @@ void	NuiHashingVolume::integrateVolume(
 		streamingGridDimensions,
 		streamingMinGridPos
 		);
-	setDirty();
+	if(m_numOccupiedBlocks)
+		setDirty();
 }
 
 bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)

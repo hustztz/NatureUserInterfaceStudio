@@ -291,8 +291,7 @@ inline static bool isSDFBlockInCameraFrustumApprox(
 }
 
 __kernel void rayIntervalSplatKernel(
-			__global float*					rayMin,
-			__global float*					rayMax,
+			__global float*					d_vertexBuffer,
             __constant struct NuiCLCameraParams* cameraParams,
 			__global struct NuiCLRigidTransform* matrix,
 			__global struct NuiCLHashEntry*	d_hashCompactified,
@@ -300,9 +299,6 @@ __kernel void rayIntervalSplatKernel(
         )
 {
 	const uint gidx = get_global_id(0);
-	const uint gidy = get_global_id(1);
-	const uint gsizex = get_global_size(0);
-	const int idx = mul24(gidy, gsizex) + gidx;
 
 	struct NuiCLHashEntry entry = d_hashCompactified[gidx];
 	if (entry.ptr == FREE_ENTRY)
@@ -338,7 +334,6 @@ __kernel void rayIntervalSplatKernel(
 	float3 min1 = fmin(min10, min11);
 
 	float3 minFinal = fmin(min0, min1);
-	vstore(minFinal.z, idx, rayMin);
 
 	// Tree Reduction Max
 	float3 max00 = fmax(proj000, proj100);
@@ -350,5 +345,12 @@ __kernel void rayIntervalSplatKernel(
 	float3 max1 = fmax(max10, max11);
 
 	float3 maxFinal = fmax(max0, max1);
-	vstore(maxFinal.z, idx, rayMax);
+
+	uint addr = idx*6;
+	vstore4((float4)(maxFinal.x, minFinal.y, minFinal.z, maxFinal.z), addr+0, d_vertexBuffer);
+	vstore4((float4)(minFinal.x, minFinal.y, minFinal.z, maxFinal.z), addr+1, d_vertexBuffer);
+	vstore4((float4)(maxFinal.x, maxFinal.y, minFinal.z, maxFinal.z), addr+2, d_vertexBuffer);
+	vstore4((float4)(minFinal.x, minFinal.y, minFinal.z, maxFinal.z), addr+3, d_vertexBuffer);
+	vstore4((float4)(maxFinal.x, maxFinal.y, minFinal.z, maxFinal.z), addr+4, d_vertexBuffer);
+	vstore4((float4)(minFinal.x, maxFinal.y, minFinal.z, maxFinal.z), addr+5, d_vertexBuffer);
 }
