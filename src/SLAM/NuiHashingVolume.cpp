@@ -18,23 +18,12 @@ NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const N
 	, m_pChunkGrid(NULL)
 	, m_numOccupiedBlocks(0)
 	, m_raycastConfig(raycastConfig)
-	, m_raycastVertexBufferGL(NULL)
+	, m_raycastVertexBuffer("raycastVertex")
 {
 	m_pSDFData = new NuiHashingSDF(sdfConfig);
 
-	glGenBuffers(1, m_raycastVbo); // Generate our Vertex Buffer Object
-	glBindBuffer(GL_ARRAY_BUFFER, m_raycastVbo[0]); // Bind our Vertex Buffer Object
-	glBufferData(GL_ARRAY_BUFFER, sdfConfig.m_numSDFBlocks * 6, NULL, GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	cl_int           err = CL_SUCCESS;
-	cl_context       context = NuiOpenCLGlobal::instance().clContext();
-	m_raycastVertexBufferGL = clCreateFromGLBuffer(
-		context,
-		CL_MEM_READ_WRITE,
-		m_raycastVbo[0],
-		&err);
-	NUI_CHECK_CL_ERR(err);
+	NuiMappableAccessor::asVectorImpl(m_raycastVertexBuffer)->data().resize(sdfConfig.m_numSDFBlocks * 6);
+	cl_mem raycastVertexBufferGL = NuiOpenCLBufferFactory::asColor4fBufferCL(m_raycastVertexBuffer);
 
 	reset();
 }
@@ -44,10 +33,7 @@ NuiHashingVolume::~NuiHashingVolume()
 	SafeDelete(m_pSDFData);
 	SafeDelete(m_pChunkGrid);
 
-	cl_int           err = CL_SUCCESS;
-	err = clReleaseMemObject(m_raycastVertexBufferGL);
-	NUI_CHECK_CL_ERR(err);
-	glDeleteBuffers(1, m_raycastVbo);
+	NuiMappableAccessor::reset(m_raycastVertexBuffer);
 }
 
 bool NuiHashingVolume::log(const std::string& fileName) const
@@ -84,7 +70,7 @@ void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transf
 	if(!m_pSDFData || !m_numOccupiedBlocks)
 		return;
 
-	if(!cameraParamsCL || !transformCL || !m_raycastVertexBufferGL)
+	if(!cameraParamsCL || !transformCL)
 		return;
 
 	// Get the kernel
@@ -98,14 +84,27 @@ void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transf
 
 	cl_mem hashCompactifiedCL = m_pSDFData->getHashCompactifiedCL();
 	const NuiHashingSDFConfig& hashParams = m_pSDFData->getConfig();
+	cl_mem raycastVertexBufferGL = NuiOpenCLBufferFactory::asColor4fBufferCL(m_raycastVertexBuffer);
+
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		raycastVertexBufferGL
+	};
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
+	//glFinish();
+	err = clEnqueueAcquireGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs,
+		0, nullptr, nullptr);
+	NUI_CHECK_CL_ERR(err);
+	/*openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
+
 	// Set kernel arguments
 	cl_uint idx = 0;
-	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &m_raycastVertexBufferGL);
+	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &raycastVertexBufferGL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 	NUI_CHECK_CL_ERR(err);
@@ -117,7 +116,7 @@ void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transf
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
-	size_t kernelGlobalSize[1] = { m_numOccupiedBlocks };
+	size_t kernelGlobalSize[1] = { std::min(m_numOccupiedBlocks, (UINT)m_raycastVertexBuffer.size()/6) };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		intervalSplatKernel,
@@ -131,7 +130,15 @@ void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transf
 		);
 	NUI_CHECK_CL_ERR(err);
 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
 
+	// Release OpenGL objects
+	/*openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
+
+	err = clEnqueueReleaseGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+	NUI_CHECK_CL_ERR(err);
 }
 
 void NuiHashingVolume::raycastRender(

@@ -346,7 +346,7 @@ __kernel void rayIntervalSplatKernel(
 
 	float3 maxFinal = fmax(max0, max1);
 
-	uint addr = idx*6;
+	uint addr = gidx*6;
 	vstore4((float4)(maxFinal.x, minFinal.y, minFinal.z, maxFinal.z), addr+0, d_vertexBuffer);
 	vstore4((float4)(minFinal.x, minFinal.y, minFinal.z, maxFinal.z), addr+1, d_vertexBuffer);
 	vstore4((float4)(maxFinal.x, maxFinal.y, minFinal.z, maxFinal.z), addr+2, d_vertexBuffer);

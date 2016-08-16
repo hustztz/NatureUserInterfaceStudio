@@ -6,7 +6,7 @@
 #include "NuiHashingChunkGridConfig.h"
 #include "Foundation/SgVec3T.h"
 
-#include <GL/glew.h>
+#include "OpenCLUtilities/NuiMappable.h"
 
 // Forwards
 class NuiHashingSDF;
@@ -52,6 +52,5 @@ private:
 	UINT						m_numOccupiedBlocks;
 
 	NuiHashingRaycastConfig		m_raycastConfig;
-	GLuint						m_raycastVbo[1];
-	cl_mem						m_raycastVertexBufferGL;
+	NuiMappable4f				m_raycastVertexBuffer;
 };
