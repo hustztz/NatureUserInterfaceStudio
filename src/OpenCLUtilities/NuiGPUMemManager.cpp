@@ -324,7 +324,48 @@ cl_mem NuiGPUMemManager::CreateCLTextureFromHWBuffer(
     return b;
 }
 
+cl_mem NuiGPUMemManager::CreateCLObjectFromRenderBuffer(
+    cl_mem_flags flags,
+    void* bufobj,
+    void* ogsbuf,
+    NuiGPUMemSharedType type,
+    const char* debugName/* = nullptr*/)
+{
+    // Sanity check
+    assert(bufobj);
+    if (!bufobj)
+        return nullptr;
 
+    /*assert(ogsbuf);
+    if (!ogsbuf)
+        return nullptr;*/
+
+    // Lock ogs resource first
+    pLockMayaResourceHandleFn(ogsbuf, type);
+
+    // Call into driver
+    cl_mem b = openclutil::createCLObjectFromRenderBuffer(flags, bufobj);
+
+    if (b) {
+        // Record this buffer with size
+        unsigned int size = openclutil::getMemObjectSizeCL(b);
+
+        // nv gpu always returns 0 for getting size from graphic shared cl buffers.
+        //assert(size > 0);
+
+        _sharedCLBufs.insert(std::make_pair(b, NuiGPUMemShared(b, size, ogsbuf, type, debugName)));
+#ifdef ENABLE_GPU_MEM_DEBUG_OUTPUT
+        // Debug
+        NUI_DEBUG("+ shared ocl buffer(size= %d byte, name=\"%s\"), current count(pure - %d, shared - %d)\n",
+            size, debugName? debugName:"", (int)_pureCLBufs.size(), (int)_sharedCLBufs.size());
+#endif
+    }
+    else {
+        pUnlockMayaResourceHandleFn(ogsbuf, type);
+    }
+
+    return b;
+}
 
 cl_int NuiGPUMemManager::ReleaseMemObjectCL(cl_mem& b)
 {

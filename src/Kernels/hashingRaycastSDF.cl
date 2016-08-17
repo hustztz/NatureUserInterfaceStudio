@@ -178,6 +178,8 @@ __kernel void renderKernel(
 			__global float* intensityMap,
 			__global struct NuiCLHashEntry*	d_hash,
 			__global struct NuiCLVoxel*		d_SDFBlocks,
+			read_only image2d_t d_intervalMin,
+			read_only image2d_t d_intervalMax,
 			const float		virtualVoxelSize,
 			const uint		hashNumBuckets,
 			const uint		hashMaxCollisionLinkedListSize,
@@ -205,6 +207,11 @@ __kernel void renderKernel(
 	struct NuiCLCameraParams camParams = *cameraParams;
 	float minInterval = camParams.sensorDepthWorldMin;
 	float maxInterval = camParams.sensorDepthWorldMax;
+	if(d_intervalMin && d_intervalMax)
+	{
+		minInterval = read_image(d_intervalMin, (int2)(gidx, gidy));
+		maxInterval = read_image(d_intervalMax, (int2)(gidx, gidy));
+	}
 
 	//if (minInterval == 0 || minInterval == MINF) minInterval = rayCastParams.m_minDepth;
 	//if (maxInterval == 0 || maxInterval == MINF) maxInterval = rayCastParams.m_maxDepth;

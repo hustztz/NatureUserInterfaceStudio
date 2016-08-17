@@ -1,7 +1,7 @@
 #version 330 core
 
-in vec vDepth;
-out vec FragDepth;
+in float vDepth;
+out float FragDepth;
 
 void main()
 {

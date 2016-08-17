@@ -10,6 +10,7 @@
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 #include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
+#include "OpenCLUtilities/NuiOfflineRenderFactory.h"
 
 #include "Shape/NuiCLMappableData.h"
 
@@ -19,11 +20,16 @@ NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const N
 	, m_numOccupiedBlocks(0)
 	, m_raycastConfig(raycastConfig)
 	, m_raycastVertexBuffer("raycastVertex")
+	, m_rayIntervalMinBuffer("rayIntervalMin")
+	, m_rayIntervalMaxBuffer("rayIntervalMax")
 {
 	m_pSDFData = new NuiHashingSDF(sdfConfig);
 
+	NuiOfflineRenderFactory::initializeOfflineRender();
 	NuiMappableAccessor::asVectorImpl(m_raycastVertexBuffer)->data().resize(sdfConfig.m_numSDFBlocks * 6);
-	cl_mem raycastVertexBufferGL = NuiOpenCLBufferFactory::asColor4fBufferCL(m_raycastVertexBuffer);
+	NuiOpenCLBufferFactory::asColor4fBufferCL(m_raycastVertexBuffer);
+	NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMinBuffer);
+	NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMaxBuffer);
 
 	reset();
 }
@@ -65,7 +71,7 @@ void	NuiHashingVolume::updateChunkGridConfig(const NuiHashingChunkGridConfig& ch
 	}
 }
 
-void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL)
+void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL, UINT nWidth, UINT nHeight, float sensorDepthMin, float sensorDepthMax)
 {
 	if(!m_pSDFData || !m_numOccupiedBlocks)
 		return;
@@ -139,6 +145,8 @@ void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transf
 
 	err = clEnqueueReleaseGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 	NUI_CHECK_CL_ERR(err);
+
+	NuiOfflineRenderFactory::runOfflineRender(m_raycastVertexBuffer, m_rayIntervalMinBuffer, m_rayIntervalMaxBuffer, (int)kernelGlobalSize[0], sensorDepthMin, sensorDepthMax);
 }
 
 void NuiHashingVolume::raycastRender(
@@ -147,7 +155,8 @@ void NuiHashingVolume::raycastRender(
 	cl_mem renderIntensitiesCL,
 	cl_mem cameraParamsCL,
 	cl_mem transformCL,
-	UINT nWidth, UINT nHeight
+	UINT nWidth, UINT nHeight,
+	float sensorDepthMin, float sensorDepthMax
 	)
 {
 	if(!m_pSDFData || !m_numOccupiedBlocks)
@@ -156,7 +165,7 @@ void NuiHashingVolume::raycastRender(
 	if(!renderVerticesCL || !renderNormalsCL || !cameraParamsCL || !transformCL)
 		return;
 
-	rayIntervalSplatting(cameraParamsCL, transformCL);
+	rayIntervalSplatting(cameraParamsCL, transformCL, nWidth, nHeight, sensorDepthMin, sensorDepthMax);
 
 	// Get the kernel
 	cl_kernel raycastKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAYCAST_SDF);
@@ -194,6 +203,10 @@ void NuiHashingVolume::raycastRender(
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &hashCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &SDFBlocksCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_rayIntervalMinBuffer);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_rayIntervalMaxBuffer);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &hashParams.m_virtualVoxelSize);
 	NUI_CHECK_CL_ERR(err);

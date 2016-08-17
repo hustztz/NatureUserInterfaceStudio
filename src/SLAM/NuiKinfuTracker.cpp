@@ -481,7 +481,7 @@ bool	NuiKinfuTracker::RunTracking(
 				m_lastIntegrationPos.setRotation(m_transform.getRotation());
 				m_lastIntegrationPos.setTranslation(m_transform.getTranslation());
 			}
-			pVolume->raycastRender(m_icp->getPrevVerticesCL(), m_icp->getPrevNormalsCL(), m_icp->getPrevIntensitiesCL(), m_cameraParamsCL, m_transform.getTransformCL(), m_nWidth, m_nHeight);
+			pVolume->raycastRender(m_icp->getPrevVerticesCL(), m_icp->getPrevNormalsCL(), m_icp->getPrevIntensitiesCL(), m_cameraParamsCL, m_transform.getTransformCL(), m_nWidth, m_nHeight, camIntri.sensorDepthWorldMin, camIntri.sensorDepthWorldMax);
 			m_icp->resizePrevs();
 		}
 		else

@@ -35,7 +35,8 @@ public:
 		cl_mem renderIntensitiesCL,
 		cl_mem cameraParamsCL,
 		cl_mem transformCL,
-		UINT nWidth, UINT nHeight
+		UINT nWidth, UINT nHeight,
+		float sensorDepthMin, float sensorDepthMax
 		) override;
 
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
@@ -44,7 +45,7 @@ public:
 
 	void			updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
 protected:
-	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL);
+	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL, UINT nWidth, UINT nHeight, float sensorDepthMin, float sensorDepthMax);
 private:
 	NuiHashingSDF*				m_pSDFData;
 	NuiHashingChunkGrid*		m_pChunkGrid;
@@ -53,4 +54,6 @@ private:
 
 	NuiHashingRaycastConfig		m_raycastConfig;
 	NuiMappable4f				m_raycastVertexBuffer;
+	NuiMappablef				m_rayIntervalMinBuffer;
+	NuiMappablef				m_rayIntervalMaxBuffer;
 };

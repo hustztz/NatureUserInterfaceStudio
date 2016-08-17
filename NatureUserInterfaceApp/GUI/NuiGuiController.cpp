@@ -3,9 +3,11 @@
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 #include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
+#include "OpenCLUtilities/NuiOfflineRenderFactory.h"
 #include "NuiGuiOpenCLUtilities.h"
 #include "NuiGuiHWMappable.h"
 #include "NuiGuiHWTextureMappable.h"
+#include "NuiPangoRayIntervalSplattingShader.h"
 
 #include "DeviceManager/NuiRGBDDeviceController.h"
 
@@ -52,12 +54,19 @@ NuiGuiController::NuiGuiController()
 			NuiGuiHWMappable::asTexture1fBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsTexture2DCLFn(
 			NuiGuiHWTextureMappable::asHWTextureBufferSharedWithCL);
+		NuiOpenCLBufferFactory::RegisterAsRenderBufferCLFn(
+			NuiGuiHWMappable::asFloatRenderBufferCL);
 
 		// Register functions for NuiGPUMemManager
 		NuiGPUMemManager::RegisterInformRenderHoldGPU(NuiGuiOpenCLUtilities::informRenderHoldGPU);
 		NuiGPUMemManager::RegisterInformRenderReleaseGPU(NuiGuiOpenCLUtilities::informRenderReleaseGPU);
 		NuiGPUMemManager::RegisterLockRenderResourceHandle(NuiGuiOpenCLUtilities::lockResourceHandle);
 		NuiGPUMemManager::RegisterUnlockRenderResourceHandle(NuiGuiOpenCLUtilities::unlockResourceHandle);
+
+		NuiOfflineRenderFactory::RegisterInitializeOfflineRenderFn(
+			NuiPangoRayIntervalSplattingShader::initializeShader);
+		NuiOfflineRenderFactory::RegisterRunOfflineRenderFn(
+			NuiPangoRayIntervalSplattingShader::render);
 
 		NuiOpenCLGlobal::instance().isGL(true);
 	}

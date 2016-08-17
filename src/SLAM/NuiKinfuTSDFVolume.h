@@ -31,7 +31,8 @@ public:
 		cl_mem renderIntensitiesCL,
 		cl_mem cameraParamsCL,
 		cl_mem transformCL,
-		UINT nWidth, UINT nHeight
+		UINT nWidth, UINT nHeight,
+		float sensorDepthMin, float sensorDepthMax
 		) override;
 
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;

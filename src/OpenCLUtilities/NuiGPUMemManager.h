@@ -135,6 +135,15 @@ public:
 		const char* debugName = nullptr
 		);
 
+	// Create cl buffer from shared render buffer
+	cl_mem CreateCLObjectFromRenderBuffer(
+		cl_mem_flags flags,
+		void* bufobj,
+		void* ogsbuf,
+		NuiGPUMemSharedType type,
+		const char* debugName = nullptr
+		);
+
     // Release cl mem object
     cl_int ReleaseMemObjectCL(cl_mem& b);
 
