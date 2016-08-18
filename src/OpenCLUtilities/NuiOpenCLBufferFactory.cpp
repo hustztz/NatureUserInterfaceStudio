@@ -73,7 +73,7 @@ cl_mem NuiOpenCLBufferFactory::asTexture2DCL(NuiTextureMappable& m)
 	return pAsTexture2DCLFn(m);
 }
 
-cl_mem NuiOpenCLBufferFactory::asRenderBufferCL(NuiMappablef& m)
+cl_mem NuiOpenCLBufferFactory::asRenderBufferCL(NuiTextureMappable& m)
 {
 	assert(pAsRenderBufferCLFn);
 	if (!pAsRenderBufferCLFn) {

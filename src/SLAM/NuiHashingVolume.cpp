@@ -20,15 +20,25 @@ NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const N
 	, m_numOccupiedBlocks(0)
 	, m_raycastConfig(raycastConfig)
 	, m_raycastVertexBuffer("raycastVertex")
-	, m_rayIntervalMinBuffer("rayIntervalMin")
-	, m_rayIntervalMaxBuffer("rayIntervalMax")
 {
 	m_pSDFData = new NuiHashingSDF(sdfConfig);
 
 	NuiOfflineRenderFactory::initializeOfflineRender();
 	NuiMappableAccessor::asVectorImpl(m_raycastVertexBuffer)->data().resize(sdfConfig.m_numSDFBlocks * 6);
 	NuiOpenCLBufferFactory::asColor4fBufferCL(m_raycastVertexBuffer);
+	NuiTextureMappableAccessor::updateImpl(
+		m_rayIntervalMinBuffer,
+		512,
+		424,
+		NULL
+		);
 	NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMinBuffer);
+	NuiTextureMappableAccessor::updateImpl(
+		m_rayIntervalMaxBuffer,
+		512,
+		424,
+		NULL
+		);
 	NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMaxBuffer);
 
 	reset();
@@ -184,9 +194,25 @@ void NuiHashingVolume::raycastRender(
 	float thresSampleDist = m_raycastConfig.m_thresSampleDistFactor * rayIncrement;
 	float thresDist = m_raycastConfig.m_thresDistFactor * rayIncrement;
 
+	cl_mem rayIntervalMinGL = NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMinBuffer);
+	cl_mem rayIntervalMaxGL = NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMaxBuffer);
+
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		rayIntervalMinGL,
+		rayIntervalMaxGL
+	};
+
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	//glFinish();
+	err = clEnqueueAcquireGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs,
+		0, nullptr, nullptr);
+	NUI_CHECK_CL_ERR(err);
+	/*openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
 
 	// Set kernel arguments
 	cl_uint idx = 0;
@@ -204,9 +230,9 @@ void NuiHashingVolume::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &SDFBlocksCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_rayIntervalMinBuffer);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &rayIntervalMinGL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_rayIntervalMaxBuffer);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &rayIntervalMaxGL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &hashParams.m_virtualVoxelSize);
 	NUI_CHECK_CL_ERR(err);
@@ -234,6 +260,16 @@ void NuiHashingVolume::raycastRender(
 		NULL,
 		NULL
 		);
+	NUI_CHECK_CL_ERR(err);
+
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	// Release OpenGL objects
+	/*openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
+
+	err = clEnqueueReleaseGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 	NUI_CHECK_CL_ERR(err);
 }
 

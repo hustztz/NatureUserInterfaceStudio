@@ -133,7 +133,8 @@ struct NuiTextureMappableAccessor
 	{
 		if(width != mappable.width() || height != mappable.height())
 		{
-			mappable._impl->relaxToCPU();
+			if(mappable._impl)
+				mappable._impl->relaxToCPU();
 			mappable._impl = nullptr;
 		}
 

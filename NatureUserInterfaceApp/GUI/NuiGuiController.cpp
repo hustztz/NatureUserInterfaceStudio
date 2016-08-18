@@ -55,7 +55,7 @@ NuiGuiController::NuiGuiController()
 		NuiOpenCLBufferFactory::RegisterAsTexture2DCLFn(
 			NuiGuiHWTextureMappable::asHWTextureBufferSharedWithCL);
 		NuiOpenCLBufferFactory::RegisterAsRenderBufferCLFn(
-			NuiGuiHWMappable::asFloatRenderBufferCL);
+			NuiGuiHWTextureMappable::asHWRenderBufferSharedWithCL);
 
 		// Register functions for NuiGPUMemManager
 		NuiGPUMemManager::RegisterInformRenderHoldGPU(NuiGuiOpenCLUtilities::informRenderHoldGPU);

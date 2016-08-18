@@ -7,6 +7,7 @@
 #include "Foundation/SgVec3T.h"
 
 #include "OpenCLUtilities/NuiMappable.h"
+#include "OpenCLUtilities/NuiTextureMappable.h"
 
 // Forwards
 class NuiHashingSDF;
@@ -54,6 +55,6 @@ private:
 
 	NuiHashingRaycastConfig		m_raycastConfig;
 	NuiMappable4f				m_raycastVertexBuffer;
-	NuiMappablef				m_rayIntervalMinBuffer;
-	NuiMappablef				m_rayIntervalMaxBuffer;
+	NuiTextureMappable			m_rayIntervalMinBuffer;
+	NuiTextureMappable			m_rayIntervalMaxBuffer;
 };

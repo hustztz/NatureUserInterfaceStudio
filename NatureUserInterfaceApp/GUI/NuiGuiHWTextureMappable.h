@@ -45,12 +45,12 @@ public:
 
 	virtual int width() const override
 	{
-		return _rgbTex.width;
+		return (int)_rgbTex.width;
 	}
 
 	virtual int height() const override
 	{
-		return _rgbTex.height;
+		return (int)_rgbTex.height;
 	}
 
 	virtual void* data() const override
@@ -115,6 +115,119 @@ private:
 	cl_mem					_clBuffer;
 };
 
+class NuiGuiRenderBufferMappableImpl : public NuiTextureMappableImpl
+{
+public:
+	NuiGuiRenderBufferMappableImpl()
+		: _clBuffer(NULL)
+	{
+		//NuiOpenGLThread::instance().enqueueAndWait([&]()
+		//{
+		glGenRenderbuffers(1, _rbo); // Generate our Render Buffer Object
+		//});
+	}
+
+	NuiGuiRenderBufferMappableImpl(const void* buffer, int width, int height)
+		: _clBuffer(NULL)
+	{
+		update(NULL, width, height);
+		//NuiOpenGLThread::instance().enqueueAndWait([&]()
+		//{
+		glGenRenderbuffers(1, _rbo); // Generate our Render Buffer Object
+		if(_rgbImg.w*_rgbImg.h > 0)
+		{
+			//glEnable(GL_RENDERBUFFER);
+			glBindRenderbuffer(GL_RENDERBUFFER, _rbo[0]);
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA4, width, height);
+			glBindRenderbuffer(GL_RENDERBUFFER, 0);
+			//glDisable(GL_RENDERBUFFER);
+		}
+		//});
+	}
+
+	virtual ~NuiGuiRenderBufferMappableImpl()
+	{
+		relaxToCPU();
+	}
+
+	virtual void update(const void* buffer, int width, int height) override
+	{
+		if(width != _rgbImg.w || height != _rgbImg.h)
+		{
+			pangolin::FreeImage(_rgbImg);
+			_rgbImg.Alloc(width, height, pangolin::VideoFormatFromString("RGBA"));
+		}
+		if(_rgbImg.ptr && buffer && width*height > 0)
+		{
+			memcpy(_rgbImg.ptr, buffer, width*height * sizeof(BGRQUAD));
+		}
+	}
+
+	virtual int width() const override
+	{
+		return (int)_rgbImg.w;
+	}
+
+	virtual int height() const override
+	{
+		return (int)_rgbImg.h;
+	}
+
+	virtual void* data() const override
+	{
+		return _rgbImg.ptr;
+	}
+
+	virtual NuiTextureMappableImpl* clone() const override
+	{
+		return new NuiGuiRenderBufferMappableImpl(_rgbImg.ptr, (int)_rgbImg.w, (int)_rgbImg.h);
+	}
+
+	GLuint data()
+	{
+		return _rbo[0];
+	}
+
+	cl_mem clBuffer(const char* name=nullptr)
+	{
+		//NuiOpenGLThread::instance().enqueueAndWait([&]()
+		//{
+		if (!NuiGPUMemManager::instance().isValidCLBuffer(_clBuffer))
+		{
+			_clBuffer = NuiGPUMemManager::instance().CreateCLObjectFromRenderBuffer(
+				CL_MEM_READ_WRITE, _rbo,
+				NULL, NuiGPUMemSharedType::XG_GPUMEM_SHARED_VB,
+				name?name:"");
+			assert(_clBuffer);
+		}
+		//});
+		return _clBuffer;
+	}
+
+	void relaxToCPU() override
+	{
+		//NuiOpenGLThread::instance().enqueueAndWait([&]()
+		//{
+		if (NuiGPUMemManager::instance().isValidCLBuffer(_clBuffer)) {
+			// Delete the OpenCL shared object
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(_clBuffer);
+			NUI_CHECK_CL_ERR(err);
+			_clBuffer = nullptr;
+		}
+
+		// Realize to system memory
+		glDeleteRenderbuffers(1, _rbo);
+		//});
+
+		pangolin::FreeImage(_rgbImg);
+	}
+
+private:
+	GLuint									_rbo[1];
+	pangolin::TypedImage					_rgbImg;
+	cl_mem                                  _clBuffer;
+};
+
 struct NuiGuiHWTextureMappable
 {
 	static GLuint asHWTextureBuffer(NuiTextureMappable& mappable)
@@ -158,6 +271,33 @@ struct NuiGuiHWTextureMappable
 		// Create OpenCL wrapper object
 		std::shared_ptr<NuiGuiTextureMappableImpl> hwImpl =
 			NuiTextureMappableAccessor::asImpl<NuiGuiTextureMappableImpl>(mappable);
+		return hwImpl ? hwImpl->clBuffer() : NULL;
+	}
+
+
+	static GLuint asHWRenderBuffer(NuiTextureMappable& mappable)
+	{
+		// Get the underlying buffer impl
+		std::shared_ptr<NuiGuiRenderBufferMappableImpl > hwImpl =
+			NuiTextureMappableAccessor::asImpl<NuiGuiRenderBufferMappableImpl >(mappable);
+		if (hwImpl)
+			return hwImpl->data();
+
+		hwImpl.reset(new NuiGuiRenderBufferMappableImpl(mappable.data(), mappable.width(), mappable.height()));
+
+		// Make a mappable
+		NuiTextureMappableAccessor::setImpl(mappable, hwImpl);
+		return hwImpl->data();
+	}
+
+	static cl_mem asHWRenderBufferSharedWithCL(NuiTextureMappable& mappable)
+	{
+		// Convert to index buffer
+		asHWRenderBuffer(mappable);
+
+		// Create OpenCL wrapper object
+		std::shared_ptr<NuiGuiRenderBufferMappableImpl> hwImpl =
+			NuiTextureMappableAccessor::asImpl<NuiGuiRenderBufferMappableImpl>(mappable);
 		return hwImpl ? hwImpl->clBuffer() : NULL;
 	}
 };

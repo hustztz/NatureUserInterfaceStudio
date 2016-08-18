@@ -204,14 +204,24 @@ __kernel void renderKernel(
 
 	//float minInterval = tex2D(rayMinTextureRef, x, y);
 	//float maxInterval = tex2D(rayMaxTextureRef, x, y);
+	
+	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR;
+	float4 interval = read_imagef(d_intervalMin, sampler, (int2)(gidx, gidy));
+	float minInterval = interval.x * 100.0f + interval.y + interval.z / 100.0f + interval.w / 10000.0f;
+	//interval = read_imagef(d_intervalMax, sampler, (int2)(gidx, gidy));
+	float maxInterval = interval.x * 100.0f + interval.y + interval.z / 100.0f + interval.w / 10000.0f;
+
+	vstore3( interval.xyz, idx, vmap);
+	return;
+
 	struct NuiCLCameraParams camParams = *cameraParams;
-	float minInterval = camParams.sensorDepthWorldMin;
-	float maxInterval = camParams.sensorDepthWorldMax;
-	if(d_intervalMin && d_intervalMax)
-	{
-		minInterval = read_image(d_intervalMin, (int2)(gidx, gidy));
-		maxInterval = read_image(d_intervalMax, (int2)(gidx, gidy));
-	}
+	/*if(minInterval < .01f || minInterval > 100.0f)
+		minInterval = camParams.sensorDepthWorldMin;
+	if(maxInterval < .01f || maxInterval > 100.0f)
+		maxInterval = camParams.sensorDepthWorldMax;*/
+
+	/*float minInterval = camParams.sensorDepthWorldMin;
+	float maxInterval = camParams.sensorDepthWorldMax;*/
 
 	//if (minInterval == 0 || minInterval == MINF) minInterval = rayCastParams.m_minDepth;
 	//if (maxInterval == 0 || maxInterval == MINF) maxInterval = rayCastParams.m_maxDepth;

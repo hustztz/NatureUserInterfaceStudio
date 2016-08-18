@@ -13,7 +13,7 @@ void NuiOfflineRenderFactory::initializeOfflineRender()
 	pInitializeOfflineRenderFn();
 }
 
-void NuiOfflineRenderFactory::runOfflineRender(NuiMappable4f& vb, NuiMappablef& rbMin, NuiMappablef& rbMax, int size, float sensorDepthMin, float sensorDepthMax)
+void NuiOfflineRenderFactory::runOfflineRender(NuiMappable4f& vb, NuiTextureMappable& rbMin, NuiTextureMappable& rbMax, int size, float sensorDepthMin, float sensorDepthMax)
 {
 	assert(pRunOfflineRenderFn);
 	if (!pRunOfflineRenderFn) {
