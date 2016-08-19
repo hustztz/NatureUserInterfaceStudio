@@ -32,14 +32,14 @@ NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const N
 		424,
 		NULL
 		);
-	NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMinBuffer);
+	NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMinBuffer);
 	NuiTextureMappableAccessor::updateImpl(
 		m_rayIntervalMaxBuffer,
 		512,
 		424,
 		NULL
 		);
-	NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMaxBuffer);
+	NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMaxBuffer);
 
 	reset();
 }
@@ -194,8 +194,8 @@ void NuiHashingVolume::raycastRender(
 	float thresSampleDist = m_raycastConfig.m_thresSampleDistFactor * rayIncrement;
 	float thresDist = m_raycastConfig.m_thresDistFactor * rayIncrement;
 
-	cl_mem rayIntervalMinGL = NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMinBuffer);
-	cl_mem rayIntervalMaxGL = NuiOpenCLBufferFactory::asRenderBufferCL(m_rayIntervalMaxBuffer);
+	cl_mem rayIntervalMinGL = NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMinBuffer);
+	cl_mem rayIntervalMaxGL = NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMaxBuffer);
 
 	// Acquire OpenGL objects before use
 	cl_mem glObjs[] = {

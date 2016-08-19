@@ -54,6 +54,8 @@ NuiGuiController::NuiGuiController()
 			NuiGuiHWMappable::asTexture1fBufferCL);
 		NuiOpenCLBufferFactory::RegisterAsTexture2DCLFn(
 			NuiGuiHWTextureMappable::asHWTextureBufferSharedWithCL);
+		NuiOpenCLBufferFactory::RegisterAsFrameTexture2DCLFn(
+			NuiGuiHWTextureMappable::asFrameTextureBufferSharedWithCL);
 		NuiOpenCLBufferFactory::RegisterAsRenderBufferCLFn(
 			NuiGuiHWTextureMappable::asHWRenderBufferSharedWithCL);
 

@@ -9,6 +9,7 @@ namespace NuiPangoRayIntervalSplattingShader
 {
 	static pangolin::GlSlProgram sOfflineShader;
 	static GLuint sFbo[1];
+	static GLuint sVba[1];
 
 	void initializeShader()
 	{
@@ -20,7 +21,7 @@ namespace NuiPangoRayIntervalSplattingShader
 		sOfflineShader.AddShaderFromFile(pangolin::GlSlFragmentShader, shaderDir + "/" + "rayIntervalSplatting.frag");
 		sOfflineShader.Link();
 
-		glGenFramebuffersEXT(1, sFbo);
+		glGenVertexArrays(1, sVba); // Create our Vertex Array Object
 	}
 
 	void render(NuiMappable4f& vb, NuiTextureMappable& rbMin, NuiTextureMappable& rbMax, int size, float sensorDepthMin, float sensorDepthMax)
@@ -28,6 +29,7 @@ namespace NuiPangoRayIntervalSplattingShader
 		if(!vb.size() || !size)
 			return;
 
+		GLenum glError = glGetError();
 		sOfflineShader.Bind();
 
 		glDisable(GL_STENCIL_TEST);
@@ -40,20 +42,28 @@ namespace NuiPangoRayIntervalSplattingShader
 		sOfflineShader.SetUniform("u_IsMax", false);
 		sOfflineShader.SetUniform("u_SensorMinMax", sensorDepthMin, sensorDepthMax);
 
-		glEnable(GL_FRAMEBUFFER_EXT);
-		glBindFramebuffer(GL_FRAMEBUFFER_EXT, sFbo[0]);
-		//glBindRenderbuffer(GL_RENDERBUFFER_EXT, NuiGuiHWTextureMappable::asHWRenderBuffer(rbMin));
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER_EXT, NuiGuiHWTextureMappable::asHWRenderBuffer(rbMin));
+		NuiGuiHWTextureMappable::bindFrameTextureBuffer(rbMin);
 
+		glBindVertexArray(sVba[0]);
+		glEnableVertexAttribArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, NuiGuiHWMappable::asHWVertexBuffer(vb));
+		glVertexAttribPointer((GLuint)0, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
+		glPushAttrib(GL_VIEWPORT_BIT);
 		glDrawArrays(GL_TRIANGLES, 0, size);
 		glViewport(0, 0, 512, 424);
+		/*glPointSize(3.0f);
+		glBegin(GL_POINTS);
+		glVertex3f(0.0, 0.5, 0.0);
+		glEnd();*/
+
+		glPopAttrib();
 
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 		//glBindRenderbuffer(GL_RENDERBUFFER_EXT, 0);
-		glBindFramebuffer(GL_FRAMEBUFFER_EXT,0);  
-		glDisable(GL_FRAMEBUFFER_EXT);
+		NuiGuiHWTextureMappable::unbindFrameTextureBuffer(rbMin);
+
+		glFlush();
 
 		// Max
 		glDepthFunc(GL_GREATER);
@@ -61,19 +71,28 @@ namespace NuiPangoRayIntervalSplattingShader
 		sOfflineShader.SetUniform("u_IsMax", true);
 		sOfflineShader.SetUniform("u_SensorMinMax", sensorDepthMin, sensorDepthMax);
 
-		glBindRenderbuffer(GL_RENDERBUFFER_EXT, NuiGuiHWTextureMappable::asHWRenderBuffer(rbMax));
-
+		//glBindRenderbuffer(GL_RENDERBUFFER_EXT, NuiGuiHWTextureMappable::asHWRenderBuffer(rbMax));
+		//glFramebufferRenderbuffer(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, NuiGuiHWTextureMappable::asHWTextureBuffer(rbMax));
+		NuiGuiHWTextureMappable::bindFrameTextureBuffer(rbMax);
 		glBindBuffer(GL_ARRAY_BUFFER, NuiGuiHWMappable::asHWVertexBuffer(vb));
 
+		glPushAttrib(GL_VIEWPORT_BIT);
 		glDrawArrays(GL_TRIANGLES, 0, size);
 		glViewport(0, 0, 512, 424);
+		glPopAttrib();
 
+		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		glBindRenderbuffer(GL_RENDERBUFFER_EXT, 0);
+		//glBindRenderbuffer(GL_RENDERBUFFER_EXT, 0);
+		//glBindFramebuffer(GL_FRAMEBUFFER_EXT,0);
+		NuiGuiHWTextureMappable::unbindFrameTextureBuffer(rbMax);
 
 		glDisable(GL_DEPTH_TEST);
 		glDepthMask(GL_FALSE);
 		sOfflineShader.Unbind();
+
+		
+		glFlush();
 	}
 }
 

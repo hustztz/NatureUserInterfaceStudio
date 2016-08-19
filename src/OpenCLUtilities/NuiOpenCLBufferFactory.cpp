@@ -8,6 +8,7 @@ FN_asNormal3fBufferCL NuiOpenCLBufferFactory::pAsNormal3fBufferCLFn = nullptr;
 FN_asPatchUV2fBufferCL NuiOpenCLBufferFactory::pAsPatchUV2fBufferCLFn = nullptr;
 FN_asTexture1fBufferCL NuiOpenCLBufferFactory::pAsTexture1fBufferCLFn = nullptr;
 FN_asTexture2DCL NuiOpenCLBufferFactory::pAsTexture2DCLFn = nullptr;
+FN_asFrameTexture2DCL NuiOpenCLBufferFactory::pAsFrameTexture2DCLFn = nullptr;
 FN_asRenderBufferCL NuiOpenCLBufferFactory::pAsRenderBufferCLFn = nullptr;
 
 cl_mem NuiOpenCLBufferFactory::asUInt32IndexBufferCL(NuiMappableui& m)
@@ -71,6 +72,15 @@ cl_mem NuiOpenCLBufferFactory::asTexture2DCL(NuiTextureMappable& m)
 		return nullptr;
 	}
 	return pAsTexture2DCLFn(m);
+}
+
+cl_mem NuiOpenCLBufferFactory::asFrameTexture2DCL(NuiTextureMappable& m)
+{
+	assert(pAsFrameTexture2DCLFn);
+	if (!pAsFrameTexture2DCLFn) {
+		return nullptr;
+	}
+	return pAsFrameTexture2DCLFn(m);
 }
 
 cl_mem NuiOpenCLBufferFactory::asRenderBufferCL(NuiTextureMappable& m)
