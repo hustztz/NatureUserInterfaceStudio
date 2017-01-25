@@ -66,7 +66,7 @@ public:
 	static  MObject			aMinDepth;
 	static  MObject			aMaxDepth;
 
-	static  MObject			aOutputPointCloud;
+	static  MObject			aOutputMappable;
 	static  MObject			aOutputMesh;
 	static  MObject			aOutputSkeleton;
 	static  MObject			aOutputGesture;

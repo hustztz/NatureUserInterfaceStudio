@@ -18,5 +18,6 @@ public:
     NuiMayaOpenGLThreadProvider();
     virtual ~NuiMayaOpenGLThreadProvider() override;
     virtual void enqueue(NuiOpenGLThread::Task* task) override;
+	virtual void makeSharedContextCurrent() override;
 };
 

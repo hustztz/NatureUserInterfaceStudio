@@ -379,20 +379,20 @@ void NuiMayaPointCloudGeometryOverride::updateTexturedPointCloudItem(const MDagP
 					NuiCLMappableData* geomPtr = fShape->meshGeom();
 					if(geomPtr)
 					{
-						const NuiColorImage& colorImage = geomPtr->GetColorImage();
+						const NuiTextureMappable& colorTex = geomPtr->ColorTex();
 						MHWRender::MTextureDescription textureDesc;
 						textureDesc.setToDefault2DTexture();
-						textureDesc.fWidth = colorImage.GetWidth();
-						textureDesc.fHeight = colorImage.GetHeight();
+						textureDesc.fWidth = colorTex.width();
+						textureDesc.fHeight = colorTex.height();
 						textureDesc.fDepth = 1;
-						textureDesc.fBytesPerSlice = colorImage.GetWidth() * colorImage.GetHeight() * colorImage.GetBytesPerPixel();
-						textureDesc.fBytesPerRow = colorImage.GetWidth() * colorImage.GetBytesPerPixel();
+						textureDesc.fBytesPerSlice = colorTex.width() * colorTex.height() * sizeof(BGRQUAD);
+						textureDesc.fBytesPerRow = colorTex.width() * sizeof(BGRQUAD);
 						textureDesc.fMipmaps = 1;
 						textureDesc.fArraySlices = 1;
 						textureDesc.fTextureType = MHWRender::kImage2D;
 						textureDesc.fFormat = MHWRender::kB8G8R8A8;
 						MHWRender::MTexture *colorTexture =
-							textureMgr->acquireTexture("", textureDesc, colorImage.GetBuffer(), false);
+							textureMgr->acquireTexture("", textureDesc, colorTex.data(), false);
 
 						if(colorTexture)
 						{
@@ -717,20 +717,20 @@ void NuiMayaPointCloudGeometryOverride::updateTexturedItem(const MDagPath& path,
 					NuiCLMappableData* geomPtr = fShape->meshGeom();
 					if(geomPtr)
 					{
-						const NuiColorImage& colorImage = geomPtr->GetColorImage();
+						const NuiTextureMappable& colorTex = geomPtr->ColorTex();
 						MHWRender::MTextureDescription textureDesc;
 						textureDesc.setToDefault2DTexture();
-						textureDesc.fWidth = colorImage.GetWidth();
-						textureDesc.fHeight = colorImage.GetHeight();
+						textureDesc.fWidth = colorTex.width();
+						textureDesc.fHeight = colorTex.height();
 						textureDesc.fDepth = 1;
-						textureDesc.fBytesPerSlice = colorImage.GetWidth() * colorImage.GetHeight() * colorImage.GetBytesPerPixel();
-						textureDesc.fBytesPerRow = colorImage.GetWidth() * colorImage.GetBytesPerPixel();
+						textureDesc.fBytesPerSlice = colorTex.width() * colorTex.height() * sizeof(BGRQUAD);
+						textureDesc.fBytesPerRow = colorTex.width() * sizeof(BGRQUAD);
 						textureDesc.fMipmaps = 1;
 						textureDesc.fArraySlices = 1;
 						textureDesc.fTextureType = MHWRender::kImage2D;
 						textureDesc.fFormat = MHWRender::kB8G8R8A8;
 						MHWRender::MTexture *colorTexture =
-							textureMgr->acquireTexture("", textureDesc, colorImage.GetBuffer(), false);
+							textureMgr->acquireTexture("", textureDesc, colorTex.data(), false);
 
 						if(colorTexture)
 						{

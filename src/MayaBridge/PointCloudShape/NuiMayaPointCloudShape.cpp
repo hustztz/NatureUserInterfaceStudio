@@ -7,8 +7,8 @@
 #include <math.h>
 
 #include "NuiMayaPointCloudShape.h"
-#include "NuiMayaImageCLData.h"
-#include "NuiMayaImageCLDataIterator.h"
+#include "NuiMayaMappableData.h"
+#include "NuiMayaMappableDataIterator.h"
 #include "Foundation/NuiProfilingScope.h"
 #include "../api_macros.h"
 
@@ -30,6 +30,7 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MDistance.h>
 #include <maya/MGlobal.h>
+#include <maya/MEvaluationNode.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -123,7 +124,7 @@ MStatus NuiMayaPointCloudShape::compute( const MPlug& plug, MDataBlock& databloc
 		MDataHandle outHandle = datablock.outputValue( aOutputPointCloud );
 
 		// Pass through by reference counting but create a new TdataLetter
-		MObject object = NuiMayaImageCLData::createSharedData(cachedHandle.data());
+		MObject object = NuiMayaMappableData::createSharedData(cachedHandle.data());
 
 		// Set to output
 		outHandle.setMObject(object);
@@ -169,6 +170,41 @@ MStatus NuiMayaPointCloudShape::setDependentsDirty( const MPlug& plug, MPlugArra
 		signalDirtyToViewport();
 	}
 	return MS::kSuccess;
+}
+
+
+//
+// Description
+//
+//    Pre evaluate will signal viewport dirty so that renderer can pick it up
+//    PreEvaluate will be called before each evaluation of this node 
+//
+// Arguments
+//
+//    context        -Evaluation context in which the compute happen
+//    evaluationNode - contains information about the dirtyness of plugs
+//
+// Returns
+//
+//    kSuccess          - PreEvaluation successful,
+//
+MStatus NuiMayaPointCloudShape::preEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode)
+{
+	if (context.isNormal())
+	{
+		MStatus status;
+		if ((evaluationNode.dirtyPlugExists(aInputPointCloud, &status) && status) ||
+			(evaluationNode.dirtyPlugExists(mControlPoints, &status) && status) ||
+			(evaluationNode.dirtyPlugExists(mControlValueX, &status) && status) ||
+			(evaluationNode.dirtyPlugExists(mControlValueY, &status) && status) ||
+			(evaluationNode.dirtyPlugExists(mControlValueZ, &status) && status)
+			)
+		{
+			signalDirtyToViewport();
+		}
+	}
+
+	return MStatus::kSuccess;
 }
 
 /* override */
@@ -394,7 +430,7 @@ MStatus NuiMayaPointCloudShape::connectionBroken( const MPlug& plug,
 	else if ( plug == aInputPointCloud )
 	{
 		std::shared_ptr<NuiCLMappableData> clData =
-			NuiMayaImageCLData::findData(thisMObject(), aInputPointCloud);
+			NuiMayaMappableData::findData(thisMObject(), aInputPointCloud);
 		if (clData) {
 			clData->relaxToCPU();
 		}
@@ -954,7 +990,7 @@ void NuiMayaPointCloudShape::updateCachedData( const NuiCLMappableData* geomPtr,
 
 	MDataHandle cachedHandle = datablock.outputValue( aCachedPointCloud, &stat );
 	MCHECKERRORNORET( stat, "computeInputCloudData error getting cachedCloudData")
-	NuiMayaImageCLData* cached = (NuiMayaImageCLData*) cachedHandle.asPluginData();
+	NuiMayaMappableData* cached = (NuiMayaMappableData*) cachedHandle.asPluginData();
 
 	MDataHandle dHandle = datablock.outputValue( mControlPoints, &stat );
 	MCHECKERRORNORET( stat, "updateCachedCloudData get dHandle" )
@@ -1671,12 +1707,12 @@ MPxGeometryIterator* NuiMayaPointCloudShape::geometryIteratorSetup(MObjectArray&
 //    An iterator for the components
 //
 {
-	NuiMayaImageCLDataIterator * result = NULL;
+	NuiMayaMappableDataIterator * result = NULL;
 	if ( components.isNull() ) {
-		result = new NuiMayaImageCLDataIterator( meshGeom(), componentList );
+		result = new NuiMayaMappableDataIterator( meshGeom(), componentList );
 	}
 	else {
-		result = new NuiMayaImageCLDataIterator( meshGeom(), components );
+		result = new NuiMayaMappableDataIterator( meshGeom(), components );
 	}
 	return result;
 }
@@ -1865,7 +1901,7 @@ MStatus NuiMayaPointCloudShape::computeCachedData( const MPlug& plug,
 		MCHECKERROR( stat, "computeInputSurface error getting inputSurface")
 
 		MObject inputDataObj = inputHandle.data();
-		MObject object = NuiMayaImageCLData::createSharedData(inputDataObj);
+		MObject object = NuiMayaMappableData::createSharedData(inputDataObj);
 
 		MCHECKERROR( stat, "NuiMayaPointCloudShape: refresh whole data for inCachedData.");
 		MDataHandle cachedHandle = datablock.outputValue(aCachedPointCloud, &stat);
@@ -1874,7 +1910,7 @@ MStatus NuiMayaPointCloudShape::computeCachedData( const MPlug& plug,
 
 		// Apply any vertex offsets.
 		//
-		NuiMayaImageCLData* cached = (NuiMayaImageCLData*) cachedHandle.asPluginData();
+		NuiMayaMappableData* cached = (NuiMayaMappableData*) cachedHandle.asPluginData();
 		if(cached)
 			applyTweaks( datablock, cached->data().get() );
 	}
@@ -2072,7 +2108,7 @@ NuiCLMappableData* NuiMayaPointCloudShape::meshGeom()
 
 	MObject tmpObj = meshDataRef();
 	MFnPluginData fnData( tmpObj );
-	NuiMayaImageCLData * clData = (NuiMayaImageCLData*)fnData.data( &stat );
+	NuiMayaMappableData * clData = (NuiMayaMappableData*)fnData.data( &stat );
 	MCHECKERRORNORET( stat, "meshGeom : Failed to get apiMeshData");
 
 	if ( NULL != clData ) {
@@ -2109,7 +2145,7 @@ NuiCLMappableData* NuiMayaPointCloudShape::cachedGeom()
 
 	MObject tmpObj = cachedDataRef();
 	MFnPluginData fnData( tmpObj );
-	NuiMayaImageCLData * clData = (NuiMayaImageCLData*)fnData.data( &stat );
+	NuiMayaMappableData * clData = (NuiMayaMappableData*)fnData.data( &stat );
 	MCHECKERRORNORET( stat, "cachedGeom : Failed to get apiMeshData");
 
 	if ( NULL != clData ) {
@@ -2196,7 +2232,7 @@ MStatus NuiMayaPointCloudShape::initialize()
 
 	// ----------------------- INPUTS --------------------------
 	aInputPointCloud = typedAttr.create( "inputPointCloud", "ipc",
-		NuiMayaImageCLData::id,
+		NuiMayaMappableData::id,
 		MObject::kNullObj, &stat );
 	MCHECKERROR( stat, "create inputPointCloud attribute" )
 	typedAttr.setReadable( false );
@@ -2237,7 +2273,7 @@ MStatus NuiMayaPointCloudShape::initialize()
 	// local output surface attributes
 	//
 	aOutputPointCloud = typedAttr.create( "outputPointCloudData", "opc",
-		NuiMayaImageCLData::id,
+		NuiMayaMappableData::id,
 		MObject::kNullObj, &stat );
 	MCHECKERROR( stat, "create output point cloud attribute" )
 	typedAttr.setReadable( true );
@@ -2257,7 +2293,7 @@ MStatus NuiMayaPointCloudShape::initialize()
 	// Cached surface used for file IO
 	//
 	aCachedPointCloud = typedAttr.create( "cachedPointCloud", "cpc",
-		NuiMayaImageCLData::id,
+		NuiMayaMappableData::id,
 		MObject::kNullObj, &stat );
 	MCHECKERROR( stat, "create cachedPointCloud attribute" )
 	typedAttr.setReadable( true );

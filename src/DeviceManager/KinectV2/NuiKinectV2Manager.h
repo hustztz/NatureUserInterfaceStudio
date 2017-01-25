@@ -116,4 +116,5 @@ private:
 	bool						m_bFacialModelProduced[BODY_COUNT];
 	IFaceModel*					m_pFacialModel[BODY_COUNT];
 	UINT32						m_nFacialModelVertexNum;
+	std::vector<float>			m_aFacialModelDeformations[BODY_COUNT];
 };

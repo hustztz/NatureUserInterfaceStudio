@@ -23,7 +23,8 @@ public:
 	// the node will have.  These handles are needed for getting and setting
 	// the values later.
 	//
-	static  MObject		aInputData;
+	static  MObject		aInputFacialData;
+	static  MObject		aInputImageData;
 
 	static  MObject		aRotateX;
 	static  MObject		aRotateY;
@@ -54,6 +55,24 @@ public:
 	static  MObject		aMouthCornerRightTranslateY;
 	static  MObject		aMouthCornerRightTranslateZ;
 	static  MObject		aMouthCornerRightTranslate;
+
+	static  MObject		aJawOpen;
+	static  MObject		aLipPucker;
+	static  MObject		aJawSlideRight;
+	static  MObject		aLipStretcherRight;
+	static  MObject		aLipStretcherLeft;
+	static  MObject		aLipCornerPullerLeft;
+	static  MObject		aLipCornerPullerRight;
+	static  MObject		aLipCornerDepressorLeft;
+	static  MObject		aLipCornerDepressorRight;
+	static  MObject		aLeftcheekPuff;
+	static  MObject		aRightcheekPuff;
+	static  MObject		aLefteyeClosed;
+	static  MObject		aRighteyeClosed;
+	static  MObject		aRighteyebrowLowerer;
+	static  MObject		aLefteyebrowLowerer;
+	static  MObject		aLowerlipDepressorLeft;
+	static  MObject		aLowerlipDepressorRight;
 
 	// The typeid is a unique 32bit indentifier that describes this node.
 	// It is used to save and retrieve nodes of this type from the binary

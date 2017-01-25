@@ -125,7 +125,7 @@ bool NuiOpenCLGlobal::initializeOpenCL()
 		if (printDebugInfo) printf(" Supported extensions: %s\n", extensions);
 	}
 
-	cl_uint numDevices;
+	cl_uint numDevices=1;
 	ciErrNum = clGetDeviceIDs(clPlatformIDs[0], CL_DEVICE_TYPE_GPU, 1, NULL, &numDevices);
 	//CL_OK(ciErrNum);
 	cl_device_id* clDeviceIDs = (cl_device_id*)malloc(numDevices * sizeof(cl_device_id));

@@ -20,7 +20,7 @@
 #include "Frame/NuiFrameUtilities.h"
 #include "Foundation/NuiTimeLog.h"
 
-static std::string sTestDataFolder = getenv("NUI_TESTDATA") ? getenv("NUI_TESTDATA") : "G:\\tmp\\";
+static std::string sTestDataFolder = getenv("NUI_TESTDATA") ? getenv("NUI_TESTDATA") : "H:\\tmp\\";
 
 NuiGuiController::NuiGuiController()
 	: m_pCache(NULL)

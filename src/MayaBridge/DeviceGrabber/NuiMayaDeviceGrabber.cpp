@@ -8,7 +8,8 @@
 #include "../SkeletonDriver/NuiMayaSkeletonData.h"
 #include "../SkeletonDriver/NuiMayaGestureData.h"
 #include "../SkeletonDriver/NuiMayaFacialModelData.h"
-#include "../PointCloudShape/NuiMayaImageCLData.h"
+#include "../SkeletonDriver/NuiMayaImageData.h"
+#include "../PointCloudShape/NuiMayaMappableData.h"
 #include "Shape/NuiMeshShape.h"
 #include "Frame/NuiFrameUtilities.h"
 
@@ -49,7 +50,7 @@ MObject		NuiMayaDeviceGrabber::aShowInvalid;
 MObject		NuiMayaDeviceGrabber::aShowOnlyBody;
 MObject		NuiMayaDeviceGrabber::aMinDepth;
 MObject		NuiMayaDeviceGrabber::aMaxDepth;
-MObject     NuiMayaDeviceGrabber::aOutputPointCloud;
+MObject     NuiMayaDeviceGrabber::aOutputMappable;
 MObject     NuiMayaDeviceGrabber::aOutputMesh;
 MObject     NuiMayaDeviceGrabber::aOutputSkeleton;
 MObject     NuiMayaDeviceGrabber::aOutputGesture;
@@ -302,13 +303,13 @@ MStatus NuiMayaDeviceGrabber::initialize()
 
 
 	// ----------------------- OUTPUTS -------------------------
-	aOutputPointCloud = typedAttr.create( "outputPointCloud", "opc",
-		NuiMayaImageCLData::id,
+	aOutputMappable = typedAttr.create( "outputPointCloud", "opc",
+		NuiMayaMappableData::id,
 		MObject::kNullObj, &stat );
 	if (!stat) { stat.perror("create outputPointCloud attribute"); return stat;}
 	typedAttr.setWritable( false );
 	typedAttr.setStorable(false);
-	stat = addAttribute( aOutputPointCloud );
+	stat = addAttribute( aOutputMappable );
 	if (!stat) { stat.perror("addAttribute"); return stat;}
 
 	aOutputSkeleton = typedAttr.create( "outputSkeleton", "osk",
@@ -420,7 +421,7 @@ MStatus NuiMayaDeviceGrabber::initialize()
 	// the output to be marked dirty when the input changes.  The output will
 	// then be recomputed the next time the value of the output is requested.
 	//
-	stat = attributeAffects( aTime, aOutputPointCloud );
+	stat = attributeAffects( aTime, aOutputMappable );
 	if (!stat) { stat.perror("attributeAffects"); return stat;}
 	stat = attributeAffects( aTime, aOutputSkeleton );
 	if (!stat) { stat.perror("attributeAffects"); return stat;}
@@ -515,10 +516,10 @@ MStatus NuiMayaDeviceGrabber::connectionBroken( const MPlug& plug,
 	}*/
 
 	// When aOutputPointCloud connection lost, we should unlock any graphic/compute shared memory
-	if (plug == aOutputPointCloud)
+	if (plug == aOutputMappable)
 	{
 		std::shared_ptr<NuiCLMappableData> clData =
-			NuiMayaImageCLData::findData(thisMObject(), aOutputPointCloud);
+			NuiMayaMappableData::findData(thisMObject(), aOutputMappable);
 
 		if (clData) {
 			clData->relaxToCPU();
@@ -569,30 +570,30 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 
 	std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
 		
-	if ( plug == aOutputPointCloud )
+	if ( plug == aOutputMappable )
 	{
 		std::shared_ptr<NuiCLMappableData> clData(nullptr);
-		MDataHandle outHandle = datablock.outputValue( aOutputPointCloud );
-		NuiMayaImageCLData* clmData = static_cast<NuiMayaImageCLData*>(outHandle.asPluginData());
+		MDataHandle outHandle = datablock.outputValue( aOutputMappable );
+		NuiMayaMappableData* clmData = static_cast<NuiMayaMappableData*>(outHandle.asPluginData());
 		if(!clmData)
 		{
 			// Create some user defined geometry data and access the
 			// geometry so we can set it
 			//
 			MFnPluginData fnDataCreator;
-			MTypeId tmpid( NuiMayaImageCLData::id );
+			MTypeId tmpid( NuiMayaMappableData::id );
 
 			fnDataCreator.create( tmpid, &returnStatus );
-			MCHECKERROR( returnStatus, "compute : error creating pointCloudData")
+			MCHECKERROR( returnStatus, "compute : error creating mappableData")
 
-			clmData = (NuiMayaImageCLData*)fnDataCreator.data( &returnStatus );
-			MCHECKERROR( returnStatus, "compute : error gettin at proxy pointCloudData object")
+			clmData = (NuiMayaMappableData*)fnDataCreator.data( &returnStatus );
+			MCHECKERROR( returnStatus, "compute : error gettin at proxy mappableData object")
 
 			clData = std::shared_ptr<NuiCLMappableData>(new NuiCLMappableData());
 			clmData->setData(clData);
 
 			returnStatus = outHandle.set( clmData );
-			MCHECKERROR( returnStatus, "compute : error gettin at proxy pointCloudData object")
+			MCHECKERROR( returnStatus, "compute : error gettin at proxy mappableData object")
 		}
 		else
 		{

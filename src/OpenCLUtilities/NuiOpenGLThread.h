@@ -91,6 +91,11 @@ public:
         // Execute the task in the main thread. It's the caller's
         // responsibility to destroy the task.
         virtual void enqueue(NuiOpenGLThread::Task* task) = 0;
+
+		// Make the shared OpenGL context current. Maya/OGS manipulator
+		// hijacks OpenGL context and set non-shared context current.
+		// We need to restore the shared context in the main thread.
+		virtual void makeSharedContextCurrent() = 0;
     };
 
 public:

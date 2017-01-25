@@ -9,7 +9,7 @@
 // =======================================================================
 
 #include <DependEngine/TevaluationManager.h>
-
+#include <DependEngine/TdgContext.h>
 #include "NuiMayaOpenGLThreadProvider.h"
 
 #include <maya/M3dView.h>
@@ -69,6 +69,12 @@ void NuiMayaOpenGLThreadProvider::enqueue(NuiOpenGLThread::Task* task)
     assert(task);
     TevaluationManager::theOne().enqueueOnMainthread(
         TdgContext::fsNormal, MainThreadTask(task));
+}
+
+void NuiMayaOpenGLThreadProvider::makeSharedContextCurrent()
+{
+	// Ensure the shared context is current
+	M3dView::active3dView().makeSharedContextCurrent();
 }
 
 
