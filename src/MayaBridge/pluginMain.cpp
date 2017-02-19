@@ -3,14 +3,16 @@
 #include <maya/MOpenCLInfo.h>
 #include <maya/MDrawRegistry.h>
 
-#include "MayaBridge/PointCloudShape/NuiMayaImageCLData.h"
+#include "MayaBridge/PointCloudShape/NuiMayaMappableData.h"
 #include "MayaBridge/PointCloudShape/NuiMayaPointCloudShape.h"
 #include "MayaBridge/PointCloudShape/NuiMayaPointCloudGeometryOverride.h"
 #include "MayaBridge/PointCloudProcess/NuiMayaMeshData.h"
 #include "MayaBridge/PointCloudProcess/NuiMayaMeshGenerator.h"
 #include "MayaBridge/SkeletonDriver/NuiMayaSkeletonData.h"
 #include "MayaBridge/SkeletonDriver/NuiMayaSkeletonDriver.h"
+#include "MayaBridge/SkeletonDriver/NuiMayaImageData.h"
 #include "MayaBridge/SkeletonDriver/NuiMayaFacialModelData.h"
+#include "MayaBridge/SkeletonDriver/NuiMayaFacialModelDriver.h"
 #include "MayaBridge/SkeletonDriver/NuiMayaGestureData.h"
 #include "MayaBridge/DeviceGrabber/NuiMayaDeviceGrabber.h"
 #include "MayaBridge/DeviceGrabber/NuiMayaPreviewerRenderOverride.h"
@@ -50,8 +52,8 @@ MStatus initializePlugin( MObject obj )
 	MStatus status;
 	MFnPlugin plugin( obj, PLUGIN_VENDOR, PLUGIN_VERSION, "Any");
 
-	status = plugin.registerData( "pointCloudData", NuiMayaImageCLData::id,
-		&NuiMayaImageCLData::creator,
+	status = plugin.registerData( "pointCloudData", NuiMayaMappableData::id,
+		&NuiMayaMappableData::creator,
 		MPxData::kGeometryData );
 	if ( ! status ) {
 		cerr << "Failed to register geometry data : pointCloudData \n";
@@ -123,11 +125,28 @@ MStatus initializePlugin( MObject obj )
 		return status;
 	}
 
+	status = plugin.registerData( "imageData", NuiMayaImageData::id,
+		&NuiMayaImageData::creator,
+		MPxData::kData );
+	if ( ! status ) {
+		cerr << "Failed to register geometry data : imageData \n";
+		uninitializePlugin(obj);
+		return status;
+	}
+
 	status = plugin.registerData( "facialModelData", NuiMayaFacialModelData::id,
 		&NuiMayaFacialModelData::creator,
 		MPxData::kData );
 	if ( ! status ) {
 		cerr << "Failed to register geometry data : facialModelData \n";
+		uninitializePlugin(obj);
+		return status;
+	}
+
+	status = plugin.registerNode( "facialModelDriver", NuiMayaFacialModelDriver::id, NuiMayaFacialModelDriver::creator,
+		NuiMayaFacialModelDriver::initialize );
+	if (!status) {
+		status.perror("registerNode: facial model driver node");
 		uninitializePlugin(obj);
 		return status;
 	}
@@ -285,9 +304,19 @@ MStatus uninitializePlugin( MObject obj)
 		cerr << "Failed to deregister node : Grabber \n";
 	}
 
+	status = plugin.deregisterNode( NuiMayaFacialModelDriver::id );
+	if ( ! status ) {
+		cerr << "Failed to deregister node : FacialModel driver \n";
+	}
+
 	status = plugin.deregisterData( NuiMayaFacialModelData::id );
 	if ( ! status ) {
 		cerr << "Failed to deregister data : facial model Data \n";
+	}
+
+	status = plugin.deregisterData( NuiMayaImageData::id );
+	if ( ! status ) {
+		cerr << "Failed to deregister data : NuiMayaCompositeImageData \n";
 	}
 
 	status = plugin.deregisterNode( NuiMayaSkeletonDriver::id );
@@ -327,7 +356,7 @@ MStatus uninitializePlugin( MObject obj)
 		cerr << "Failed to deregister shape : pointCloudShape \n";
 	}
 
-	status = plugin.deregisterData( NuiMayaImageCLData::id );
+	status = plugin.deregisterData( NuiMayaMappableData::id );
 	if ( ! status ) {
 		cerr << "Failed to deregister geometry data : pointCloudData \n";
 	}

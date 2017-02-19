@@ -1,6 +1,7 @@
 
 source NuiMayaPointCloudShapeSetup;
 source NuiMayaSkeletonSetup;
+source NuiMayaFacialModelSetup;
 
 //	Callback routine for the menu item created in pointCloudEditorMenu
 global proc setupDeviceGrabberNode ()
@@ -90,6 +91,8 @@ global proc natureUserInterfaceMenu ()
 			-command "buildSkeleton" buildSkeletonItem;
 		menuItem -label "Build Hands"
 			-command "buildHand" buildHandItem;
+		menuItem -label "Grabber To Facial Model"
+			-command "grabberToFacialModel" grabberToFacialModelItem;
 }
 
 // Run natureUserInterfaceMenu to add "Nature User Interface" to the top level Maya menu list.

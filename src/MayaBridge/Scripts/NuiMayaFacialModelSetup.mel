@@ -1,0 +1,34 @@
+global proc grabberToFacialModel ()
+{
+	string $grabber = "";
+	string $selectedGrabbers[] = `ls -sl`;
+	int $ii;
+	for ( $ii = 0; $ii < size($selectedGrabbers); $ii++ ) {
+		string $type = `nodeType $selectedGrabbers[$ii]`;
+		if ( $type == "natureUserInterfaceGrabber" ) {
+			$grabber = $selectedGrabbers[$ii];
+			break;
+		}
+	}
+
+	if ($grabber == "")
+	{
+		string $nodeNames[] = `lsType( "natureUserInterfaceGrabber" )`;
+		string  $name;
+		for ( $name in $nodeNames )
+		{
+			if ( $name != "<done>" ){
+				$grabber = $name;
+				break;
+			}
+		}
+	}
+	
+	if ($grabber == "")
+		return;
+
+	print $grabber;
+	
+	createNode facialModelDriver -n facialModelDriver1;
+	connectAttr ($grabber + ".outputFacialModel") facialModelDriver1.inputFacialData ;
+}

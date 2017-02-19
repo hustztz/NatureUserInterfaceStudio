@@ -43,3 +43,5 @@ Maya.env
 
 # Other
 NatureUserInterfaceToMaya/
+*.log
+NatureUserInterfaceStudio.VC.db

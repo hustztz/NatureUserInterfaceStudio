@@ -409,7 +409,7 @@ bool NuiKinectV2Manager::InitializeFacialModel()
 		}
 
 		m_bFacialModelProduced[count] = false;
-		std::vector<std::vector<float>> m_aFacialModelDeformations( BODY_COUNT, std::vector<float>( FaceShapeDeformations::FaceShapeDeformations_Count ) );
+		m_aFacialModelDeformations[count].resize( FaceShapeDeformations::FaceShapeDeformations_Count );
 		// Create Face Model
 		hResult = CreateFaceModel( 1.0f, FaceShapeDeformations::FaceShapeDeformations_Count, &m_aFacialModelDeformations[count][0], &m_pFacialModel[count] );
 		if( FAILED( hResult ) ){
@@ -1724,9 +1724,10 @@ bool NuiKinectV2Manager::DetectFacialModels(NuiCompositeFrame* pCompositeFrame)
 					{
 						FaceModelBuilderCollectionStatus collection;
 						hResult = m_pFacialModelBuilder[count]->get_CollectionStatus( &collection );
-						if( collection == FaceModelBuilderCollectionStatus::FaceModelBuilderCollectionStatus_Complete )
+						//if( collection == FaceModelBuilderCollectionStatus::FaceModelBuilderCollectionStatus_Complete )
 						{
 							std::cout << "Status : Complete" << std::endl;
+							printf("Status : Complete");
 
 							IFaceModelData* pFaceModelData = nullptr;
 							hResult = m_pFacialModelBuilder[count]->GetFaceData( &pFaceModelData );
@@ -1738,7 +1739,8 @@ bool NuiKinectV2Manager::DetectFacialModels(NuiCompositeFrame* pCompositeFrame)
 							}
 							SafeRelease( pFaceModelData );
 						}
-						else{
+						//else
+						{
 							std::cout << "Status : " << collection << std::endl;
 							
 							// Collection Status
@@ -1774,9 +1776,12 @@ bool NuiKinectV2Manager::DetectFacialModels(NuiCompositeFrame* pCompositeFrame)
 						}
 					}
 
-					// HD Face Points
 					pFacialModelCache = new NuiFacialModel;
-					hResult = m_pFacialModel[count]->CalculateVerticesForAlignment( m_pFacialModelAlignment[count], m_nFacialModelVertexNum, pFacialModelCache->AllocateVertices(m_nFacialModelVertexNum) );
+					hResult = m_pFacialModelAlignment[count]->GetAnimationUnits(FaceShapeAnimations::FaceShapeAnimations_Count, pFacialModelCache->AllocateAUs(FaceShapeAnimations::FaceShapeAnimations_Count));
+
+					//hResult = m_pFacialModel[count]->GetFaceShapeDeformations( FaceShapeDeformations::FaceShapeDeformations_Count, &m_aFacialModelDeformations[count][0] );
+					// HD Face Points
+					//hResult = m_pFacialModel[count]->CalculateVerticesForAlignment( m_pFacialModelAlignment[count], m_nFacialModelVertexNum, pFacialModelCache->AllocateVertices(m_nFacialModelVertexNum) );
 					if(FAILED(hResult))
 						SafeDelete(pFacialModelCache);
 				}

@@ -21,6 +21,7 @@ public:
 	// From MPxNode
 	//
 	virtual void			postConstructor();
+	virtual MStatus			preEvaluation(const MDGContext& context, const MEvaluationNode& evaluationNode) override;
 	virtual MStatus   		compute( const MPlug& plug, MDataBlock& data );
 	virtual MStatus			setDependentsDirty( const MPlug& plug, MPlugArray& plugArray);
 	virtual bool			getInternalValue( const MPlug&,

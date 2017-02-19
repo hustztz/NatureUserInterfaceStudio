@@ -63,7 +63,7 @@ bool NuiRGBDDeviceController::startDevice(DWORD deviceMode)
 			NuiRGBDDeviceManagerImpl::EDevice_ColorMap_On |
 			NuiRGBDDeviceManagerImpl::EDevice_PlayIndex_On |
 			NuiRGBDDeviceManagerImpl::EDevice_Skeleton_On |
-			NuiRGBDDeviceManagerImpl::EDevice_Face_On;
+			NuiRGBDDeviceManagerImpl::EDevice_FacialModel_On; //EDevice_Face_On
 		break;
 	case EDeviceMode_VertexColorSkeletonGesture:
 		deviceFlag = NuiRGBDDeviceManagerImpl::EDevice_Depth_On |
