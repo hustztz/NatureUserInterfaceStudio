@@ -32,9 +32,9 @@ public:
 	PixelT*			GetBuffer() const { return m_image.GetBuffer(); }
 	UINT			GetWidth() const {	return m_image.GetWidth(); }
 	UINT			GetHeight() const { return m_image.GetHeight();	}
-	UINT			GetBytesPerPixel() const { return m_image.GetBytesPerPixel(); }
-	UINT			GetBufferSize() const { return m_image.GetBufferSize(); }
-	UINT			GetBufferNum() const { return m_image.GetBufferNum(); }
+	size_t			GetBytesPerPixel() const { return m_image.GetElementBytes(); }
+	size_t			GetBufferSize() const { return m_image.GetBufferSize(); }
+	size_t			GetBufferNum() const { return m_image.GetBufferNum(); }
 
 	const imageT&	GetImage() const { return m_image; }
 

@@ -14,7 +14,7 @@
 
 using Eigen::AngleAxisf;
 
-NuiPyramidICP::NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeight)
+NuiPyramidICP::NuiPyramidICP(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight)
 	: m_configuration(config)
 	, m_gaussianCL(NULL)
 	, m_corespsCL(NULL)

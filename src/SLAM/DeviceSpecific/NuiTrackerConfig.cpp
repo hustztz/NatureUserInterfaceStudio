@@ -1,8 +1,8 @@
-#include "NuiICPConfig.h"
+#include "NuiTrackerConfig.h"
 
 #include <fstream>
 
-NuiICPConfig::NuiICPConfig()
+NuiTrackerConfig::NuiTrackerConfig()
 	: bHasColor(false)
 {
 	filter_radius = 3; //static_cast<int>(sigma_space * 1.5);
@@ -20,7 +20,7 @@ NuiICPConfig::NuiICPConfig()
 	iterations.push_back( 5 );
 }
 
-bool	NuiICPConfig::load(const std::string& fileName)
+bool	NuiTrackerConfig::load(const std::string& fileName)
 {
 	std::ifstream fpin (fileName.c_str(), std::ios::in);
 	if( !fpin.is_open() )
@@ -79,7 +79,7 @@ bool	NuiICPConfig::load(const std::string& fileName)
 	return true;
 }
 
-bool	NuiICPConfig::log(const std::string& fileName) const
+bool	NuiTrackerConfig::log(const std::string& fileName) const
 {
 	// Open file
 	std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);

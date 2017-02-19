@@ -1076,10 +1076,10 @@ bool NuiKinectV2Manager::GrabDepthFrame (IMultiSourceFrame* pMultiSourceFrame)
 		if (SUCCEEDED(hResult) && pDepthFrame)
 		{
 			UINT16*	pDepthBuffer = m_depthFrameBuffer.GetBuffer();
-			UINT nDepthBufferNum = m_depthFrameBuffer.GetBufferNum();
+			size_t nDepthBufferNum = m_depthFrameBuffer.GetBufferNum();
 			if(pDepthBuffer && nDepthBufferNum > 0)
 			{
-				hResult = pDepthFrame->CopyFrameDataToArray(nDepthBufferNum, pDepthBuffer);
+				hResult = pDepthFrame->CopyFrameDataToArray((UINT)nDepthBufferNum, pDepthBuffer);
 				if(SUCCEEDED(hResult))
 				{
 					// Compute FPS
@@ -1127,7 +1127,7 @@ bool NuiKinectV2Manager::GrabColorFrame (IMultiSourceFrame* pMultiSourceFrame)
 		if (SUCCEEDED(hResult) && pColorFrame)
 		{
 			BGRQUAD* pColorBuffer = m_colorFrameBuffer.GetBuffer();
-			UINT nColorBufferSize = m_colorFrameBuffer.GetBufferSize();
+			size_t nColorBufferSize = m_colorFrameBuffer.GetBufferSize();
 			if(pColorBuffer && nColorBufferSize > 0)
 			{
 				/*IColorCameraSettings* pCameraSettings = NULL;
@@ -1137,7 +1137,7 @@ bool NuiKinectV2Manager::GrabColorFrame (IMultiSourceFrame* pMultiSourceFrame)
 					TIMESPAN exposureTime;
 					pCameraSettings->get_ExposureTime(&exposureTime);
 				}*/
-				hResult = pColorFrame->CopyConvertedFrameDataToArray(nColorBufferSize, reinterpret_cast<BYTE*>(pColorBuffer), ColorImageFormat_Bgra);
+				hResult = pColorFrame->CopyConvertedFrameDataToArray((UINT)nColorBufferSize, reinterpret_cast<BYTE*>(pColorBuffer), ColorImageFormat_Bgra);
 				if(SUCCEEDED(hResult))
 				{
 					// Compute FPS
@@ -1182,10 +1182,10 @@ bool NuiKinectV2Manager::GrabBodyIndexFrame (IMultiSourceFrame* pMultiSourceFram
 		if (SUCCEEDED(hResult) && pBodyIndexFrame)
 		{
 			BYTE* pBodyIndexBuffer = m_bodyIndexFrameBuffer.GetBuffer();
-			UINT nBodyIndexBufferSize = m_bodyIndexFrameBuffer.GetBufferSize();
+			size_t nBodyIndexBufferSize = m_bodyIndexFrameBuffer.GetBufferSize();
 			if(pBodyIndexBuffer && nBodyIndexBufferSize > 0)
 			{
-				hResult = pBodyIndexFrame->CopyFrameDataToArray(nBodyIndexBufferSize, pBodyIndexBuffer);
+				hResult = pBodyIndexFrame->CopyFrameDataToArray((UINT)nBodyIndexBufferSize, pBodyIndexBuffer);
 				if(SUCCEEDED(hResult))
 				{
 					TIMESPAN relativeTimeStamp;

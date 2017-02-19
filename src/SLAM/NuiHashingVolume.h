@@ -40,13 +40,23 @@ public:
 		float sensorDepthMin, float sensorDepthMax
 		) override;
 
+	virtual void	offlineRender() override;
+
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
 	void			updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
 protected:
-	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL, UINT nWidth, UINT nHeight, float sensorDepthMin, float sensorDepthMax);
+	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL);
+	void			raycast(
+		cl_mem renderVerticesCL,
+		cl_mem renderNormalsCL,
+		cl_mem renderIntensitiesCL,
+		cl_mem cameraParamsCL,
+		cl_mem transformCL,
+		UINT nWidth, UINT nHeight
+		);
 private:
 	NuiHashingSDF*				m_pSDFData;
 	NuiHashingChunkGrid*		m_pChunkGrid;
@@ -57,4 +67,15 @@ private:
 	NuiMappable4f				m_raycastVertexBuffer;
 	NuiTextureMappable			m_rayIntervalMinBuffer;
 	NuiTextureMappable			m_rayIntervalMaxBuffer;
+
+	std::atomic<bool>			m_offlineRenderDirty;
+
+	// For offline render
+	cl_mem m_renderVerticesCL;
+	cl_mem m_renderNormalsCL;
+	cl_mem m_renderIntensitiesCL;
+	cl_mem m_cameraParamsCL;
+	cl_mem m_transformCL;
+	UINT m_nWidth; UINT m_nHeight;
+	float m_sensorDepthMin; float m_sensorDepthMax;
 };

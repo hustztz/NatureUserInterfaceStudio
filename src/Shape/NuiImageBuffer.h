@@ -1,14 +1,14 @@
 #pragma once
-#include "stdafx.h"
+#include "NuiMemoryBlock.h"
 
 template<typename T>
-class NuiImageBuffer
+class NuiImageBuffer : public NuiMemoryBlock <T>
 {
 public:
 	NuiImageBuffer()
 		: m_nWidth(0)
 		, m_nHeight(0)
-		, m_pBuffer(nullptr)
+		, NuiMemoryBlock()
 	{}
 	~NuiImageBuffer()
 	{
@@ -17,54 +17,33 @@ public:
 
 	void			Clear()
 	{
-		SafeDeleteArray(m_pBuffer);
+		NuiMemoryBlock::Clear();
 		m_nWidth = 0;
 		m_nHeight = 0;
-	}
-	void			DeepCopy (const NuiImageBuffer& other)
-	{
-		if(other.m_pBuffer)
-		{
-			T* pBuffer = AllocateBuffer(other.m_nWidth, other.m_nHeight);
-			memcpy(pBuffer, other.m_pBuffer, GetBufferSize());
-		}
-		else
-		{
-			Clear();
-		}
 	}
 	NuiImageBuffer (const NuiImageBuffer& other){ DeepCopy(other); }
 	NuiImageBuffer& operator = (const NuiImageBuffer& other) {	DeepCopy(other); return *this; }
 
 	T*				AllocateBuffer(UINT width, UINT height)
 	{
-		if(m_pBuffer)
+		if(m_nWidth != width || m_nHeight != height)
 		{
-			if(m_nWidth != width || m_nHeight != height)
-			{
-				Clear();
-			}
+			Clear();
 		}
-		if(!m_pBuffer)
-		{
-			m_nWidth = width;
-			m_nHeight = height;
-			if(0 != m_nWidth && 0 != m_nHeight)
-			{
-				m_pBuffer = new T[m_nWidth*m_nHeight];
-			}
-		}
-		return m_pBuffer;
+		m_nWidth = width;
+		m_nHeight = height;
+		return NuiMemoryBlock::AllocateBuffer(m_nWidth*m_nHeight);
 	}
-	T*				GetBuffer() const { return m_pBuffer; }
 	UINT			GetWidth() const {	return m_nWidth; }
 	UINT			GetHeight() const { return m_nHeight;	}
-	UINT			GetBytesPerPixel() const { return sizeof(T); }
-	UINT			GetBufferNum() const { return (m_nWidth * m_nHeight); }
-	UINT			GetBufferSize() const { return (GetBytesPerPixel() * GetBufferNum()); }
-
+protected:
+	void			DeepCopy (const NuiImageBuffer& other)
+	{
+		NuiMemoryBlock::DeepCopy(other);
+		m_nWidth = other.GetWidth();
+		m_nHeight = other.GetHeight();
+	}
 private:
-	T*				m_pBuffer;
 	UINT			m_nWidth;
 	UINT			m_nHeight;
 };

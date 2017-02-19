@@ -266,7 +266,7 @@ bool NuiKinectV1Grabber::grabColorFrame()
 	if (LockedRect.Pitch != 0)
 	{
 		BGRQUAD* pColorBuffer = m_colorFrameBuffer.GetBuffer();
-		UINT nColorBufferSize = m_colorFrameBuffer.GetBufferSize();
+		size_t nColorBufferSize = m_colorFrameBuffer.GetBufferSize();
 		assert(pColorBuffer);
 		if(pColorBuffer && nColorBufferSize > 0)
 		{

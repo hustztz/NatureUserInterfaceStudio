@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NuiICPConfig.h"
+#include "NuiTrackerConfig.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
 #include <Eigen/Core>
@@ -14,7 +14,7 @@ class NuiKinfuTransform;
 class NuiPyramidICP
 {
 public:
-	NuiPyramidICP(const NuiICPConfig& config, UINT nWidth, UINT nHeight);
+	NuiPyramidICP(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	~NuiPyramidICP();
 
 	bool	log(const std::string& fileName) const;
@@ -60,7 +60,7 @@ private:
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 
-	NuiICPConfig m_configuration;
+	NuiTrackerConfig m_configuration;
 	std::vector<UINT> m_iterations;
 	UINT m_nWidth, m_nHeight;
 

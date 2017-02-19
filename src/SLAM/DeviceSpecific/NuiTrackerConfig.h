@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-struct NuiICPConfig
+struct NuiTrackerConfig
 {
 	bool bHasColor;
 	UINT filter_radius;				// bilateral filter radius
@@ -20,7 +20,7 @@ struct NuiICPConfig
 	float track_threshold;      // percent of tracked pixels to accept tracking result
 	std::vector<UINT> iterations;  // max number of iterations per level
 
-	NuiICPConfig();
+	NuiTrackerConfig();
 
 	bool	load(const std::string& fileName);
 	bool	log(const std::string& fileName) const;

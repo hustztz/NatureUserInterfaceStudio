@@ -131,10 +131,10 @@ void NuiGuiController::handleGuiChanged()
 			}
 
 			m_pKinfu->pauseThread();
-			m_pKinfu->setColorTracker(m_gui->a_trackColors);
-			m_pKinfu->setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
-			m_pKinfu->setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
-			m_pKinfu->resetVolume(m_gui->a_volumeVoxelSize, m_gui->a_hashingVolume);
+			m_pKinfu->m_engine.setColorTracker(m_gui->a_trackColors);
+			m_pKinfu->m_engine.setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
+			m_pKinfu->m_engine.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
+			m_pKinfu->m_engine.setVolume(m_gui->a_volumeVoxelSize, m_gui->a_hashingVolume);
 
 			m_pKinfu->startThread();
 		}
@@ -147,7 +147,7 @@ void NuiGuiController::handleGuiChanged()
 	if(m_gui->a_integrationThreshold.GuiChanged())
 	{
 		if(m_pKinfu)
-			m_pKinfu->setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
+			m_pKinfu->m_engine.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
 	}
 
 	/*if( NuiOpenCLGlobal::instance().isCLReady() )
@@ -172,9 +172,9 @@ void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 	if(m_pKinfu && m_pKinfu->isThreadOn())
 	{
 		float trackerErrThresh = 5e-05f;
-		m_gui->a_resLog.Log(m_pKinfu->getTrackerError(), trackerErrThresh);
+		m_gui->a_resLog.Log(m_pKinfu->m_engine.getTrackerError(), trackerErrThresh);
 		float trackerCountThresh = 30000.f;
-		m_gui->a_inLog.Log(m_pKinfu->getTrackerCount(), trackerCountThresh);
+		m_gui->a_inLog.Log(m_pKinfu->m_engine.getTrackerCount(), trackerCountThresh);
 	}
 
 	std::stringstream strsf;
@@ -258,10 +258,13 @@ void NuiGuiController::launch()
 			} while (1);
 		}
 
+		if(m_pKinfu)
+			m_pKinfu->m_engine.offlineRender();
+
 		std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
 		if(m_gui->a_drawGlobalModel && m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
 		{
-			m_pKinfu->getCLData(&frameData, m_gui->a_drawMesh);
+			m_pKinfu->m_engine.getCLData(&frameData, m_gui->a_drawMesh);
 		}
 		else if(pCurrentFrame)
 		{
@@ -293,7 +296,7 @@ void NuiGuiController::launch()
 
 	NuiFileIOUtilities::writeDayTime(fileName);
 	if(m_pKinfu)
-		m_pKinfu->log(fileName);
+		m_pKinfu->m_engine.log(fileName);
 	NuiTimeLog::instance().log(fileName);
 }
 

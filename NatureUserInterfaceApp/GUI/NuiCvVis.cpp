@@ -40,7 +40,7 @@ void NuiCvVis::DrawDepthImage(NuiCompositeFrame* pCompositeFrame, UINT16 minDept
 	assert(pCompositeFrame);
 
 	const NuiDepthFrame& depthFrame = pCompositeFrame->m_depthFrame;
-	UINT nDepthBufferSize = depthFrame.GetBufferSize();
+	size_t nDepthBufferSize = depthFrame.GetBufferSize();
 	UINT16* pDepthBuffer = depthFrame.GetBuffer();
 	if(!pDepthBuffer || nDepthBufferSize == 0)
 		return;
@@ -94,7 +94,7 @@ void NuiCvVis::DrawColorImage(NuiCompositeFrame* pCompositeFrame, IplImage* pCol
 	assert(pCompositeFrame);
 
 	const NuiColorFrame& colorFrame = pCompositeFrame->m_colorFrame;
-	UINT nColorBufferSize = colorFrame.GetBufferSize();
+	size_t nColorBufferSize = colorFrame.GetBufferSize();
 	UINT nColorWidth = colorFrame.GetWidth();
 	UINT nColorHeight = colorFrame.GetHeight();
 	BGRQUAD* pColorBuffer = colorFrame.GetBuffer();

@@ -40,6 +40,8 @@ public:
 		float sensorDepthMin, float sensorDepthMax
 		) = 0;
 
+	virtual void	offlineRender() {};
+
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) = 0;
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) = 0;
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) = 0;
