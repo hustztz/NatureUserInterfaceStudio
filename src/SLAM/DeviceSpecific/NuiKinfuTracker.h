@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Eigen/Geometry>
+
 class NuiKinfuFrame;
 class NuiKinfuCameraState;
 class NuiKinfuScene;

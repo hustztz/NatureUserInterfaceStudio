@@ -1,14 +1,15 @@
 #pragma once
 
 #include "NuiKinfuCameraState.h"
+#include "NuiTrackerConfig.h"
 
-#include "DeviceSpecific\NuiTrackerConfig.h"
-#include "DeviceSpecific\NuiKinfuFrame.h"
-#include "DeviceSpecific\NuiKinfuTracker.h"
+#include "Shape\NuiImageBuffer.h"
 
 //Forwards
 class NuiCLMappableData;
 class NuiKinfuScene;
+class NuiKinfuFrame;
+class NuiKinfuTracker;
 
 typedef Eigen::Vector3i Vector3i;
 
@@ -48,7 +49,7 @@ public:
 private:
 	NuiKinfuTracker*		m_pTracker;
 	NuiKinfuFrame*			m_pFrame;
-	NuiKinfuCameraState		m_cameraState;
+	NuiKinfuCameraState*	m_pCameraState;
 	std::vector<NuiCameraPos> m_poses;
 
 	NuiCameraPos			m_lastIntegrationPos;

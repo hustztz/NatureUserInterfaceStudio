@@ -1,18 +1,15 @@
 #pragma once
 
 #include "stdafx.h"
+#include "Shape\NuiImageBuffer.h"
 
-class NuiColorImage;
-class NuiCameraParams;
+struct NuiCameraParams;
 
 class NuiKinfuFrame
 {
 public:
 	NuiKinfuFrame() : m_nWidth(0), m_nHeight(0) {}
-	virtual ~NuiKinfuFrame()
-	{
-		ReleaseBuffers();
-	}
+	virtual ~NuiKinfuFrame(){}
 
 	virtual void	AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight) = 0;
 	virtual void	ReleaseBuffers() = 0;

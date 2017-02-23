@@ -23,7 +23,7 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 {
 	SafeDelete(m_pScene);
 
-	if(bHashingSDF)
+	/*if(bHashingSDF)
 	{
 		NuiHashingSDFConfig sdfConfig;
 		sdfConfig.m_virtualVoxelSize = voxelSize;
@@ -32,12 +32,12 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 		NuiHashingRaycastConfig raycastConfig;
 		m_pScene = new NuiHashingVolume(sdfConfig, raycastConfig);
 	}
-	else
+	else*/
 	{
 		NuiKinfuVolumeConfig volumeConfig;
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-		m_pScene = new NuiKinfuTSDFVolume(volumeConfig);
+		m_pScene = new NuiKinfuOpenCLScene(volumeConfig);
 	}
 }
 

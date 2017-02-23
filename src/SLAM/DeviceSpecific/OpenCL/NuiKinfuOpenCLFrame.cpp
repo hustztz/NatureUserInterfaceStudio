@@ -6,7 +6,6 @@
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 
 #include "Shape\NuiCameraParams.h"
-#include "Shape\NuiImageBuffer.h"
 #include "Kernels/gpu_def.h"
 #include "assert.h"
 
@@ -17,12 +16,15 @@ NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame()
 	, m_colorImageCL(NULL)
 	, m_colorsCL(NULL)
 	, m_pNormalCL(NULL)
-	, m_nWidth(0)
-	, m_nHeight(0)
 	, m_nColorWidth(0)
 	, m_nColorHeight(0)
 {
 	
+}
+
+NuiKinfuOpenCLFrame::~NuiKinfuOpenCLFrame()
+{
+	ReleaseBuffers();
 }
 
 void	NuiKinfuOpenCLFrame::AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)

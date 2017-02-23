@@ -15,8 +15,8 @@ class NuiMeshShape;
 class NuiKinfuScene
 {
 public:
-	NuiKinfuScene();
-	~NuiKinfuScene();
+	NuiKinfuScene(){}
+	virtual ~NuiKinfuScene(){}
 
 	void setDirty() { m_dirty = true; }
 	void clearDirty() { m_dirty = false; }

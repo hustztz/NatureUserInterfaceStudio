@@ -6,7 +6,7 @@
 class NuiMeshShape;
 class NuiKinfuScene;
 class NuiCameraPos;
-class NuiCameraParams;
+struct NuiCameraParams;
 
 class NuiKinfuMainEngine
 {

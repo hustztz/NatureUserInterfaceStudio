@@ -404,7 +404,8 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 		for (int iter = 0; iter < iter_num; ++iter)
 		{
 			// Compute euler angles
-			Matrix3frm Rdelta = pTransform->getRotation().inverse() * Rcurr;
+			const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
+			Matrix3frm Rdelta = cameraPos.getRotation().inverse() * Rcurr;
 			Vector3f eulerAngles = Rdelta.eulerAngles(2, 1, 0);
 
 			idx = 0;

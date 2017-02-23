@@ -1,6 +1,7 @@
 #include "NuiKinfuOpenCLScene.h"
 
 #include "NuiKinfuOpenCLFrame.h"
+#include "NuiKinfuOpenCLCameraState.h"
 
 #include "../../NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
@@ -472,11 +473,14 @@ Vector3f NuiKinfuOpenCLScene::shiftVolume(const Vector3f& translation)
 /** \brief Function that integrates volume if volume element contains: 2 bytes for round(tsdf*SHORT_MAX) and 2 bytes for integer weight.*/
 bool    NuiKinfuOpenCLScene::integrateVolume(
 	NuiKinfuFrame*	pFrame,
-	NuiKinfuCameraState*	pTransform)
+	NuiKinfuCameraState*	pCameraState)
 {
-	if(!pTransform)
+	if(!pCameraState)
 		return false;
-	cl_mem transformCL = pTransform->getTransformCL();
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return false;
+	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
 	if(!transformCL)
 		return false;
 
@@ -487,7 +491,7 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 		return false;
 
 	cl_mem floatDepthsCL = pCLFrame->GetDepthsBuffer();
-	cl_mem cameraParamsCL = pCLFrame->GetCameraParamsBuffer();
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 	if(!floatDepthsCL || !cameraParamsCL || !transformCL)
 		return false;
 
@@ -512,7 +516,7 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 	if (!integrateKernel)
 	{
 		NUI_ERROR("Get kernel 'E_INTEGRATE_TSDF_VOLUME' failed!\n");
-		return;
+		return false;
 	}
 
 	// OpenCL command queue and device

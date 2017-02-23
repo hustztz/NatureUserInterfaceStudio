@@ -1,12 +1,11 @@
 #pragma once
 
-#include "../NuiTrackerConfig.h"
+#include "../../NuiTrackerConfig.h"
 #include "../NuiKinfuTracker.h"
 
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
 #include <Eigen/Core>
-#include <Eigen/Geometry>
 
 typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
 typedef Eigen::Vector3f Vector3f;
