@@ -16,7 +16,7 @@ NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame()
 	, m_colorUVsCL(NULL)
 	, m_colorImageCL(NULL)
 	, m_colorsCL(NULL)
-	, m_cameraParamsCL(NULL)
+	, m_pNormalCL(NULL)
 	, m_nWidth(0)
 	, m_nHeight(0)
 	, m_nColorWidth(0)
@@ -59,8 +59,6 @@ void	NuiKinfuOpenCLFrame::AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorW
 		m_colorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(BGRQUAD), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
 	}
-	m_cameraParamsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, sizeof(NuiCLCameraParams), NULL, &err);
-	NUI_CHECK_CL_ERR(err);
 }
 
 void	NuiKinfuOpenCLFrame::ReleaseBuffers()
@@ -90,11 +88,8 @@ void	NuiKinfuOpenCLFrame::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_colorsCL = NULL;
 	}
-	if (m_cameraParamsCL) {
-		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_cameraParamsCL);
-		NUI_CHECK_CL_ERR(err);
-		m_cameraParamsCL = NULL;
-	}
+
+	m_pNormalCL = NULL;
 }
 
 void NuiKinfuOpenCLFrame::PassingDepths(float nearPlane, float farPlane)
@@ -296,38 +291,6 @@ void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UIN
 		nullptr,
 		kernelGlobalSize,
 		nullptr,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-}
-
-void	NuiKinfuOpenCLFrame::UpdateCameraParams(const NuiCameraParams& camParams)
-{
-	NuiCLCameraParams camParamsCL;
-	camParamsCL.fx = camParams.m_intrinsics.m_fx;
-	camParamsCL.fx_inv = 1 / camParamsCL.fx;
-	camParamsCL.fy = camParams.m_intrinsics.m_fy;
-	camParamsCL.fy_inv = 1 / camParamsCL.fy;
-	camParamsCL.cx = camParams.m_intrinsics.m_cx;
-	camParamsCL.cy = camParams.m_intrinsics.m_cy;
-	camParamsCL.depthImageWidth = m_nWidth;
-	camParamsCL.depthImageHeight = m_nHeight;
-	camParamsCL.sensorDepthWorldMin = camParams.m_sensorDepthMin;
-	camParamsCL.sensorDepthWorldMax = camParams.m_sensorDepthMax;
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	clEnqueueWriteBuffer(
-		queue,
-		m_cameraParamsCL,
-		CL_FALSE,//blocking
-		0,
-		sizeof(NuiCLCameraParams),
-		&camParamsCL,
 		0,
 		NULL,
 		NULL

@@ -1,8 +1,14 @@
 #include "NuiKinfuOpenCLIntensityTracker.h"
 
 #include "NuiKinfuOpenCLFrame.h"
-#include "../NuiKinfuTransform.h"
+#include "NuiKinfuOpenCLScene.h"
+#include "NuiKinfuOpenCLCameraState.h"
+
+#include <cmath>
 #include "Foundation/NuiDebugMacro.h"
+#include "Shape/NuiCLMappableData.h"
+
+#include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
@@ -75,7 +81,7 @@ void NuiKinfuOpenCLIntensityTracker::ReleaseBuffers()
 	}
 }
 
-bool NuiKinfuOpenCLIntensityTracker::readFrame(NuiKinfuFrameImpl* pFrame)
+bool NuiKinfuOpenCLIntensityTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState)
 {
 	if(!pFrame)
 		return false;
@@ -86,30 +92,21 @@ bool NuiKinfuOpenCLIntensityTracker::readFrame(NuiKinfuFrameImpl* pFrame)
 	cl_mem colorsCL = pCLFrame->GetColorsBuffer();
 	ColorsToIntensity(colorsCL);
 
-	return NuiKinfuOpenCLDepthTracker::readFrame(pFrame);
+	return NuiKinfuOpenCLDepthTracker::EvaluateFrame(pFrame, pCameraState);
 }
 
-bool NuiKinfuOpenCLIntensityTracker::trackFrame(NuiKinfuFrameImpl* pFrame, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+bool NuiKinfuOpenCLIntensityTracker::EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint)
 {
-	if(!pFrame || !pTransform)
-		return false;
-	NuiKinfuOpenCLFrame* pCLFrame = dynamic_cast<NuiKinfuOpenCLFrame*>(pFrame);
-	if(!pCLFrame)
-		return false;
-
-	if(!readFrame(pFrame))
-		return false;
-
-	return IntensityIterativeClosestPoint(pCLFrame->GetCameraParamsBuffer(), pTransform, hint);
+	return IntensityIterativeClosestPoint(pCameraState, hint);
 }
 
-void NuiKinfuOpenCLIntensityTracker::transformPrevsFrame(NuiKinfuTransform* pTransform)
+void NuiKinfuOpenCLIntensityTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
 {
-	NuiKinfuOpenCLDepthTracker::transformPrevsFrame(pTransform);
+	NuiKinfuOpenCLDepthTracker::FeedbackPose(pCameraState);
 	CopyPrevIntensityMaps();
 }
 
-void NuiKinfuOpenCLIntensityTracker::resizePrevsFrame()
+void NuiKinfuOpenCLIntensityTracker::resizePrevsMaps()
 {
 	// half sample the input depth maps into the pyramid levels
 	// Get the kernel
@@ -230,15 +227,6 @@ void NuiKinfuOpenCLIntensityTracker::resizePrevsFrame()
 	}
 }
 
-void NuiKinfuOpenCLIntensityTracker::copyPrevsFrame()
-{
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	NuiKinfuOpenCLDepthTracker::copyPrevsFrame();
-	CopyPrevIntensityMaps();
-}
-
 void NuiKinfuOpenCLIntensityTracker::ColorsToIntensity(cl_mem colorsCL)
 {
 	if(!colorsCL || !m_intensitiesArrCL[0])
@@ -350,9 +338,16 @@ void NuiKinfuOpenCLIntensityTracker::CopyPrevIntensityMaps()
 	}
 }
 
-bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint)
 {
-	if(!cameraParamsCL || !pTransform)
+	if(!pCameraState)
+		return false;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return false;
+
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+	if(!cameraParamsCL)
 		return false;
 
 	// Get the kernel
@@ -383,10 +378,11 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(cl_mem camer
 	}
 	else
 	{
-		Rcurr = pTransform->getRotation(); // tranform to global coo for ith camera pose
-		tcurr = pTransform->getTranslation();
+		const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
+		Rcurr = cameraPos.getRotation(); // tranform to global coo for ith camera pose
+		tcurr = cameraPos.getTranslation();
 	}
-	cl_mem previousTransform = pTransform->getTransformCL();
+	cl_mem previousTransform = pCLCamera->GetCameraTransformBuffer();
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -573,7 +569,77 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(cl_mem camer
 		}
 	}
 
-	pTransform->setTransform(Rcurr, tcurr);
+	pCameraState->UpdateCameraTransform(Rcurr, tcurr);
 
 	return true;
+}
+
+bool	NuiKinfuOpenCLIntensityTracker::previousBufferToData(NuiCLMappableData* pMappableData)
+{
+	assert(pMappableData);
+	if(!pMappableData)
+		return false;
+
+	// Get the kernel
+	cl_kernel intensityKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_INTENSITY_TO_FLOAT4);
+	assert(intensityKernel);
+	if (intensityKernel && m_intensitiesPrevArrCL[0])
+	{
+		const UINT nPointsNum = m_nWidth * m_nHeight;
+		if( nPointsNum != pMappableData->ColorStream().size() )
+		{
+			NuiMappableAccessor::asVectorImpl(pMappableData->ColorStream())->data().resize(nPointsNum);
+		}
+
+		cl_int           err = CL_SUCCESS;
+		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+		// 
+		err = clFinish(queue);
+		NUI_CHECK_CL_ERR(err);
+
+		cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pMappableData->ColorStream());
+
+		// Acquire OpenGL objects before use
+		cl_mem glObjs[] = {
+			colorsGL
+		};
+		openclutil::enqueueAcquireHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+		// Set kernel arguments
+		cl_uint idx = 0;
+		err = clSetKernelArg(intensityKernel, idx++, sizeof(cl_mem), &m_intensitiesPrevArrCL[0]);
+		NUI_CHECK_CL_ERR(err);
+		err = clSetKernelArg(intensityKernel, idx++, sizeof(cl_mem), &colorsGL);
+		NUI_CHECK_CL_ERR(err);
+
+		size_t kernelGlobalSize[1] = { nPointsNum };
+		err = clEnqueueNDRangeKernel(
+			queue,
+			intensityKernel,
+			1,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+
+		err = clFinish(queue);
+		NUI_CHECK_CL_ERR(err);
+
+		// Release OpenGL objects
+		openclutil::enqueueReleaseHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+		pMappableData->SetStreamDirty(true);
+	}
+	else
+	{
+		NUI_ERROR("Get kernel 'E_INTENSITY_TO_FLOAT4' failed!\n");
+	}
+
+	return NuiKinfuOpenCLDepthTracker::previousBufferToData(pMappableData);
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "NuiTrackerConfig.h"
-#include "NuiKinfuTracker.h"
+#include "../NuiTrackerConfig.h"
+#include "../NuiKinfuTracker.h"
 
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
@@ -18,11 +18,13 @@ public:
 	NuiKinfuOpenCLDepthTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuOpenCLDepthTracker();
 
-	virtual bool	trackFrame(NuiKinfuFrameImpl* pFrame, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint) override;
-	virtual bool	readFrame(NuiKinfuFrameImpl* pFrame) override;
-	virtual void	transformPrevsFrame(NuiKinfuTransform* pTransform) override;
-	virtual void	resizePrevsFrame() override;
-	virtual void	copyPrevsFrame() override;
+	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) override;
+	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) override;
+	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState) override;
+	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) override;
+
+	virtual bool	previousBufferToData(NuiCLMappableData* pMappableData) override;
+	virtual bool	previousNormalImageToData(NuiCLMappableData* pMappableData) override;
 
 	virtual bool	log(const std::string& fileName) const override;
 
@@ -30,18 +32,18 @@ public:
 	virtual float	getCount() const override { return m_count; }
 
 	cl_mem	getNormalsCL() const { return m_normalsArrCL[0]; }
-	cl_mem	getPrevVerticesCL() const { return m_verticesPrevArrCL[0]; }
-	cl_mem	getPrevNormalsCL() const { return m_normalsPrevArrCL[0]; }
 
 protected:
 	void	AcquireBuffers();
 	void	ReleaseBuffers();
 
+	void	resizePrevsMaps();
+	void	copyPrevsFrame();
 	void	GenerateGaussianBuffer();
 	void	SmoothDepths(cl_mem floatDepthsCL);
 	void	ColorsToIntensity(cl_mem colorsCL);
-	void	NormalEst(cl_mem cameraParamsCL);
-	bool	IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
+	cl_mem	NormalEst(cl_mem cameraParamsCL);
+	bool	IterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint);
 
 protected:
 	cl_mem m_gaussianCL;

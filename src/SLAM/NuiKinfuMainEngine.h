@@ -4,7 +4,7 @@
 #include "NuiKinfuVolumeConfig.h"
 
 class NuiMeshShape;
-class NuiKinfuVolume;
+class NuiKinfuScene;
 class NuiCameraPos;
 class NuiCameraParams;
 
@@ -43,7 +43,7 @@ private:
 	NuiKinfuTrackingEngine				m_trackingEngine;
 
 	/** \brief Tsdf volume container. */
-	NuiKinfuVolume*						m_pVolume;
+	NuiKinfuScene*						m_pScene;
 
 	NuiTrackerConfig					m_trackingConfig;
 	Vector3f							m_translateBasis;

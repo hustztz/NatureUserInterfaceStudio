@@ -9,7 +9,7 @@
 typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
 typedef Eigen::Vector3f Vector3f;
 
-class NuiKinfuTransform;
+class NuiKinfuCameraState;
 
 class NuiPyramidICP
 {
@@ -20,7 +20,7 @@ public:
 	bool	log(const std::string& fileName) const;
 
 	void	input(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraParamsCL);
-	bool	run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
+	bool	run(cl_mem cameraParamsCL, NuiKinfuCameraState* pTransform, Eigen::Affine3f *hint);
 	void	transformPrevs(cl_mem transformCL);
 	void	resizePrevs();
 	void	copyPrevs();
@@ -42,8 +42,8 @@ protected:
 	void	SmoothDepths(cl_mem floatDepthsCL);
 	void	ColorsToIntensity(cl_mem colorsCL);
 	void	NormalEst(cl_mem cameraParamsCL);
-	bool	IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
-	bool	IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
+	bool	IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuCameraState* pTransform, Eigen::Affine3f *hint);
+	bool	IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuCameraState* pTransform, Eigen::Affine3f *hint);
 	void	CopyPrevIntensityMaps();
 
 private:

@@ -39,9 +39,6 @@ bool	NuiKinfuManager::process ()
 	ColorSpacePoint* pDepthToColor = pCompositeFrame->m_colorMapFrame.GetBuffer();
 	//assert(nPointNum == nColorMapNum);
 
-	const UINT nImageWidth = pCompositeFrame->m_colorFrame.GetWidth();
-	const UINT nImageHeight = pCompositeFrame->m_colorFrame.GetHeight();
-
 	NuiCameraParams cameraParams;
 	cameraParams.m_intrinsics = pCompositeFrame->GetCameraParams().getIntrinsics();
 	cameraParams.m_sensorDepthMax = (float)(pCompositeFrame->m_depthFrame.GetMaxDepth()) / 1000.0f;
@@ -53,8 +50,6 @@ bool	NuiKinfuManager::process ()
 		nWidth,
 		nHeight,
 		pCompositeFrame->m_colorFrame.GetImage(),
-		nImageWidth,
-		nImageHeight,
 		cameraParams);
 
 	pCompositeFrame.reset();

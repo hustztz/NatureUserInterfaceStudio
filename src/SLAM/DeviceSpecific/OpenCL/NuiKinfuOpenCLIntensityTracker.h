@@ -1,6 +1,5 @@
 #pragma once
 
-#include "NuiTrackerConfig.h"
 #include "NuiKinfuOpenCLDepthTracker.h"
 
 class NuiKinfuOpenCLIntensityTracker : public NuiKinfuOpenCLDepthTracker
@@ -9,11 +8,11 @@ public:
 	NuiKinfuOpenCLIntensityTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuOpenCLIntensityTracker();
 
-	virtual bool	trackFrame(NuiKinfuFrameImpl* pFrame, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint) override;
-	virtual bool	readFrame(NuiKinfuFrameImpl* pFrame) override;
-	virtual void	transformPrevsFrame(NuiKinfuTransform* pTransform) override;
-	virtual void	resizePrevsFrame() override;
-	virtual void	copyPrevsFrame() override;
+	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) override;
+	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) override;
+	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState) override;
+
+	virtual bool	previousBufferToData(NuiCLMappableData* pMappableData) override;
 
 	virtual bool	hasColorData() const override { return true; }
 
@@ -24,8 +23,9 @@ protected:
 	void	AcquireBuffers();
 	void	ReleaseBuffers();
 
+	void	resizePrevsMaps();
 	void	ColorsToIntensity(cl_mem colorsCL);
-	bool	IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint);
+	bool	IntensityIterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint);
 	void	CopyPrevIntensityMaps();
 
 protected:

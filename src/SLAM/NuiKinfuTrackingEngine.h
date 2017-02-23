@@ -1,15 +1,14 @@
 #pragma once
 
-#include "NuiKinfuTransform.h"
-#include "Shape\NuiCameraPos.h"
+#include "NuiKinfuCameraState.h"
+
 #include "DeviceSpecific\NuiTrackerConfig.h"
-#include "DeviceSpecific\NuiKinfuFrameImpl.h"
+#include "DeviceSpecific\NuiKinfuFrame.h"
 #include "DeviceSpecific\NuiKinfuTracker.h"
 
 //Forwards
 class NuiCLMappableData;
-class NuiKinfuVolume;
-class NuiCameraParams;
+class NuiKinfuScene;
 
 typedef Eigen::Vector3i Vector3i;
 
@@ -20,7 +19,7 @@ public:
 	NuiKinfuTrackingEngine();
 	~NuiKinfuTrackingEngine();
 
-	bool	isInit() const { return (m_tracker ? true : false); }
+	bool	isInit() const { return (m_pTracker ? true : false); }
 	void	initialize(const NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight);
 	bool	log(const std::string& fileName) const;
 
@@ -31,7 +30,7 @@ public:
 		ColorSpacePoint* pDepthToColor,
 		UINT nPointNum,
 		const NuiColorImage& image,
-		NuiKinfuVolume*	pVolume,
+		NuiKinfuScene*	pVolume,
 		const NuiCameraParams& cameraParams);
 
 	/** \brief Returns camera pose at given time, default the last pose
@@ -47,11 +46,11 @@ public:
 	bool					previousNormalImageToData(NuiCLMappableData* pCLData);
 
 private:
-	NuiKinfuTracker*	m_tracker;
-	NuiKinfuFrameImpl*	m_frame;
-	NuiKinfuTransform m_transform;
+	NuiKinfuTracker*		m_pTracker;
+	NuiKinfuFrame*			m_pFrame;
+	NuiKinfuCameraState		m_cameraState;
 	std::vector<NuiCameraPos> m_poses;
 
-	NuiCameraPos		m_lastIntegrationPos;
-	float				m_integration_metric_threshold;
+	NuiCameraPos			m_lastIntegrationPos;
+	float					m_integration_metric_threshold;
 };

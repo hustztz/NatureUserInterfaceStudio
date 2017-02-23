@@ -1,16 +1,20 @@
 #pragma once
 
-class NuiKinfuFrameImpl;
-class NuiKinfuTransform;
+class NuiKinfuFrame;
+class NuiKinfuCameraState;
+class NuiKinfuScene;
+class NuiCLMappableData;
 
 class NuiKinfuTracker
 {
 public:
-	virtual bool	trackFrame(NuiKinfuFrameImpl* pFrame, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint) = 0;
-	virtual bool	readFrame(NuiKinfuFrameImpl* pFrame) = 0;
-	virtual void	transformPrevsFrame(NuiKinfuTransform* pTransform) = 0;
-	virtual void	resizePrevsFrame() = 0;
-	virtual void	copyPrevsFrame() = 0;
+	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) = 0;
+	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) = 0;
+	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState) = 0;
+	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) = 0;
+
+	virtual bool	previousBufferToData(NuiCLMappableData* pMappableData) { return false; }
+	virtual bool	previousNormalImageToData(NuiCLMappableData* pMappableData) { return false; }
 
 	virtual bool	hasColorData() const { return false; }
 	virtual bool	log(const std::string& fileName) const { return false; }

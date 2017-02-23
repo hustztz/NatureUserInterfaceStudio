@@ -1,8 +1,13 @@
 #include "NuiKinfuOpenCLDepthTracker.h"
 
 #include "NuiKinfuOpenCLFrame.h"
-#include "../NuiKinfuTransform.h"
+#include "NuiKinfuOpenCLScene.h"
+#include "NuiKinfuOpenCLCameraState.h"
+
 #include "Foundation/NuiDebugMacro.h"
+#include "Shape/NuiCLMappableData.h"
+
+#include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
@@ -128,7 +133,7 @@ bool NuiKinfuOpenCLDepthTracker::log(const std::string& fileName) const
 	return m_configuration.log(fileName);
 }
 
-bool NuiKinfuOpenCLDepthTracker::readFrame(NuiKinfuFrameImpl* pFrame)
+bool NuiKinfuOpenCLDepthTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState)
 {
 	// half sample the input depth maps into the pyramid levels
 	if(!pFrame)
@@ -138,29 +143,30 @@ bool NuiKinfuOpenCLDepthTracker::readFrame(NuiKinfuFrameImpl* pFrame)
 		return false;
 	// filter the input depth map
 	SmoothDepths(pCLFrame->GetDepthsBuffer());
-	NormalEst(pCLFrame->GetCameraParamsBuffer());
+
+	if(!pCameraState)
+		return false;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return false;
+	cl_mem normalsCL = NormalEst(pCLCamera->GetCameraParamsBuffer());
+	pCLFrame->SetNormalsBuffer(&normalsCL);
 	return true;
 }
 
-bool NuiKinfuOpenCLDepthTracker::trackFrame(NuiKinfuFrameImpl* pFrame, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+bool NuiKinfuOpenCLDepthTracker::EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint)
 {
-	if(!pFrame || !pTransform)
-		return false;
-	NuiKinfuOpenCLFrame* pCLFrame = dynamic_cast<NuiKinfuOpenCLFrame*>(pFrame);
-	if(!pCLFrame)
-		return false;
-
-	if(!readFrame(pFrame))
-		return false;
-
-	return IterativeClosestPoint(pCLFrame->GetCameraParamsBuffer(), pTransform, hint);
+	return IterativeClosestPoint(pCameraState, hint);
 }
 
-void NuiKinfuOpenCLDepthTracker::transformPrevsFrame(NuiKinfuTransform* pTransform)
+void NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
 {
-	if(!pTransform)
+	if(!pCameraState)
 		return;
-	cl_mem transformCL = pTransform->getTransformCL();
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return;
+	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
 	if(!transformCL)
 		return;
 
@@ -209,7 +215,37 @@ void NuiKinfuOpenCLDepthTracker::transformPrevsFrame(NuiKinfuTransform* pTransfo
 	}
 }
 
-void NuiKinfuOpenCLDepthTracker::resizePrevsFrame()
+void	NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene)
+{
+	if(!pScene)
+		return;
+	NuiKinfuOpenCLScene* pCLScene = dynamic_cast<NuiKinfuOpenCLScene*>(pScene);
+	if(!pCLScene)
+		return;
+
+	if(!pCameraState)
+		return;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return;
+	const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
+	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+
+	pCLScene->raycastRender(
+		m_verticesPrevArrCL[0],
+		m_normalsPrevArrCL[0],
+		NULL,
+		cameraParamsCL,
+		transformCL,
+		m_nWidth, m_nHeight,
+		cameraPos.getSensorDepthMin(), cameraPos.getSensorDepthMax()
+		);
+
+	resizePrevsMaps();
+}
+
+void NuiKinfuOpenCLDepthTracker::resizePrevsMaps()
 {
 	// half sample the input depth maps into the pyramid levels
 	// Get the kernel
@@ -447,7 +483,7 @@ void NuiKinfuOpenCLDepthTracker::SmoothDepths(cl_mem floatDepthsCL)
 	}
 }
 
-void NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
+cl_mem NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 {
 	// Get the kernel
 	cl_kernel normalEstKernel =
@@ -456,7 +492,7 @@ void NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 	if (!normalEstKernel)
 	{
 		NUI_ERROR("Get kernel 'E_ESTIMATE_NORMALS_SIMPLE' failed!\n");
-		return;
+		return NULL;
 	}
 
 	cl_kernel depth2vertexKernel =
@@ -465,7 +501,7 @@ void NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 	if (!depth2vertexKernel)
 	{
 		NUI_ERROR("Get kernel 'E_DEPTH2VERTEX' failed!\n");
-		return;
+		return NULL;
 	}
 
 	// OpenCL command queue and device
@@ -526,13 +562,21 @@ void NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 		);
 		NUI_CHECK_CL_ERR(err);
 	}
+	return m_normalsArrCL[0];
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Iterative Closest Point
-bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint)
 {
-	if(!cameraParamsCL || !pTransform)
+	if(!pCameraState)
+		return false;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return false;
+
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+	if(!cameraParamsCL)
 		return false;
 
 	// Get the kernel
@@ -571,10 +615,11 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(cl_mem cameraParamsCL, Nu
 	}
 	else
 	{
-		Rcurr = pTransform->getRotation(); // tranform to global coo for ith camera pose
-		tcurr = pTransform->getTranslation();
+		const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
+		Rcurr = cameraPos.getRotation(); // tranform to global coo for ith camera pose
+		tcurr = cameraPos.getTranslation();
 	}
-	cl_mem previousTransform = pTransform->getTransformCL();
+	cl_mem previousTransform = pCLCamera->GetCameraTransformBuffer();
 
 	/** \brief array with IPC iteration numbers for each pyramid level */
 	int LEVELS = (int)m_iterations.size();
@@ -739,7 +784,7 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(cl_mem cameraParamsCL, Nu
 		}
 	}
 
-	pTransform->setTransform(Rcurr, tcurr);
+	pCameraState->UpdateCameraTransform(Rcurr, tcurr);
 
 #ifdef _DEBUG
 	//For debug
@@ -748,3 +793,155 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(cl_mem cameraParamsCL, Nu
 
 	return true;
 }
+
+
+bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappableData)
+{
+	assert(pMappableData);
+	if(!pMappableData)
+		return false;
+
+	if(!m_verticesArrCL[0])
+		return false;
+
+	const UINT nPointsNum = m_nWidth * m_nHeight;
+
+	pMappableData->SetBoundingBox(SgVec3f(-256.0f / 370.0f, -212.0f / 370.0f, 0.4f),
+		SgVec3f((m_nWidth-256.0f) / 370.0f, (m_nHeight-212.0f) / 370.0f, 4.0f));
+
+	NuiMappableAccessor::asVectorImpl(pMappableData->TriangleIndices())->data().clear();
+	NuiMappableAccessor::asVectorImpl(pMappableData->WireframeIndices())->data().clear();
+
+	std::vector<unsigned int>& clPointIndices =
+		NuiMappableAccessor::asVectorImpl(pMappableData->PointIndices())->data();
+	if(clPointIndices.size() != nPointsNum)
+	{
+		clPointIndices.resize(nPointsNum);
+		for (UINT i = 0; i < nPointsNum; ++i)
+		{
+			clPointIndices[i] = i;
+		}
+		pMappableData->SetIndexingDirty(true);
+	}
+
+	if( nPointsNum != pMappableData->PositionStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pMappableData->PositionStream())->data().resize(nPointsNum);
+	}
+
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pMappableData->PositionStream());
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		positionsGL
+	};
+
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	err = clEnqueueCopyBuffer(
+		queue,
+		m_verticesArrCL[0],
+		positionsGL,
+		0,
+		0,
+		nPointsNum * 3 * sizeof(float),
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	pMappableData->SetStreamDirty(true);
+
+	return true;
+}
+
+bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pMappableData)
+{
+	assert(pMappableData);
+	if(!pMappableData)
+		return false;
+
+	if(!m_verticesArrCL[0])
+		return false;
+
+	// Get the kernel
+	cl_kernel rgbaKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_FLOAT3_TO_TEXTURE);
+	assert(rgbaKernel);
+	if (!rgbaKernel)
+	{
+		NUI_ERROR("Get kernel 'E_FLOAT3_TO_RGBA' failed!\n");
+		return false;
+	}
+
+	if( m_nWidth != pMappableData->ColorTex().width() || m_nHeight != pMappableData->ColorTex().height())
+	{
+		NuiTextureMappableAccessor::updateImpl(
+			pMappableData->ColorTex(),
+			m_nWidth,
+			m_nHeight,
+			NULL
+			);
+	}
+	cl_mem texGL = NuiOpenCLBufferFactory::asTexture2DCL(pMappableData->ColorTex());
+
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		texGL
+	};
+
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[0]);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &texGL);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		rgbaKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	return true;
+}
+

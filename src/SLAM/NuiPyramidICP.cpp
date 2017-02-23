@@ -1,6 +1,6 @@
 #include "NuiPyramidICP.h"
 
-#include "NuiKinfuTransform.h"
+#include "NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
@@ -165,7 +165,7 @@ void NuiPyramidICP::input(cl_mem floatDepthsCL, cl_mem colorsCL, cl_mem cameraPa
 	NormalEst(cameraParamsCL);
 }
 
-bool NuiPyramidICP::run(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+bool NuiPyramidICP::run(cl_mem cameraParamsCL, NuiKinfuCameraState* pTransform, Eigen::Affine3f *hint)
 {
 	if(!cameraParamsCL || !pTransform)
 		return false;
@@ -694,7 +694,7 @@ void NuiPyramidICP::NormalEst(cl_mem cameraParamsCL)
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Iterative Closest Point
-bool NuiPyramidICP::IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+bool NuiPyramidICP::IterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuCameraState* pTransform, Eigen::Affine3f *hint)
 {
 	if(!cameraParamsCL || !pTransform)
 		return false;
@@ -940,7 +940,7 @@ void NuiPyramidICP::CopyPrevIntensityMaps()
 	}
 }
 
-bool NuiPyramidICP::IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuTransform* pTransform, Eigen::Affine3f *hint)
+bool NuiPyramidICP::IntensityIterativeClosestPoint(cl_mem cameraParamsCL, NuiKinfuCameraState* pTransform, Eigen::Affine3f *hint)
 {
 	if(!cameraParamsCL || !pTransform)
 		return false;

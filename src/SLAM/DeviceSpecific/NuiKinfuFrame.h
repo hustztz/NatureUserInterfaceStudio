@@ -5,11 +5,11 @@
 class NuiColorImage;
 class NuiCameraParams;
 
-class NuiKinfuFrameImpl
+class NuiKinfuFrame
 {
 public:
-	NuiKinfuFrameImpl(){}
-	virtual ~NuiKinfuFrameImpl()
+	NuiKinfuFrame() : m_nWidth(0), m_nHeight(0) {}
+	virtual ~NuiKinfuFrame()
 	{
 		ReleaseBuffers();
 	}
@@ -18,5 +18,9 @@ public:
 	virtual void	ReleaseBuffers() = 0;
 	virtual void	UpdateDepthBuffers(UINT16* pDepths, UINT nNum, float minDepth, float maxDepth) = 0;
 	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image) = 0;
-	virtual void	UpdateCameraParams(const NuiCameraParams& camParams) = 0;
+
+	UINT	GetWidth() const { return m_nWidth; }
+	UINT	GetHeight() const { return m_nHeight; }
+protected:
+	UINT m_nWidth, m_nHeight;
 };

@@ -2,7 +2,7 @@
 
 #include "NuiHashingSDF.h"
 #include "NuiHashingChunkGrid.h"
-#include "NuiKinfuTransform.h"
+#include "NuiKinfuCameraState.h"
 
 #include "Kernels/gpu_def.h"
 #include "Foundation/NuiDebugMacro.h"

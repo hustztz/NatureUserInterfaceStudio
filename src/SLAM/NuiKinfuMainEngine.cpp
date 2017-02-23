@@ -1,6 +1,6 @@
 #include "NuiKinfuMainEngine.h"
 
-#include "NuiKinfuTSDFVolume.h"
+#include "DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.h"
 #include "NuiHashingVolume.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
@@ -8,20 +8,20 @@
 static const std::string sTrackingName("TrackingEngine");
 
 NuiKinfuMainEngine::NuiKinfuMainEngine()
-	: m_pVolume(NULL)
+	: m_pScene(NULL)
 	, m_translateBasis(Vector3f::Zero())
 {
 }
 
 NuiKinfuMainEngine::~NuiKinfuMainEngine()
 {
-	SafeDelete(m_pVolume);
+	SafeDelete(m_pScene);
 }
 
 
 void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 {
-	SafeDelete(m_pVolume);
+	SafeDelete(m_pScene);
 
 	if(bHashingSDF)
 	{
@@ -30,22 +30,22 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 		sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
 		sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
 		NuiHashingRaycastConfig raycastConfig;
-		m_pVolume = new NuiHashingVolume(sdfConfig, raycastConfig);
+		m_pScene = new NuiHashingVolume(sdfConfig, raycastConfig);
 	}
 	else
 	{
 		NuiKinfuVolumeConfig volumeConfig;
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-		m_pVolume = new NuiKinfuTSDFVolume(volumeConfig);
+		m_pScene = new NuiKinfuTSDFVolume(volumeConfig);
 	}
 }
 
 void	NuiKinfuMainEngine::log(const std::string& fileName) const
 {
 	m_trackingEngine.log(fileName);
-	if(m_pVolume)
-		m_pVolume->log(fileName);
+	if(m_pScene)
+		m_pScene->log(fileName);
 }
 
 bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
@@ -61,9 +61,9 @@ bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 
 	//bool returnStatus = m_tracker.previousBufferToData(pCLData);
 	bool returnStatus = false;
-	if( m_pVolume )
+	if( m_pScene )
 	{
-		returnStatus = bIsMesh ? m_pVolume->Volume2CLMesh(pCLData) : m_pVolume->Volume2CLVertices(pCLData);
+		returnStatus = bIsMesh ? m_pScene->Volume2CLMesh(pCLData) : m_pScene->Volume2CLVertices(pCLData);
 	}
 
 	return returnStatus;
@@ -82,10 +82,10 @@ bool	NuiKinfuMainEngine::getCameraPose (NuiCameraPos* cam) const
 
 bool	NuiKinfuMainEngine::getMesh(NuiMeshShape* pMesh)
 {
-	if(!m_pVolume ||  !pMesh)
+	if(!m_pScene ||  !pMesh)
 		return false;
 
-	return m_pVolume->Volume2Mesh(pMesh);
+	return m_pScene->Volume2Mesh(pMesh);
 }
 
 void	NuiKinfuMainEngine::setIntegrationMetricThreshold(float threshold)
@@ -95,8 +95,8 @@ void	NuiKinfuMainEngine::setIntegrationMetricThreshold(float threshold)
 
 void	NuiKinfuMainEngine::offlineRender()
 {
-	if(m_pVolume)
-		m_pVolume->offlineRender();
+	if(m_pScene)
+		m_pScene->offlineRender();
 }
 
 void	NuiKinfuMainEngine::resetTracker()
@@ -106,8 +106,8 @@ void	NuiKinfuMainEngine::resetTracker()
 
 void	NuiKinfuMainEngine::resetVolume()
 {
-	if(m_pVolume)
-		m_pVolume->reset();
+	if(m_pScene)
+		m_pScene->reset();
 }
 
 bool	NuiKinfuMainEngine::processFrame (
@@ -133,7 +133,7 @@ bool	NuiKinfuMainEngine::processFrame (
 		pDepthToColor,
 		nWidth * nHeight,
 		image,
-		m_pVolume,
+		m_pScene,
 		cameraParams);
 	NuiTimeLog::instance().tock(sTrackingName);
 

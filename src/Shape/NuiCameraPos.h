@@ -2,7 +2,7 @@
 
 #include <Eigen/Geometry>
 #include "Foundation/NuiFileIOUtilities.h"
-#include "NuiCameraIntrinsics.h"
+#include "NuiCameraParams.h"
 
 typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
 typedef Eigen::Matrix<float, 4, 4> Matrix4frm;
@@ -55,25 +55,39 @@ public:
 
 	void setIntrinsics(const NuiCameraIntrinsics& intri)
 	{
-		m_intrinsics = intri;
+		m_params.m_intrinsics = intri;
 	}
 	const NuiCameraIntrinsics& getIntrinsics() const
 	{
-		return m_intrinsics;
+		return m_params.m_intrinsics;
+	}
+
+	void setSensorDepthRange(float min, float max)
+	{
+		m_params.m_sensorDepthMin = min;
+		m_params.m_sensorDepthMax = max;
+	}
+	float getSensorDepthMin() const
+	{
+		return m_params.m_sensorDepthMin;
+	}
+	float getSensorDepthMax() const
+	{
+		return m_params.m_sensorDepthMax;
 	}
 
 	bool save(const std::string& fileName)
 	{
-		return NuiFileIOUtilities::writeCamera(fileName, m_intrinsics.m_fx, m_intrinsics.m_fy, m_intrinsics.m_cx, m_intrinsics.m_cy);
+		return NuiFileIOUtilities::writeCamera(fileName, m_params.m_intrinsics.m_fx, m_params.m_intrinsics.m_fy, m_params.m_intrinsics.m_cx, m_params.m_intrinsics.m_cy);
 	}
 
 	bool load(const std::string& fileName)
 	{
-		return NuiFileIOUtilities::readCamera(fileName, &m_intrinsics.m_fx, &m_intrinsics.m_fy, &m_intrinsics.m_cx, &m_intrinsics.m_cy);
+		return NuiFileIOUtilities::readCamera(fileName, &m_params.m_intrinsics.m_fx, &m_params.m_intrinsics.m_fy, &m_params.m_intrinsics.m_cx, &m_params.m_intrinsics.m_cy);
 	}
 
 private:
 	Matrix3frm				m_rotation;
 	Vector3f				m_translation;
-	NuiCameraIntrinsics		m_intrinsics;
+	NuiCameraParams			m_params;
 };

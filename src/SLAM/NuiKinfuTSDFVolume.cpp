@@ -1,6 +1,6 @@
 #include "NuiKinfuTSDFVolume.h"
 
-#include "NuiKinfuTransform.h"
+#include "NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "Foundation/NuiTimeLog.h"
 #include "NuiMarchingCubeTable.h"
