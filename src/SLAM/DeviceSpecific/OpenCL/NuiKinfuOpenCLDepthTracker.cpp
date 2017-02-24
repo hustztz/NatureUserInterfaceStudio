@@ -149,8 +149,8 @@ bool NuiKinfuOpenCLDepthTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCa
 	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
 	if(!pCLCamera)
 		return false;
-	cl_mem normalsCL = NormalEst(pCLCamera->GetCameraParamsBuffer());
-	pCLFrame->SetNormalsBuffer(&normalsCL);
+	if(NormalEst(pCLCamera->GetCameraParamsBuffer()))
+		pCLFrame->SetNormalsBuffer(&m_normalsArrCL[0]);
 	return true;
 }
 
@@ -483,7 +483,7 @@ void NuiKinfuOpenCLDepthTracker::SmoothDepths(cl_mem floatDepthsCL)
 	}
 }
 
-cl_mem NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
+bool NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 {
 	// Get the kernel
 	cl_kernel normalEstKernel =
@@ -492,7 +492,7 @@ cl_mem NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 	if (!normalEstKernel)
 	{
 		NUI_ERROR("Get kernel 'E_ESTIMATE_NORMALS_SIMPLE' failed!\n");
-		return NULL;
+		return false;
 	}
 
 	cl_kernel depth2vertexKernel =
@@ -501,7 +501,7 @@ cl_mem NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 	if (!depth2vertexKernel)
 	{
 		NUI_ERROR("Get kernel 'E_DEPTH2VERTEX' failed!\n");
-		return NULL;
+		return false;
 	}
 
 	// OpenCL command queue and device
@@ -562,7 +562,7 @@ cl_mem NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 		);
 		NUI_CHECK_CL_ERR(err);
 	}
-	return m_normalsArrCL[0];
+	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

@@ -16,7 +16,7 @@ public:
 	size_t	getLagFrames() { return m_buffer.size(); }
 	void	setAutoReset(bool autoReset) { m_bAutoReset = autoReset; }
 
-	NuiKinfuMainEngine					m_engine;
+	NuiKinfuEngine::NuiKinfuMainEngine	m_engine;
 private:
 	virtual bool process() override;
 

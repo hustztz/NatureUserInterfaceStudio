@@ -1,11 +1,12 @@
 #include "NuiKinfuMainEngine.h"
 
 #include "DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.h"
-#include "NuiHashingVolume.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
 
 static const std::string sTrackingName("TrackingEngine");
+
+using namespace NuiKinfuEngine;
 
 NuiKinfuMainEngine::NuiKinfuMainEngine()
 	: m_pScene(NULL)

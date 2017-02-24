@@ -12,6 +12,8 @@
 #define KINFU_DEFAULT_DEPTH_FOCAL_X 370.f
 #define KINFU_DEFAULT_DEPTH_FOCAL_Y 370.f
 
+using namespace NuiKinfuEngine;
+
 NuiKinfuTrackingEngine::NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 	: m_pTracker(NULL)
 	, m_pFrame(NULL)
@@ -53,8 +55,8 @@ void NuiKinfuTrackingEngine::reset(const Vector3f& translateBasis)
 
 void NuiKinfuTrackingEngine::initialize(const NuiTrackerConfig& trackerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 {
-	NuiKinfuEngine::NuiKinfuTrackingFactory::Instance().BuildTrackingEngine(
-		m_pTracker, m_pFrame, m_pCameraState, trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
+	NuiKinfuTrackingFactory::Instance().BuildTrackingEngine(
+		&m_pTracker, &m_pFrame, &m_pCameraState, trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
 
 	reset( Vector3f::Zero() );
 }

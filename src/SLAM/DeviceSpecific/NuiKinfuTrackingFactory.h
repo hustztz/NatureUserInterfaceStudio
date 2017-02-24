@@ -16,23 +16,23 @@ namespace NuiKinfuEngine
 		}
 
 		static void BuildTrackingEngine(
-			NuiKinfuTracker*		pTracker,
-			NuiKinfuFrame*			pFrame,
-			NuiKinfuCameraState*	pCameraState,
+			NuiKinfuTracker**		pTracker,
+			NuiKinfuFrame**			pFrame,
+			NuiKinfuCameraState**	pCameraState,
 			const NuiTrackerConfig& trackerConfig,
 			unsigned int nWidth, unsigned int nHeight,
 			unsigned int nColorWidth, unsigned int nColorHeight)
 		{
-			SafeDelete(pFrame);
-			SafeDelete(pTracker);
-			SafeDelete(pCameraState);
+			SafeDelete(*pFrame);
+			SafeDelete(*pTracker);
+			SafeDelete(*pCameraState);
 
 			// OpenCL
-			pFrame = new NuiKinfuOpenCLFrame();
-			pFrame->AcquireBuffers(nWidth, nHeight, nColorWidth, nColorHeight);
+			*pFrame = new NuiKinfuOpenCLFrame();
+			(*pFrame)->AcquireBuffers(nWidth, nHeight, nColorWidth, nColorHeight);
 
-			pTracker = new NuiKinfuOpenCLDepthTracker(trackerConfig, nWidth, nHeight);
-			pCameraState = new NuiKinfuCameraState(new NuiKinfuOpenCLCameraState());
+			*pTracker = new NuiKinfuOpenCLDepthTracker(trackerConfig, nWidth, nHeight);
+			*pCameraState = new NuiKinfuCameraState(new NuiKinfuOpenCLCameraState());
 		}
 
 	private:

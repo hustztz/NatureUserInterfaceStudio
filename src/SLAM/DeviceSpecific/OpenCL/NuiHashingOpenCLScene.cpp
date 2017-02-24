@@ -1,8 +1,11 @@
-#include "NuiHashingVolume.h"
+#include "NuiHashingOpenCLScene.h"
 
-#include "NuiHashingSDF.h"
-#include "NuiHashingChunkGrid.h"
-#include "NuiKinfuCameraState.h"
+#include "NuiKinfuOpenCLFrame.h"
+#include "NuiKinfuOpenCLCameraState.h"
+#include "NuiHashingOpenCLSDF.h"
+#include "NuiHashingOpenCLChunkGrid.h"
+
+#include "../../NuiKinfuCameraState.h"
 
 #include "Kernels/gpu_def.h"
 #include "Foundation/NuiDebugMacro.h"
@@ -14,15 +17,16 @@
 
 #include "Shape/NuiCLMappableData.h"
 
-NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const NuiHashingRaycastConfig& raycastConfig)
+NuiHashingOpenCLScene::NuiHashingOpenCLScene(const NuiHashingSDFConfig& sdfConfig, const NuiHashingRaycastConfig& raycastConfig)
 	: m_pSDFData(NULL)
 	, m_pChunkGrid(NULL)
+	, m_vertexSumCL(NULL)
 	, m_numOccupiedBlocks(0)
 	, m_raycastConfig(raycastConfig)
 	, m_raycastVertexBuffer("raycastVertex")
 	, m_offlineRenderDirty(false)
 {
-	m_pSDFData = new NuiHashingSDF(sdfConfig);
+	m_pSDFData = new NuiHashingOpenCLSDF(sdfConfig);
 
 	NuiOfflineRenderFactory::initializeOfflineRender();
 	NuiMappableAccessor::asVectorImpl(m_raycastVertexBuffer)->data().resize(sdfConfig.m_numSDFBlocks * 6);
@@ -43,22 +47,43 @@ NuiHashingVolume::NuiHashingVolume(const NuiHashingSDFConfig& sdfConfig, const N
 	NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMaxBuffer);
 
 	reset();
+	AcquireBuffer();
 }
 
-NuiHashingVolume::~NuiHashingVolume()
+NuiHashingOpenCLScene::~NuiHashingOpenCLScene()
 {
 	SafeDelete(m_pSDFData);
 	SafeDelete(m_pChunkGrid);
 
 	NuiMappableAccessor::reset(m_raycastVertexBuffer);
+	ReleaseBuffer();
 }
 
-bool NuiHashingVolume::log(const std::string& fileName) const
+void NuiHashingOpenCLScene::AcquireBuffer()
+{
+	cl_int           err = CL_SUCCESS;
+	cl_context       context = NuiOpenCLGlobal::instance().clContext();
+
+	m_vertexSumCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+}
+
+
+void NuiHashingOpenCLScene::ReleaseBuffer()
+{
+	if (m_vertexSumCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_vertexSumCL);
+		NUI_CHECK_CL_ERR(err);
+		m_vertexSumCL = NULL;
+	}
+}
+
+bool NuiHashingOpenCLScene::log(const std::string& fileName) const
 {
 	return true;
 }
 
-void	NuiHashingVolume::reset()
+void	NuiHashingOpenCLScene::reset()
 {
 	m_pSDFData->reset();
 	if(m_pChunkGrid)
@@ -69,12 +94,12 @@ void	NuiHashingVolume::reset()
 	m_offlineRenderDirty = false;
 }
 
-void	NuiHashingVolume::updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig)
+void	NuiHashingOpenCLScene::updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig)
 {
 	if(chunkGridConfig.m_enable)
 	{
 		if(!m_pChunkGrid)
-			m_pChunkGrid = new NuiHashingChunkGrid(m_pSDFData);
+			m_pChunkGrid = new NuiHashingOpenCLChunkGrid(m_pSDFData);
 		m_pChunkGrid->updateConfig(chunkGridConfig);
 	}
 	else
@@ -83,7 +108,7 @@ void	NuiHashingVolume::updateChunkGridConfig(const NuiHashingChunkGridConfig& ch
 	}
 }
 
-void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL)
+void NuiHashingOpenCLScene::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL)
 {
 	if(!m_pSDFData || !m_numOccupiedBlocks)
 		return;
@@ -160,7 +185,7 @@ void NuiHashingVolume::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transf
 	NUI_CHECK_CL_ERR(err);
 }
 
-void	NuiHashingVolume::raycast(
+void	NuiHashingOpenCLScene::raycast(
 	cl_mem renderVerticesCL,
 	cl_mem renderNormalsCL,
 	cl_mem renderIntensitiesCL,
@@ -271,7 +296,7 @@ void	NuiHashingVolume::raycast(
 	NUI_CHECK_CL_ERR(err);
 }
 
-void	NuiHashingVolume::offlineRender()
+void	NuiHashingOpenCLScene::offlineRender()
 {
 	if(m_offlineRenderDirty)
 	{
@@ -283,7 +308,7 @@ void	NuiHashingVolume::offlineRender()
 	}
 }
 
-void NuiHashingVolume::raycastRender(
+void NuiHashingOpenCLScene::raycastRender(
 	cl_mem renderVerticesCL,
 	cl_mem renderNormalsCL,
 	cl_mem renderIntensitiesCL,
@@ -312,15 +337,35 @@ void NuiHashingVolume::raycastRender(
 
 }
 
-void	NuiHashingVolume::integrateVolume(
-	cl_mem floatDepthsCL,
-	cl_mem normalsCL,
-	cl_mem colorsCL,
-	cl_mem cameraParamsCL,
-	cl_mem transformCL,
-	UINT nWidth, UINT nHeight
-	)
+bool	NuiHashingOpenCLScene::integrateVolume(
+	NuiKinfuFrame*	pFrame,
+	NuiKinfuCameraState*	pCameraState)
 {
+	if(!pCameraState)
+		return false;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return false;
+	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
+	if(!transformCL)
+		return false;
+
+	if(!pFrame)
+		return false;
+	NuiKinfuOpenCLFrame* pCLFrame = dynamic_cast<NuiKinfuOpenCLFrame*>(pFrame);
+	if(!pCLFrame)
+		return false;
+
+	cl_mem floatDepthsCL = pCLFrame->GetDepthsBuffer();
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+	if(!floatDepthsCL || !cameraParamsCL || !transformCL)
+		return false;
+
+	cl_mem normalsCL = pCLFrame->GetNormalsBuffer();
+	cl_mem colorsCL = pCLFrame->GetColorsBuffer();
+	UINT nWidth = pCLFrame->GetWidth();
+	UINT nHeight = pCLFrame->GetHeight();
+
 	SgVec3f streamingVoxelExtends;
 	SgVec3i	streamingGridDimensions;
 	SgVec3i	streamingMinGridPos;
@@ -344,9 +389,11 @@ void	NuiHashingVolume::integrateVolume(
 		);
 	if(m_numOccupiedBlocks)
 		setDirty();
+
+	return true;
 }
 
-bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
+bool NuiHashingOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
 	if(!pCLData)
@@ -515,7 +562,7 @@ bool NuiHashingVolume::Volume2CLVertices(NuiCLMappableData* pCLData)
 	return true;
 }
 
-bool NuiHashingVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
+bool NuiHashingOpenCLScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
 	if(!pCLData)
@@ -524,7 +571,7 @@ bool NuiHashingVolume::Volume2CLMesh(NuiCLMappableData* pCLData)
 	return true;
 }
 
-bool NuiHashingVolume::Volume2Mesh(NuiMeshShape* pMesh)
+bool NuiHashingOpenCLScene::Volume2Mesh(NuiMeshShape* pMesh)
 {
 	assert(pMesh);
 	if(!pMesh)

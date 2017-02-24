@@ -41,7 +41,7 @@ protected:
 	void	GenerateGaussianBuffer();
 	void	SmoothDepths(cl_mem floatDepthsCL);
 	void	ColorsToIntensity(cl_mem colorsCL);
-	cl_mem	NormalEst(cl_mem cameraParamsCL);
+	bool	NormalEst(cl_mem cameraParamsCL);
 	bool	IterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint);
 
 protected:

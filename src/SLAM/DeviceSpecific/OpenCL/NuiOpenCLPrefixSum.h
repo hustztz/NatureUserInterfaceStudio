@@ -2,12 +2,12 @@
 
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
-class NuiPrefixSum
+class NuiOpenCLPrefixSum
 {
 public:
 
-	NuiPrefixSum();
-	~NuiPrefixSum();
+	NuiOpenCLPrefixSum();
+	~NuiOpenCLPrefixSum();
 
 	unsigned int prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output);
 

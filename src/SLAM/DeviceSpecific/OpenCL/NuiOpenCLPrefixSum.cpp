@@ -1,4 +1,4 @@
-#include "NuiPrefixSum.h"
+#include "NuiOpenCLPrefixSum.h"
 
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
@@ -12,7 +12,7 @@
 #define		WORKGROUP_SIZE		1024
 #define		MAX_BATCH_ELEMENTS	8*WORKGROUP_SIZE*WORKGROUP_SIZE
 
-NuiPrefixSum::NuiPrefixSum()
+NuiOpenCLPrefixSum::NuiOpenCLPrefixSum()
 {
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
@@ -21,7 +21,7 @@ NuiPrefixSum::NuiPrefixSum()
 	NUI_CHECK_CL_ERR(err);
 }
 
-NuiPrefixSum::~NuiPrefixSum()
+NuiOpenCLPrefixSum::~NuiOpenCLPrefixSum()
 {
 	if (m_buffer) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_buffer);
@@ -34,7 +34,7 @@ unsigned int iSnapUp(unsigned int dividend, unsigned int divisor){
 	return ((dividend % divisor) == 0) ? dividend : (dividend - dividend % divisor + divisor);
 }
 
-void NuiPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input, cl_mem d_output)
+void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input, cl_mem d_output)
 {
 	// Get the kernel
 	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE1);
@@ -78,7 +78,7 @@ void NuiPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input,
 	NUI_CHECK_CL_ERR(err);
 }
 
-void NuiPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input, cl_mem d_output)
+void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input, cl_mem d_output)
 {
 	// Get the kernel
 	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE2);
@@ -144,7 +144,7 @@ void NuiPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input,
 	//delete[] pBuffer;
 }
 
-void NuiPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output)
+void NuiOpenCLPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output)
 {
 	// Get the kernel
 	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_UNIFORM_UPDATE);
@@ -203,7 +203,7 @@ unsigned int iFactorRadix2Up(unsigned int num)
 	return L;
 }
 
-unsigned int NuiPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output)
+unsigned int NuiOpenCLPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output)
 {
 	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
 	numElements = iFactorRadix2Up(numElements / 8) * 8;
