@@ -5,7 +5,7 @@ out vec4 FragColor;
 
 void main()
 {
-	if(vDepth > 0.0f && vDepth < 100.0f)
+	/*if(vDepth > 0.0f && vDepth < 100.0f)
 	{
 		float seg0 = floor(vDepth);
 		float remain = vDepth - seg0;
@@ -23,7 +23,8 @@ void main()
 
 		FragColor = vec4(seg0, seg1, seg2, seg3);
 	}
-	else {
+	else */
+	{
 		FragColor = vec4(0.6f, 0.7f, 0.8f, 1.0f);
 	}
 }

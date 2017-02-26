@@ -26,10 +26,10 @@ __kernel void depth2vertex_kernel(
 	const uint gidy = get_global_id(1);
 	const uint gsizex = get_global_size(0);
 	const uint index = mul24(gidy, gsizex)+gidx;
-
+	
+	float3 vert = (float3)(NAN, NAN, NAN);
 	float dp = vload(index, depths);
-	float3 vert = (float3)(0.0f, 0.0f, 0.0f);
-	if(dp > 0.0f)
+	if(!isnan(dp))
 	{
 		struct NuiCLCameraParams camParams = *cameraParams;
 		const float intr_fx_inv = div * camParams.fx_inv;
@@ -76,14 +76,14 @@ __kernel void half_sample_kernel(
 		{
 			const int nearId = mul24(cy, src_size_x)+cx;
 			float near = vload(nearId, src);
-			if(!_isnan3(near) && fabs(center - near) < depthThreshold)
+			if(!_isnan3(near) && (isnan(center) || fabs(center - near) < depthThreshold))
 			{
 				sumDepth += near;
 				sumWeight += 1;
 			}
 		}
 	}
-	float outDepth = (sumWeight > 0) ? sumDepth/sumWeight : 0.0f;
+	float outDepth = (sumWeight > 0) ? sumDepth/sumWeight : NAN;
 	vstore(outDepth, dstId, dst);
 }
 
@@ -106,6 +106,8 @@ __kernel void transform_maps_kernel(
 	{
 		float3 invalidPos = (float3)(NAN, NAN, NAN);
 		vstore3(invalidPos, id, verticesDst);
+		float3 invalidNorm = (float3)(NAN, NAN, NAN);
+		vstore3(invalidNorm, id, normalsDst);
 		return;
 	}
 

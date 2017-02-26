@@ -143,14 +143,17 @@ bool NuiKinfuOpenCLDepthTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCa
 		return false;
 	// filter the input depth map
 	SmoothDepths(pCLFrame->GetDepthsBuffer());
+	SubSampleDepths();
 
 	if(!pCameraState)
 		return false;
 	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
 	if(!pCLCamera)
 		return false;
-	if(NormalEst(pCLCamera->GetCameraParamsBuffer()))
-		pCLFrame->SetNormalsBuffer(&m_normalsArrCL[0]);
+
+	Depth2vertex(pCLCamera->GetCameraParamsBuffer());
+	Vertex2Normal();
+	pCLFrame->SetNormalsBuffer(&m_normalsArrCL[0]);
 	return true;
 }
 
@@ -441,7 +444,10 @@ void NuiKinfuOpenCLDepthTracker::SmoothDepths(cl_mem floatDepthsCL)
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+}
 
+void NuiKinfuOpenCLDepthTracker::SubSampleDepths()
+{
 	// half sample the input depth maps into the pyramid levels
 	// Get the kernel
 	cl_kernel pyrDownKernel =
@@ -453,6 +459,11 @@ void NuiKinfuOpenCLDepthTracker::SmoothDepths(cl_mem floatDepthsCL)
 		return;
 	}
 
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	const UINT subSampleRadius = 1;
 	for (UINT i = 1; i < m_iterations.size(); ++i)
 	{
 		// Set kernel arguments
@@ -461,7 +472,7 @@ void NuiKinfuOpenCLDepthTracker::SmoothDepths(cl_mem floatDepthsCL)
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &subSampleRadius);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
 		NUI_CHECK_CL_ERR(err);
@@ -483,25 +494,16 @@ void NuiKinfuOpenCLDepthTracker::SmoothDepths(cl_mem floatDepthsCL)
 	}
 }
 
-bool NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
+void NuiKinfuOpenCLDepthTracker::Depth2vertex(cl_mem cameraParamsCL)
 {
 	// Get the kernel
-	cl_kernel normalEstKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_ESTIMATE_NORMALS_SIMPLE);
-	assert(normalEstKernel);
-	if (!normalEstKernel)
-	{
-		NUI_ERROR("Get kernel 'E_ESTIMATE_NORMALS_SIMPLE' failed!\n");
-		return false;
-	}
-
 	cl_kernel depth2vertexKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_DEPTH2VERTEX);
 	assert(depth2vertexKernel);
 	if (!depth2vertexKernel)
 	{
 		NUI_ERROR("Get kernel 'E_DEPTH2VERTEX' failed!\n");
-		return false;
+		return;
 	}
 
 	// OpenCL command queue and device
@@ -536,11 +538,31 @@ bool NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 			NULL
 			);
 		NUI_CHECK_CL_ERR(err);
+	}
+}
 
+void NuiKinfuOpenCLDepthTracker::Vertex2Normal()
+{
+	// Get the kernel
+	cl_kernel normalEstKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_ESTIMATE_NORMALS_SIMPLE);
+	assert(normalEstKernel);
+	if (!normalEstKernel)
+	{
+		NUI_ERROR("Get kernel 'E_ESTIMATE_NORMALS_SIMPLE' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	for (UINT i = 0; i < m_iterations.size(); ++i)
+	{
 		///////////////////////////////////////
 		// vertex2normal
 		// Set kernel arguments
-		idx = 0;
+		cl_uint idx = 0;
 		err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[i]);
@@ -549,6 +571,7 @@ bool NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 		NUI_CHECK_CL_ERR(err);
 		
 		// Run kernel to calculate 
+		size_t kernelGlobalSize[2] = { m_nWidth >> i, m_nHeight >> i };
 		err = clEnqueueNDRangeKernel(
 			queue,
 			normalEstKernel,
@@ -562,7 +585,6 @@ bool NuiKinfuOpenCLDepthTracker::NormalEst(cl_mem cameraParamsCL)
 		);
 		NUI_CHECK_CL_ERR(err);
 	}
-	return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////

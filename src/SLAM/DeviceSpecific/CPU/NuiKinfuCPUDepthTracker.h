@@ -3,19 +3,17 @@
 #include "../../NuiTrackerConfig.h"
 #include "../NuiKinfuTracker.h"
 
-#include "OpenCLUtilities/NuiOpenCLUtil.h"
-
 #include <Eigen/Core>
 
 typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
 typedef Eigen::Vector3f Vector3f;
 
 
-class NuiKinfuOpenCLDepthTracker : public NuiKinfuTracker
+class NuiKinfuCPUDepthTracker : public NuiKinfuTracker
 {
 public:
-	NuiKinfuOpenCLDepthTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
-	virtual ~NuiKinfuOpenCLDepthTracker();
+	NuiKinfuCPUDepthTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
+	virtual ~NuiKinfuCPUDepthTracker();
 
 	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) override;
 	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) override;
@@ -30,31 +28,22 @@ public:
 	virtual float	getError() const override { return m_error; }
 	virtual float	getCount() const override { return m_count; }
 
-	cl_mem	getNormalsCL() const { return m_normalsArrCL[0]; }
-
 protected:
 	void	AcquireBuffers();
 	void	ReleaseBuffers();
 
-	void	resizePrevsMaps();
-	void	copyPrevsFrame();
-	void	GenerateGaussianBuffer();
-	void	SmoothDepths(cl_mem floatDepthsCL);
+	void	SmoothDepths(float* floatDepths);
 	void	SubSampleDepths();
-	void	Depth2vertex(cl_mem cameraParamsCL);
+	void	Depth2vertex(NuiCameraIntrinsics cameraIntrics);
 	void	Vertex2Normal();
 	bool	IterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint);
 
 protected:
-	cl_mem m_gaussianCL;
-	typedef std::vector<cl_mem> GPUBuffers;
-	GPUBuffers m_depthsArrCL;
-	GPUBuffers m_verticesArrCL;
-	GPUBuffers m_normalsArrCL;
-	GPUBuffers m_verticesPrevArrCL;
-	GPUBuffers m_normalsPrevArrCL;
-	cl_mem m_corespsBlocksCL;
-	cl_mem m_corespsCL;
+	std::vector<NuiFloatImage*>		m_depthsArr;
+	std::vector<NuiFloat3Image*>	m_verticesArr;
+	std::vector<NuiFloat3Image*>	m_normalsArr;
+	std::vector<NuiFloat3Image*>	m_verticesPrevArr;
+	std::vector<NuiFloat3Image*>	m_normalsPrevArr;
 
 	NuiTrackerConfig m_configuration;
 	std::vector<UINT> m_iterations;
