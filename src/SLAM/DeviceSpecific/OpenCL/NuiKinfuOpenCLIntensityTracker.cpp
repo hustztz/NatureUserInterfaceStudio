@@ -413,9 +413,9 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[level_index]);
+			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[level_index]);
+			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsHierarchyCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[level_index]);
 			NUI_CHECK_CL_ERR(err);

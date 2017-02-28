@@ -41,50 +41,40 @@ void	NuiKinfuCPUDepthTracker::AcquireBuffers()
 	{
 		NuiFloatImage* depths = new NuiFloatImage();
 		depths->AllocateBuffer(m_nWidth>>i, m_nHeight>>i);
-		m_depthsArr.push_back(depths);
+		m_depthsHierarchy.push_back(depths);
 
 		NuiFloat3Image* vertices = new NuiFloat3Image();
 		vertices->AllocateBuffer(m_nWidth>>i, m_nHeight>>i);
-		m_verticesArr.push_back(vertices);
+		m_verticesHierarchy.push_back(vertices);
 
 		NuiFloat3Image* normals = new NuiFloat3Image();
 		normals->AllocateBuffer(m_nWidth>>i, m_nHeight>>i);
-		m_normalsArr.push_back(normals);
-
-		NuiFloat3Image* verticesPrev = new NuiFloat3Image();
-		verticesPrev->AllocateBuffer(m_nWidth>>i, m_nHeight>>i);
-		m_verticesPrevArr.push_back(verticesPrev);
-
-		NuiFloat3Image* normalsPrev = new NuiFloat3Image();
-		normalsPrev->AllocateBuffer(m_nWidth>>i, m_nHeight>>i);
-		m_normalsPrevArr.push_back(normalsPrev);
+		m_normalsHierarchy.push_back(normals);
 	}
+
+	m_verticesPrev.AllocateBuffer(m_nWidth, m_nHeight);
+	m_normalsPrev.AllocateBuffer(m_nWidth, m_nHeight);
 }
 
 void	NuiKinfuCPUDepthTracker::ReleaseBuffers()
 {
 	for (UINT i = 0; i < m_iterations.size(); i ++)
 	{
-		NuiFloatImage* depths = m_depthsArr.at(i);
+		NuiFloatImage* depths = m_depthsHierarchy.at(i);
 		SafeDelete(depths);
 
-		NuiFloat3Image* vertices = m_verticesArr.at(i);
+		NuiFloat3Image* vertices = m_verticesHierarchy.at(i);
 		SafeDelete(vertices);
 
-		NuiFloat3Image* normals = m_normalsArr.at(i);
+		NuiFloat3Image* normals = m_normalsHierarchy.at(i);
 		SafeDelete(normals);
-
-		NuiFloat3Image* verticesPrev = m_verticesPrevArr.at(i);
-		SafeDelete(verticesPrev);
-
-		NuiFloat3Image* normalsPrev = m_normalsPrevArr.at(i);
-		SafeDelete(normalsPrev);
 	}
-	m_depthsArr.clear();
-	m_verticesArr.clear();
-	m_normalsArr.clear();
-	m_verticesPrevArr.clear();
-	m_normalsPrevArr.clear();
+	m_depthsHierarchy.clear();
+	m_verticesHierarchy.clear();
+	m_normalsHierarchy.clear();
+
+	m_verticesPrev.Clear();
+	m_normalsPrev.Clear();
 }
 
 bool NuiKinfuCPUDepthTracker::log(const std::string& fileName) const
@@ -109,7 +99,7 @@ bool NuiKinfuCPUDepthTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCamer
 
 	Depth2vertex(pCameraState->GetCameraPos().getIntrinsics());
 	Vertex2Normal();
-	pCPUFrame->SetNormalsBuffer(m_normalsArr.at(0)->GetBuffer());
+	pCPUFrame->SetNormalsBuffer(m_normalsHierarchy.at(0)->GetBuffer());
 
 	return true;
 }
@@ -127,45 +117,38 @@ void NuiKinfuCPUDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
 	const Matrix3frm& rot = pCameraState->GetCameraPos().getRotation();
 	const Vector3f& trans = pCameraState->GetCameraPos().getTranslation();
 	// Transform
-	for (UINT i = 0; i < m_iterations.size(); ++i)
+	NuiFloat3Image* verticesImg = m_verticesHierarchy.at(0);
+	NuiFloat3Image* normalsImg = m_normalsHierarchy.at(0);
+	if(!normalsImg || !verticesImg)
+		return;
+
+	Vector3f* verticesBuffer = verticesImg->GetBuffer();
+	Vector3f* normalsBuffer = normalsImg->GetBuffer();
+	Vector3f* verticesPrevBuffer = m_verticesPrev.GetBuffer();
+	Vector3f* normalsPrevBuffer = m_normalsPrev.GetBuffer();
+	if(!normalsBuffer || !verticesBuffer || !verticesPrevBuffer || !normalsPrevBuffer)
+		return;
+
+	for (UINT y = 0; y < m_nHeight; y++)
 	{
-		NuiFloat3Image* verticesImg = m_verticesArr.at(i);
-		NuiFloat3Image* normalsImg = m_normalsArr.at(i);
-		NuiFloat3Image* verticesPrevImg = m_verticesPrevArr.at(i);
-		NuiFloat3Image* normalsPrevImg = m_normalsPrevArr.at(i);
-		if(!normalsImg || !verticesImg || !verticesPrevImg || !normalsPrevImg)
-			continue;
-
-		Vector3f* verticesBuffer = verticesImg->GetBuffer();
-		Vector3f* normalsBuffer = normalsImg->GetBuffer();
-		Vector3f* verticesPrevBuffer = verticesPrevImg->GetBuffer();
-		Vector3f* normalsPrevBuffer = normalsPrevImg->GetBuffer();
-		if(!normalsBuffer || !verticesBuffer || !verticesPrevBuffer || !normalsPrevBuffer)
-			continue;
-
-		UINT rangeX = m_nWidth >> i;
-		UINT rangeY = m_nHeight >> i;
-		for (UINT y = 0; y < rangeY; y++)
+		for (UINT x = 0; x < m_nWidth; x++)
 		{
-			for (UINT x = 0; x < rangeX; x++)
+			const UINT id = y * m_nWidth + x;
+			Vector3f vert_src = verticesBuffer[id];
+			if(_IsNan(vert_src))
 			{
-				const UINT id = y * rangeX + x;
-				Vector3f vert_src = verticesBuffer[id];
-				if(_IsNan(vert_src))
-				{
-					verticesPrevBuffer[id] = Vector3f(NAN_FLOAT, NAN_FLOAT, NAN_FLOAT);
-					normalsPrevBuffer[id] = Vector3f(NAN_FLOAT, NAN_FLOAT, NAN_FLOAT);
-					continue;
-				}
-				verticesPrevBuffer[id] = rot * vert_src + trans;
-				Vector3f norm_src = normalsBuffer[id];
-				if(_IsNan(vert_src))
-				{
-					normalsPrevBuffer[id] = Vector3f(NAN_FLOAT, NAN_FLOAT, NAN_FLOAT);
-					continue;
-				}
-				normalsPrevBuffer[id] = rot * norm_src;
+				verticesPrevBuffer[id] = Vector3f(NAN_FLOAT, NAN_FLOAT, NAN_FLOAT);
+				normalsPrevBuffer[id] = Vector3f(NAN_FLOAT, NAN_FLOAT, NAN_FLOAT);
+				continue;
 			}
+			verticesPrevBuffer[id] = rot * vert_src + trans;
+			Vector3f norm_src = normalsBuffer[id];
+			if(_IsNan(vert_src))
+			{
+				normalsPrevBuffer[id] = Vector3f(NAN_FLOAT, NAN_FLOAT, NAN_FLOAT);
+				continue;
+			}
+			normalsPrevBuffer[id] = rot * norm_src;
 		}
 	}
 }
@@ -188,72 +171,14 @@ void	NuiKinfuCPUDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState, Nu
 	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 
 	pCLScene->raycastRender(
-		m_verticesPrevArrCL[0],
-		m_normalsPrevArrCL[0],
+		m_verticesPrev,
+		m_normalsPrev,
 		NULL,
 		cameraParamsCL,
 		transformCL,
 		m_nWidth, m_nHeight,
 		cameraPos.getSensorDepthMin(), cameraPos.getSensorDepthMax()
 		);
-
-	resizePrevsMaps();
-}
-
-void NuiKinfuCPUDepthTracker::resizePrevsMaps()
-{
-	// half sample the input depth maps into the pyramid levels
-	// Get the kernel
-	cl_kernel resizeKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_RESIZE_MAPS);
-	assert(resizeKernel);
-	if (!resizeKernel)
-	{
-		NUI_ERROR("Get kernel 'E_RESIZE_MAPS' failed!\n");
-		return;
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-	
-	// Set kernel arguments
-	cl_uint idx = 0;
-	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
-
-	for (UINT i = 1; i < m_iterations.size(); ++i)
-	{
-		// Vertices
-		idx = 0;
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), NULL);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), NULL);
-		NUI_CHECK_CL_ERR(err);
-
-		// Run kernel to calculate
-		kernelGlobalSize[0] = m_nWidth >> i;
-		kernelGlobalSize[1] = m_nHeight >> i;
-		err = clEnqueueNDRangeKernel(
-			queue,
-			resizeKernel,
-			2,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-	}
 }
 
 #define MEAN_SIGMA_L 1.2232f
@@ -261,13 +186,13 @@ void NuiKinfuCPUDepthTracker::resizePrevsMaps()
 void NuiKinfuCPUDepthTracker::SmoothDepths(float* floatDepths)
 {
 	assert(floatDepths);
-	if(!floatDepths || m_depthsArr.size() == 0)
+	if(!floatDepths || m_depthsHierarchy.size() == 0)
 		return;
 
 	UINT filterRadius = m_configuration.filter_radius;
 	float depthThreshold = m_configuration.depth_threshold;
 
-	NuiFloatImage* depths0Img = m_depthsArr.at(0);
+	NuiFloatImage* depths0Img = m_depthsHierarchy.at(0);
 	float* depths0Buffer = depths0Img->GetBuffer();
 	for (UINT y = 0; y < m_nHeight; y++)
 	{
@@ -321,8 +246,8 @@ void NuiKinfuCPUDepthTracker::SubSampleDepths()
 	const UINT subSampleRadius = 1;
 	for (UINT i = 1; i < m_iterations.size(); ++i)
 	{
-		NuiFloatImage* depthsSrcImg = m_depthsArr.at(i-1);
-		NuiFloatImage* depthsDstImg = m_depthsArr.at(i);
+		NuiFloatImage* depthsSrcImg = m_depthsHierarchy.at(i-1);
+		NuiFloatImage* depthsDstImg = m_depthsHierarchy.at(i);
 		if(!depthsSrcImg || !depthsDstImg)
 			continue;
 
@@ -378,8 +303,8 @@ void NuiKinfuCPUDepthTracker::Depth2vertex(NuiCameraIntrinsics cameraIntrics)
 		int div = 1 << i;
 
 		// depth2vertex
-		NuiFloatImage* depthsImg = m_depthsArr.at(i);
-		NuiFloat3Image* verticesImg = m_verticesArr.at(i);
+		NuiFloatImage* depthsImg = m_depthsHierarchy.at(i);
+		NuiFloat3Image* verticesImg = m_verticesHierarchy.at(i);
 		if(!depthsImg || !verticesImg)
 			continue;
 
@@ -422,8 +347,8 @@ void	NuiKinfuCPUDepthTracker::Vertex2Normal()
 
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
-		NuiFloat3Image* verticesImg = m_verticesArr.at(i);
-		NuiFloat3Image* normalsImg = m_normalsArr.at(i);
+		NuiFloat3Image* verticesImg = m_verticesHierarchy.at(i);
+		NuiFloat3Image* normalsImg = m_normalsHierarchy.at(i);
 		if(!normalsImg || !verticesImg)
 			continue;
 
@@ -732,7 +657,7 @@ bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappab
 	if(!pMappableData)
 		return false;
 
-	if(!m_verticesArrCL[0])
+	if(!m_verticesHierarchyCL[0])
 		return false;
 
 	const UINT nPointsNum = m_nWidth * m_nHeight;
@@ -777,7 +702,7 @@ bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappab
 
 	err = clEnqueueCopyBuffer(
 		queue,
-		m_verticesArrCL[0],
+		m_verticesHierarchyCL[0],
 		positionsGL,
 		0,
 		0,
@@ -806,7 +731,7 @@ bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pM
 	if(!pMappableData)
 		return false;
 
-	if(!m_verticesArrCL[0])
+	if(!m_verticesHierarchyCL[0])
 		return false;
 
 	// Get the kernel
@@ -846,7 +771,7 @@ bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pM
 
 	// Set kernel arguments
 	cl_uint idx = 0;
-	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[0]);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[0]);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &texGL);
 	NUI_CHECK_CL_ERR(err);

@@ -29,7 +29,7 @@ protected:
 	void	CopyPrevIntensityMaps();
 
 protected:
-	GPUBuffers m_intensitiesArrCL;
-	GPUBuffers m_intensitiesPrevArrCL;
-	GPUBuffers m_intensityDerivsPrevArrCL;
+	HierarchyBuffers m_intensitiesArrCL;
+	HierarchyBuffers m_intensitiesPrevArrCL;
+	HierarchyBuffers m_intensityDerivsPrevArrCL;
 };

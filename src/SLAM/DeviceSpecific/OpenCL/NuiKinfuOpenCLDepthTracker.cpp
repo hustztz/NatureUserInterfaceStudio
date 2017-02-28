@@ -22,6 +22,8 @@ using Eigen::AngleAxisf;
 
 NuiKinfuOpenCLDepthTracker::NuiKinfuOpenCLDepthTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight)
 	: m_configuration(config)
+	, m_verticesPrevCL(NULL)
+	, m_normalsPrevCL(NULL)
 	, m_gaussianCL(NULL)
 	, m_corespsCL(NULL)
 	, m_corespsBlocksCL(NULL)
@@ -31,18 +33,14 @@ NuiKinfuOpenCLDepthTracker::NuiKinfuOpenCLDepthTracker(const NuiTrackerConfig& c
 	, m_count(0.0f)
 {
 	m_iterations = config.iterations;
-	m_depthsArrCL.resize(m_iterations.size());
-	m_verticesArrCL.resize(m_iterations.size());
-	m_normalsArrCL.resize(m_iterations.size());
-	m_verticesPrevArrCL.resize(m_iterations.size());
-	m_normalsPrevArrCL.resize(m_iterations.size());
+	m_depthsHierarchyCL.resize(m_iterations.size());
+	m_verticesHierarchyCL.resize(m_iterations.size());
+	m_normalsHierarchyCL.resize(m_iterations.size());
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
-		m_depthsArrCL[i] = NULL;
-		m_verticesArrCL[i] = NULL;
-		m_normalsArrCL[i] = NULL;
-		m_verticesPrevArrCL[i] = NULL;
-		m_normalsPrevArrCL[i] = NULL;
+		m_depthsHierarchyCL[i] = NULL;
+		m_verticesHierarchyCL[i] = NULL;
+		m_normalsHierarchyCL[i] = NULL;
 	}
 
 	AcquireBuffers();
@@ -60,17 +58,18 @@ void NuiKinfuOpenCLDepthTracker::AcquireBuffers()
 
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
-		m_depthsArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(cl_float), NULL, &err);
+		m_depthsHierarchyCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(cl_float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
-		m_verticesArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
+		m_verticesHierarchyCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
-		m_normalsArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
-		NUI_CHECK_CL_ERR(err);
-		m_verticesPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
-		NUI_CHECK_CL_ERR(err);
-		m_normalsPrevArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
+		m_normalsHierarchyCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*3*sizeof(cl_float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
 	}
+	m_verticesPrevCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*3*sizeof(cl_float), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+	m_normalsPrevCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*3*sizeof(cl_float), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+
 	UINT nblocks = (UINT)std::ceil( (float)(m_nWidth*m_nHeight) / WORK_GROUP_SIZE);
 	m_corespsBlocksCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nblocks*KINFU_ICP_CORESPS_NUM*sizeof(cl_float), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
@@ -90,31 +89,31 @@ void NuiKinfuOpenCLDepthTracker::ReleaseBuffers()
 	}
 	for (UINT i = 0; i < m_iterations.size(); ++i)
 	{
-		if (m_depthsArrCL[i]) {
-			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_depthsArrCL[i]);
+		if (m_depthsHierarchyCL[i]) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_depthsHierarchyCL[i]);
 			NUI_CHECK_CL_ERR(err);
-			m_depthsArrCL[i] = NULL;
+			m_depthsHierarchyCL[i] = NULL;
 		}
-		if (m_verticesArrCL[i]) {
-			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_verticesArrCL[i]);
+		if (m_verticesHierarchyCL[i]) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_verticesHierarchyCL[i]);
 			NUI_CHECK_CL_ERR(err);
-			m_verticesArrCL[i] = NULL;
+			m_verticesHierarchyCL[i] = NULL;
 		}
-		if (m_normalsArrCL[i]) {
-			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_normalsArrCL[i]);
+		if (m_normalsHierarchyCL[i]) {
+			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_normalsHierarchyCL[i]);
 			NUI_CHECK_CL_ERR(err);
-			m_normalsArrCL[i] = NULL;
+			m_normalsHierarchyCL[i] = NULL;
 		}
-		if (m_verticesPrevArrCL[i]) {
-			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_verticesPrevArrCL[i]);
-			NUI_CHECK_CL_ERR(err);
-			m_verticesPrevArrCL[i] = NULL;
-		}
-		if (m_normalsPrevArrCL[i]) {
-			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_normalsPrevArrCL[i]);
-			NUI_CHECK_CL_ERR(err);
-			m_normalsPrevArrCL[i] = NULL;
-		}
+	}
+	if (m_verticesPrevCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_verticesPrevCL);
+		NUI_CHECK_CL_ERR(err);
+		m_verticesPrevCL = NULL;
+	}
+	if (m_normalsPrevCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_normalsPrevCL);
+		NUI_CHECK_CL_ERR(err);
+		m_normalsPrevCL = NULL;
 	}
 	if (m_corespsBlocksCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_corespsBlocksCL);
@@ -153,7 +152,7 @@ bool NuiKinfuOpenCLDepthTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCa
 
 	Depth2vertex(pCLCamera->GetCameraParamsBuffer());
 	Vertex2Normal();
-	pCLFrame->SetNormalsBuffer(&m_normalsArrCL[0]);
+	pCLFrame->SetNormalsBuffer(&m_normalsHierarchyCL[0]);
 	return true;
 }
 
@@ -187,35 +186,32 @@ void NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	for (UINT i = 0; i < m_iterations.size(); ++i)
-	{
-		cl_uint idx = 0;
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &transformCL);
-		NUI_CHECK_CL_ERR(err);
+	cl_uint idx = 0;
+	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[0]);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsHierarchyCL[0]);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesPrevCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsPrevCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
 
-		// Run kernel to calculate
-		size_t kernelGlobalSize[2] = { m_nWidth >> i, m_nHeight >> i };
-		err = clEnqueueNDRangeKernel(
-			queue,
-			transformKernel,
-			2,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-	}
+	// Run kernel to calculate
+	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		transformKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
 }
 
 void	NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene)
@@ -236,109 +232,14 @@ void	NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState,
 	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 
 	pCLScene->raycastRender(
-		m_verticesPrevArrCL[0],
-		m_normalsPrevArrCL[0],
+		m_verticesPrevCL,
+		m_normalsPrevCL,
 		NULL,
 		cameraParamsCL,
 		transformCL,
 		m_nWidth, m_nHeight,
 		cameraPos.getSensorDepthMin(), cameraPos.getSensorDepthMax()
 		);
-
-	resizePrevsMaps();
-}
-
-void NuiKinfuOpenCLDepthTracker::resizePrevsMaps()
-{
-	// half sample the input depth maps into the pyramid levels
-	// Get the kernel
-	cl_kernel resizeKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_RESIZE_MAPS);
-	assert(resizeKernel);
-	if (!resizeKernel)
-	{
-		NUI_ERROR("Get kernel 'E_RESIZE_MAPS' failed!\n");
-		return;
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-	
-	// Set kernel arguments
-	cl_uint idx = 0;
-	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
-
-	for (UINT i = 1; i < m_iterations.size(); ++i)
-	{
-		// Vertices
-		idx = 0;
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), NULL);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), NULL);
-		NUI_CHECK_CL_ERR(err);
-
-		// Run kernel to calculate
-		kernelGlobalSize[0] = m_nWidth >> i;
-		kernelGlobalSize[1] = m_nHeight >> i;
-		err = clEnqueueNDRangeKernel(
-			queue,
-			resizeKernel,
-			2,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-	}
-}
-
-void NuiKinfuOpenCLDepthTracker::copyPrevsFrame()
-{
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	for (UINT i = 0; i < m_iterations.size(); ++i)
-	{
-		const UINT nPointsNum = (m_nWidth >> i) * (m_nHeight >> i);
-
-		err = clEnqueueCopyBuffer(
-			queue,
-			m_verticesArrCL[i],
-			m_verticesPrevArrCL[i],
-			0,
-			0,
-			nPointsNum * 3 * sizeof(float),
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-
-		err = clEnqueueCopyBuffer(
-			queue,
-			m_normalsArrCL[i],
-			m_normalsPrevArrCL[i],
-			0,
-			0,
-			nPointsNum * 3 * sizeof(float),
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-	}
 }
 
 void NuiKinfuOpenCLDepthTracker::GenerateGaussianBuffer()
@@ -419,7 +320,7 @@ void NuiKinfuOpenCLDepthTracker::SmoothDepths(cl_mem floatDepthsCL)
 	cl_uint idx = 0;
 	err = clSetKernelArg(smoothKernel, idx++, sizeof(cl_mem), &floatDepthsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(smoothKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[0]);
+	err = clSetKernelArg(smoothKernel, idx++, sizeof(cl_mem), &m_depthsHierarchyCL[0]);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(smoothKernel, idx++, sizeof(cl_mem), &m_gaussianCL);
 	NUI_CHECK_CL_ERR(err);
@@ -468,9 +369,9 @@ void NuiKinfuOpenCLDepthTracker::SubSampleDepths()
 	{
 		// Set kernel arguments
 		cl_uint idx = 0;
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[i-1]);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_depthsHierarchyCL[i-1]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[i]);
+		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(cl_mem), &m_depthsHierarchyCL[i]);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(pyrDownKernel, idx++, sizeof(UINT), &subSampleRadius);
 		NUI_CHECK_CL_ERR(err);
@@ -515,9 +416,9 @@ void NuiKinfuOpenCLDepthTracker::Depth2vertex(cl_mem cameraParamsCL)
 		int div = 1 << i; 
 		// Set kernel arguments
 		cl_uint idx = 0;
-		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_depthsArrCL[i]);
+		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_depthsHierarchyCL[i]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
+		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[i]);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 		NUI_CHECK_CL_ERR(err);
@@ -563,9 +464,9 @@ void NuiKinfuOpenCLDepthTracker::Vertex2Normal()
 		// vertex2normal
 		// Set kernel arguments
 		cl_uint idx = 0;
-		err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[i]);
+		err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[i]);
 		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[i]);
+		err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &m_normalsHierarchyCL[i]);
 		NUI_CHECK_CL_ERR(err);
 		err = clSetKernelArg(normalEstKernel, idx++, sizeof(float), &m_configuration.depth_threshold);
 		NUI_CHECK_CL_ERR(err);
@@ -649,18 +550,15 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCam
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
 	{
-		int div = 1 << level_index;
 		int iter_num = m_iterations[level_index];
 		for (int iter = 0; iter < iter_num; ++iter)
 		{
 			idx = 0;
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_int), &div);
-			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[level_index]);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_normalsArrCL[level_index]);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_normalsHierarchyCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*8, Rcurr.data());
 			NUI_CHECK_CL_ERR(err);
@@ -668,9 +566,9 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCam
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*4, tcurr.data());
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[level_index]);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_verticesPrevCL);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[level_index]);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_normalsPrevCL);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &previousTransform);
 			NUI_CHECK_CL_ERR(err);
@@ -823,7 +721,7 @@ bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappab
 	if(!pMappableData)
 		return false;
 
-	if(!m_verticesArrCL[0])
+	if(!m_verticesHierarchyCL[0])
 		return false;
 
 	const UINT nPointsNum = m_nWidth * m_nHeight;
@@ -868,7 +766,7 @@ bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappab
 
 	err = clEnqueueCopyBuffer(
 		queue,
-		m_verticesArrCL[0],
+		m_verticesHierarchyCL[0],
 		positionsGL,
 		0,
 		0,
@@ -897,7 +795,7 @@ bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pM
 	if(!pMappableData)
 		return false;
 
-	if(!m_verticesArrCL[0])
+	if(!m_verticesHierarchyCL[0])
 		return false;
 
 	// Get the kernel
@@ -937,7 +835,7 @@ bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pM
 
 	// Set kernel arguments
 	cl_uint idx = 0;
-	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_verticesArrCL[0]);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[0]);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &texGL);
 	NUI_CHECK_CL_ERR(err);

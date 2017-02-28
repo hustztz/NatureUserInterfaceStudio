@@ -30,14 +30,12 @@ public:
 	virtual float	getError() const override { return m_error; }
 	virtual float	getCount() const override { return m_count; }
 
-	cl_mem	getNormalsCL() const { return m_normalsArrCL[0]; }
+	cl_mem	getNormalsCL() const { return m_normalsHierarchyCL[0]; }
 
 protected:
 	void	AcquireBuffers();
 	void	ReleaseBuffers();
 
-	void	resizePrevsMaps();
-	void	copyPrevsFrame();
 	void	GenerateGaussianBuffer();
 	void	SmoothDepths(cl_mem floatDepthsCL);
 	void	SubSampleDepths();
@@ -47,12 +45,12 @@ protected:
 
 protected:
 	cl_mem m_gaussianCL;
-	typedef std::vector<cl_mem> GPUBuffers;
-	GPUBuffers m_depthsArrCL;
-	GPUBuffers m_verticesArrCL;
-	GPUBuffers m_normalsArrCL;
-	GPUBuffers m_verticesPrevArrCL;
-	GPUBuffers m_normalsPrevArrCL;
+	typedef std::vector<cl_mem> HierarchyBuffers;
+	HierarchyBuffers m_depthsHierarchyCL;
+	HierarchyBuffers m_verticesHierarchyCL;
+	HierarchyBuffers m_normalsHierarchyCL;
+	cl_mem m_verticesPrevCL;
+	cl_mem m_normalsPrevCL;
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 

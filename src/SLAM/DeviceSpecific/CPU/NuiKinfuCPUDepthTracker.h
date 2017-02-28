@@ -39,11 +39,11 @@ protected:
 	bool	IterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint);
 
 protected:
-	std::vector<NuiFloatImage*>		m_depthsArr;
-	std::vector<NuiFloat3Image*>	m_verticesArr;
-	std::vector<NuiFloat3Image*>	m_normalsArr;
-	std::vector<NuiFloat3Image*>	m_verticesPrevArr;
-	std::vector<NuiFloat3Image*>	m_normalsPrevArr;
+	std::vector<NuiFloatImage*>		m_depthsHierarchy;
+	std::vector<NuiFloat3Image*>	m_verticesHierarchy;
+	std::vector<NuiFloat3Image*>	m_normalsHierarchy;
+	NuiFloat3Image					m_verticesPrev;
+	NuiFloat3Image					m_normalsPrev;
 
 	NuiTrackerConfig m_configuration;
 	std::vector<UINT> m_iterations;

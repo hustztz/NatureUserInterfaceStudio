@@ -190,7 +190,6 @@ static void reduce(	uint lid,
 }
 
 __kernel void icp_block_kernel(
-			const			int		div,
 			__constant		struct  NuiCLCameraParams* cameraParams,
             __global		float*	vertices,
             __global		float*	normals,
@@ -227,16 +226,10 @@ __kernel void icp_block_kernel(
 			float3 projectedPos = transformInverse(projectedVertex, previousMatrix);         // prev camera coo space
 
 			struct NuiCLCameraParams camParams = *cameraParams;
-			const float intr_fx = camParams.fx / div;
-			const float intr_fy = camParams.fy / div;
-			const float intr_cx = camParams.cx / div;
-			const float intr_cy = camParams.cy / div;
-			const int nImageWidth = camParams.depthImageWidth / div;
-			const int nImageHeight = camParams.depthImageHeight / div;
-			int2 projPixel = (int2)(round(projectedPos.x * intr_fx / projectedPos.z + intr_cx), round(projectedPos.y * intr_fy / projectedPos.z + intr_cy));
-			if(projPixel.x >= 0 && projPixel.x < nImageWidth && projPixel.y >= 0 && projPixel.y < nImageHeight)
+			int2 projPixel = (int2)(round(projectedPos.x * camParams.fx / projectedPos.z + camParams.cx), round(projectedPos.y * camParams.fy / projectedPos.z + camParams.cy));
+			if(projPixel.x >= 0 && projPixel.x < camParams.depthImageWidth && projPixel.y >= 0 && projPixel.y < camParams.depthImageHeight)
 			{
-				int refPixel = mul24(projPixel.y, nImageWidth)+projPixel.x;
+				int refPixel = mul24(projPixel.y, camParams.depthImageWidth)+projPixel.x;
 				float3 referenceNormal = vload3(refPixel, normalsPrev);
 				if( !_isnan3(referenceNormal) )
 				{
