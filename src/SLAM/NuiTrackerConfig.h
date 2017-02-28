@@ -7,6 +7,20 @@
 
 struct NuiTrackerConfig
 {
+	typedef enum
+	{
+		eTracker_Iteration_Rotation = 1,
+		eTracker_Iteration_Translation = 2,
+		eTracker_Iteration_Both = 3,
+		eTracker_Iteration_None = 4
+	} TrackerIterationType;
+
+	struct TrackerIterationConfig
+	{
+		UINT m_num;
+		TrackerIterationType m_type;
+	};
+
 	bool bHasColor;
 	UINT filter_radius;				// bilateral filter radius
 	float sigma_space2_inv_half;	// gaussian delta
@@ -18,7 +32,8 @@ struct NuiTrackerConfig
 	float color_dist_threshold;       // 
 	float color_gradiant_min;     // 
 	float track_threshold;      // percent of tracked pixels to accept tracking result
-	std::vector<UINT> iterations;  // max number of iterations per level
+	typedef std::vector<TrackerIterationConfig> ITERATION_CLASS;
+	ITERATION_CLASS iterations;  // max number of iterations per level
 
 	NuiTrackerConfig();
 

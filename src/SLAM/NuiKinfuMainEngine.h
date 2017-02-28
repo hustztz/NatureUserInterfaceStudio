@@ -25,7 +25,7 @@ namespace NuiKinfuEngine
 		bool	getCameraPose (NuiCameraPos* cam) const;
 
 		float	getTrackerError() const { return m_trackingEngine.getTrackerError(); }
-		float	getTrackerCount() const { return m_trackingEngine.getTrackerCount(); }
+		int		getTrackerCount() const { return m_trackingEngine.getTrackerCount(); }
 
 		void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
 		void	setIntegrationMetricThreshold(float threshold);

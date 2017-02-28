@@ -149,9 +149,9 @@ float NuiKinfuTrackingEngine::getTrackerError() const
 	return m_pTracker ? m_pTracker->getError() : 0.0f;
 }
 
-float NuiKinfuTrackingEngine::getTrackerCount() const
+int NuiKinfuTrackingEngine::getTrackerCount() const
 {
-	return m_pTracker ? m_pTracker->getCount() : 0.0f;
+	return m_pTracker ? m_pTracker->getCount() : 0.;
 }
 
 const NuiCameraPos&	NuiKinfuTrackingEngine::getCameraPose (int time /*= -1*/) const
@@ -172,6 +172,6 @@ bool NuiKinfuTrackingEngine::VerticesToMappablePosition(NuiCLMappableData* pMapp
 
 bool	NuiKinfuTrackingEngine::BufferToMappableTexture(NuiCLMappableData* pMappableData)
 {
-	NuiKinfuTracker::BufferType bufferType = NuiKinfuTracker::eTracking_Vertices;
+	NuiKinfuTracker::TrackerBufferType bufferType = NuiKinfuTracker::eTracker_Vertices;
 	return m_pTracker ? m_pTracker->BufferToMappableTexture(pMappableData, bufferType) : NULL;
 }

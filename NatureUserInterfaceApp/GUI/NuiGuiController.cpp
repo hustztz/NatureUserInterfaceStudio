@@ -174,7 +174,7 @@ void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 		float trackerErrThresh = 5e-05f;
 		m_gui->a_resLog.Log(m_pKinfu->m_engine.getTrackerError(), trackerErrThresh);
 		float trackerCountThresh = 30000.f;
-		m_gui->a_inLog.Log(m_pKinfu->m_engine.getTrackerCount(), trackerCountThresh);
+		m_gui->a_inLog.Log((float)m_pKinfu->m_engine.getTrackerCount(), trackerCountThresh);
 	}
 
 	std::stringstream strsf;

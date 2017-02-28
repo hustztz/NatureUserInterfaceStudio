@@ -42,7 +42,7 @@ namespace NuiKinfuEngine
 			*/
 		const NuiCameraPos&		getCameraPose (int time = -1) const;
 		float					getTrackerError() const;
-		float					getTrackerCount() const;
+		int						getTrackerCount() const;
 		void					setIntegrationMetricThreshold(float threshold) { m_integration_metric_threshold = threshold; }
 
 		bool                    VerticesToMappablePosition(NuiCLMappableData* pCLData);

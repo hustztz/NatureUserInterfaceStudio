@@ -216,54 +216,56 @@ __kernel void icp_block_kernel(
 		vstore(0.0f, local_id + i, localBuffer);
     }
 
-	float3 ncurr = vload3(gid, normals);
-	if( !_isnan3(ncurr) )
-	{
-		float3 vcurr = vload3(gid, vertices);
-		if( !_isnan3(vcurr) )
-		{
-			float3 projectedVertex = rotate3(vcurr, Rcurr1, Rcurr2) + tcurr;
-			float3 projectedPos = transformInverse(projectedVertex, previousMatrix);         // prev camera coo space
-
-			struct NuiCLCameraParams camParams = *cameraParams;
-			int2 projPixel = (int2)(round(projectedPos.x * camParams.fx / projectedPos.z + camParams.cx), round(projectedPos.y * camParams.fy / projectedPos.z + camParams.cy));
-			if(projPixel.x >= 0 && projPixel.x < camParams.depthImageWidth && projPixel.y >= 0 && projPixel.y < camParams.depthImageHeight)
-			{
-				int refPixel = mul24(projPixel.y, camParams.depthImageWidth)+projPixel.x;
-				float3 referenceNormal = vload3(refPixel, normalsPrev);
-				if( !_isnan3(referenceNormal) )
-				{
-					float3 referenceVertex = vload3(refPixel, verticesPrev);
-					if( !_isnan3(referenceVertex) )
-					{
-						float3 diff = fabs(referenceVertex - projectedVertex);
-						float dist = fast_length (diff);
-						if (dist < distThres)
-						{
-							float3 projectedNormal = rotate3(ncurr, Rcurr1, Rcurr2);
-							float sine = fast_length (cross (projectedNormal, referenceNormal));
-							if (sine < angleThres)
-							{
-								float3 referencePos = transformInverse(referenceVertex, previousMatrix);
-								diff = referencePos - projectedPos;
-								float3 referenceNorm = rotationInverse(referenceNormal, previousMatrix);
-								float3 row0 = cross (projectedPos, referenceNorm);
-								float coresp[7] = { row0.x, row0.y, row0.z, referenceNorm.x, referenceNorm.y, referenceNorm.z, dot (referenceNorm, diff) };
 	
-								uint shift = 0;
-								for (uint i = 0; i < 6; ++i)        //rows
-								{
-									for (uint j = i; j < 7; ++j)          // cols + b
-									{
-										vstore(coresp[i] * coresp[j],  local_id + shift, localBuffer);
-										shift ++;
-									 }
-								}
-								vstore(coresp[6] * coresp[6],  local_id + shift, localBuffer);
+	float3 vcurr = vload3(gid, vertices);
+	if( !_isnan3(vcurr) )
+	{
+		float3 projectedVertex = rotate3(vcurr, Rcurr1, Rcurr2) + tcurr;
+		float3 projectedPos = transformInverse(projectedVertex, previousMatrix);         // prev camera coo space
+
+		struct NuiCLCameraParams camParams = *cameraParams;
+		int2 projPixel = (int2)(round(projectedPos.x * camParams.fx / projectedPos.z + camParams.cx), round(projectedPos.y * camParams.fy / projectedPos.z + camParams.cy));
+		if(projPixel.x >= 0 && projPixel.x < camParams.depthImageWidth && projPixel.y >= 0 && projPixel.y < camParams.depthImageHeight)
+		{
+			int refPixel = mul24(projPixel.y, camParams.depthImageWidth)+projPixel.x;
+			float3 referenceNormal = vload3(refPixel, normalsPrev);
+			if( !_isnan3(referenceNormal) )
+			{
+				float3 referenceVertex = vload3(refPixel, verticesPrev);
+				if( !_isnan3(referenceVertex) )
+				{
+					float3 diff = fabs(referenceVertex - projectedVertex);
+					bool bInThreshold = false;
+					float dist = fast_length (diff);
+					bool bInThreshold = (dist < distThres);
+					float3 ncurr = vload3(gid, normals);
+					if( !_isnan3(ncurr) )
+					{
+						float3 projectedNormal = rotate3(ncurr, Rcurr1, Rcurr2);
+						float sine = fast_length (cross (projectedNormal, referenceNormal));
+						bInThreshold &= (sine < angleThres);
+					}
+
+					if (bInThreshold)
+					{
+						/*float3 referencePos = transformInverse(referenceVertex, previousMatrix);
+						diff = referencePos - projectedPos;
+						float3 referenceNorm = rotationInverse(referenceNormal, previousMatrix);*/
+						float3 row0 = cross (projectedVertex, referenceNormal);
+						float coresp[7] = { row0.x, row0.y, row0.z, referenceNormal.x, referenceNormal.y, referenceNormal.z, dot (referenceNormal, diff) };
+	
+						uint shift = 0;
+						for (uint i = 0; i < 6; ++i)        //rows
+						{
+							for (uint j = i; j < 7; ++j)          // cols + b
+							{
+								vstore(coresp[i] * coresp[j],  local_id + shift, localBuffer);
 								shift ++;
-								vstore(1.0f,  local_id + shift, localBuffer);
-							}
+								}
 						}
+						vstore(coresp[6] * coresp[6],  local_id + shift, localBuffer);
+						shift ++;
+						vstore(1.0f,  local_id + shift, localBuffer);
 					}
 				}
 			}

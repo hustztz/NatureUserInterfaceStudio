@@ -23,14 +23,14 @@ public:
 	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) override;
 
 	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) override;
-	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData, BufferType bufferType) override;
+	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData, TrackerBufferType bufferType) override;
 
 	virtual bool	log(const std::string& fileName) const override;
 
 	virtual float	getError() const override { return m_error; }
-	virtual float	getCount() const override { return m_count; }
+	virtual int		getCount() const override { return (int)m_count; }
 
-	cl_mem	getNormalsCL() const { return m_normalsHierarchyCL[0]; }
+	cl_mem	getNormalsCL() const { return m_normalsCL; }
 
 protected:
 	void	AcquireBuffers();
@@ -48,14 +48,13 @@ protected:
 	typedef std::vector<cl_mem> HierarchyBuffers;
 	HierarchyBuffers m_depthsHierarchyCL;
 	HierarchyBuffers m_verticesHierarchyCL;
-	HierarchyBuffers m_normalsHierarchyCL;
+	cl_mem m_normalsCL;
 	cl_mem m_verticesPrevCL;
 	cl_mem m_normalsPrevCL;
 	cl_mem m_corespsBlocksCL;
 	cl_mem m_corespsCL;
 
 	NuiTrackerConfig m_configuration;
-	std::vector<UINT> m_iterations;
 	UINT m_nWidth, m_nHeight;
 
 	float m_error;

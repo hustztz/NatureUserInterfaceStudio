@@ -62,7 +62,7 @@ inline static float3 transform(float3 vec, __global struct NuiCLRigidTransform* 
 inline static float3 transformInverse(float3 vec, __global struct NuiCLRigidTransform* matrix)
 {
 	struct NuiCLRigidTransform mat = *matrix;
-	vec = vec - (float3)(mat.t[0], mat.t[1], mat.t[0]);
+	vec = vec - (float3)(mat.t[0], mat.t[1], mat.t[2]);
     return (float3)(dot((float3)(mat.R_inv[0], mat.R_inv[1], mat.R_inv[2]), vec), dot((float3)(mat.R_inv[3], mat.R_inv[4], mat.R_inv[5]), vec), dot((float3)(mat.R_inv[6], mat.R_inv[7], mat.R_inv[8]), vec));
 }
 

@@ -2,6 +2,8 @@
 
 #include "../NuiKinfuFrame.h"
 
+typedef Eigen::Vector3f Vector3f;
+
 class NuiKinfuCPUFrame : public NuiKinfuFrame
 {
 public:
@@ -15,14 +17,14 @@ public:
 
 	float*			GetDepthsBuffer() const { return m_floatDepths.GetBuffer(); }
 	BGRQUAD*		GetColorsBuffer() const { return m_colors.GetBuffer(); }
-	NuiFloat3*		GetNormalsBuffer() const { return m_pNormals; }
+	Vector3f*		GetNormalsBuffer() const { return m_pNormals; }
 
-	void			SetNormalsBuffer(NuiFloat3* pBuffer) { m_pNormals = pBuffer; }
+	void			SetNormalsBuffer(Vector3f* pBuffer) { m_pNormals = pBuffer; }
 
 protected:
 
 private:
 	NuiFloatImage	m_floatDepths;
 	NuiColorImage	m_colors;
-	NuiFloat3*		m_pNormals;
+	Vector3f*		m_pNormals;
 };
