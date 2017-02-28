@@ -651,7 +651,7 @@ bool NuiKinfuCPUDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCamera
 }
 
 
-bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappableData)
+bool NuiKinfuCPUDepthTracker::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
 {
 	assert(pMappableData);
 	if(!pMappableData)
@@ -725,7 +725,7 @@ bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappab
 	return true;
 }
 
-bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pMappableData)
+bool	NuiKinfuCPUDepthTracker::BufferToMappableTexture(NuiCLMappableData* pMappableData, BufferType bufferType)
 {
 	assert(pMappableData);
 	if(!pMappableData)

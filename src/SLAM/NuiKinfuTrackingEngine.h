@@ -45,8 +45,8 @@ namespace NuiKinfuEngine
 		float					getTrackerCount() const;
 		void					setIntegrationMetricThreshold(float threshold) { m_integration_metric_threshold = threshold; }
 
-		bool					previousBufferToData(NuiCLMappableData* pCLData);
-		bool					previousNormalImageToData(NuiCLMappableData* pCLData);
+		bool                    VerticesToMappablePosition(NuiCLMappableData* pCLData);
+		bool                    BufferToMappableTexture(NuiCLMappableData* pCLData);
 
 	private:
 		NuiKinfuTracker*		m_pTracker;

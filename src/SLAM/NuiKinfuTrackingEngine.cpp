@@ -165,12 +165,13 @@ const NuiCameraPos&	NuiKinfuTrackingEngine::getCameraPose (int time /*= -1*/) co
 	return m_poses[time];
 }
 
-bool NuiKinfuTrackingEngine::previousBufferToData(NuiCLMappableData* pMappableData)
+bool NuiKinfuTrackingEngine::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
 {
-	return m_pTracker ? m_pTracker->previousBufferToData(pMappableData) : NULL;
+	return m_pTracker ? m_pTracker->VerticesToMappablePosition(pMappableData) : NULL;
 }
 
-bool	NuiKinfuTrackingEngine::previousNormalImageToData(NuiCLMappableData* pMappableData)
+bool	NuiKinfuTrackingEngine::BufferToMappableTexture(NuiCLMappableData* pMappableData)
 {
-	return m_pTracker ? m_pTracker->previousNormalImageToData(pMappableData) : NULL;
+	NuiKinfuTracker::BufferType bufferType = NuiKinfuTracker::eTracking_Vertices;
+	return m_pTracker ? m_pTracker->BufferToMappableTexture(pMappableData, bufferType) : NULL;
 }

@@ -12,7 +12,7 @@ public:
 	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) override;
 	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState) override;
 
-	virtual bool	previousBufferToData(NuiCLMappableData* pMappableData) override;
+	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) override;
 
 	virtual bool	hasColorData() const override { return true; }
 

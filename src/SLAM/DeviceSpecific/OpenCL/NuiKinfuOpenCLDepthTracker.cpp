@@ -715,7 +715,7 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCam
 }
 
 
-bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappableData)
+bool NuiKinfuOpenCLDepthTracker::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
 {
 	assert(pMappableData);
 	if(!pMappableData)
@@ -789,7 +789,7 @@ bool NuiKinfuOpenCLDepthTracker::previousBufferToData(NuiCLMappableData* pMappab
 	return true;
 }
 
-bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pMappableData)
+bool	NuiKinfuOpenCLDepthTracker::BufferToMappableTexture(NuiCLMappableData* pMappableData, BufferType bufferType)
 {
 	assert(pMappableData);
 	if(!pMappableData)
@@ -833,9 +833,22 @@ bool	NuiKinfuOpenCLDepthTracker::previousNormalImageToData(NuiCLMappableData* pM
 	openclutil::enqueueAcquireHWObjects(
 		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 
+	cl_mem bufferCL = m_verticesHierarchyCL[0];
+	switch (bufferType)
+	{
+	case NuiKinfuTracker::eTracking_Vertices:
+		bufferCL = m_verticesHierarchyCL[0];
+		break;
+	case NuiKinfuTracker::eTracking_Normals:
+		bufferCL = m_normalsHierarchyCL[0];
+		break;
+	default:
+		break;
+	}
+
 	// Set kernel arguments
 	cl_uint idx = 0;
-	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[0]);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &bufferCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &texGL);
 	NUI_CHECK_CL_ERR(err);

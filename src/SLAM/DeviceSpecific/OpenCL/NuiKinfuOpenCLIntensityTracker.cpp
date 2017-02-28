@@ -575,7 +575,7 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 	return true;
 }
 
-bool	NuiKinfuOpenCLIntensityTracker::previousBufferToData(NuiCLMappableData* pMappableData)
+bool	NuiKinfuOpenCLIntensityTracker::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
 {
 	assert(pMappableData);
 	if(!pMappableData)

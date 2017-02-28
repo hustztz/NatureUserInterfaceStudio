@@ -20,8 +20,8 @@ public:
 	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState) override;
 	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) override;
 
-	virtual bool	previousBufferToData(NuiCLMappableData* pMappableData) override;
-	virtual bool	previousNormalImageToData(NuiCLMappableData* pMappableData) override;
+	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) override;
+	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData, BufferType bufferType) override;
 
 	virtual bool	log(const std::string& fileName) const override;
 
