@@ -2,12 +2,14 @@
 
 #include "../../NuiTrackerConfig.h"
 #include "../NuiKinfuTracker.h"
+#include "Shape\NuiImageBuffer.h"
 
 #include <Eigen/Core>
 
 typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
 typedef Eigen::Vector3f Vector3f;
-
+typedef Eigen::Vector2f Vector2f;
+struct NuiCameraIntrinsics;
 
 class NuiKinfuCPUDepthTracker : public NuiKinfuTracker
 {
@@ -36,6 +38,7 @@ protected:
 	void	Depth2vertex(NuiCameraIntrinsics cameraIntrics);
 	void	Vertex2Normal();
 	void	TransformBuffers(NuiKinfuCameraState* pCameraState);
+	Vector3f InterpolateBilinear_withHoles(const Vector3f* source, Vector2f position, UINT nWidth);
 	bool	IterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint);
 
 protected:

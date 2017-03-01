@@ -15,7 +15,7 @@ struct NuiTrackerConfig
 		eTracker_Iteration_None = 4
 	} TrackerIterationType;
 
-	struct TrackerIterationConfig
+	struct TrackerIterationParams
 	{
 		UINT m_num;
 		TrackerIterationType m_type;
@@ -32,7 +32,7 @@ struct NuiTrackerConfig
 	float color_dist_threshold;       // 
 	float color_gradiant_min;     // 
 	float track_threshold;      // percent of tracked pixels to accept tracking result
-	typedef std::vector<TrackerIterationConfig> ITERATION_CLASS;
+	typedef std::vector<TrackerIterationParams> ITERATION_CLASS;
 	ITERATION_CLASS iterations;  // max number of iterations per level
 
 	NuiTrackerConfig();

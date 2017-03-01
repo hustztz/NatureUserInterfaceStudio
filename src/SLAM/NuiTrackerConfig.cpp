@@ -14,10 +14,13 @@ NuiTrackerConfig::NuiTrackerConfig()
 	normal_threshold = sin (20.f * 3.14159254f / 180.f); //0.8f;
 	color_dist_threshold = 0.1f;
 	color_gradiant_min = 0.2f;
-	track_threshold = 0.15f;
-	iterations.push_back( 5 );
-	iterations.push_back( 5 );
-	iterations.push_back( 5 );
+	track_threshold = 1e-3f;
+	TrackerIterationParams iterParams;
+	iterParams.m_num = 5;
+	iterParams.m_type = eTracker_Iteration_Both;
+	iterations.push_back( iterParams );
+	iterations.push_back( iterParams );
+	iterations.push_back( iterParams );
 }
 
 bool	NuiTrackerConfig::load(const std::string& fileName)
@@ -70,7 +73,12 @@ bool	NuiTrackerConfig::load(const std::string& fileName)
 		{
 			UINT iter = (UINT)atoi(line.substr(pos+1).c_str());
 			if(iter > 0)
-				iterations.push_back(iter);
+			{
+				TrackerIterationParams iterParams;
+				iterParams.m_num = iter;
+				iterParams.m_type = eTracker_Iteration_Both;
+				iterations.push_back(iterParams);
+			}
 		}
 	}
 
@@ -98,7 +106,7 @@ bool	NuiTrackerConfig::log(const std::string& fileName) const
 	fpout << "icp_track_threshold=" << track_threshold << std::endl;
 	for (UINT i = 0; i < iterations.size(); i ++)
 	{
-		fpout << "icp_iteration=" << iterations[i] << std::endl;
+		fpout << "icp_iteration=" << iterations[i].m_num << std::endl;
 	}
 
 	// Close file

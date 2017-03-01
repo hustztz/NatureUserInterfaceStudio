@@ -522,17 +522,17 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCam
 	size_t local_ws[1] = {WORK_GROUP_SIZE};
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] * KINFU_ICP_CORESPS_NUM / WORK_GROUP_SIZE]);
 
-	Matrix3frm Rcurr;
+	Matrix3frm Rinv;
 	Vector3f tcurr;
 	if(hint)
 	{
-		Rcurr = hint->rotation().matrix();
+		Rinv = hint->rotation().inverse();
 		tcurr = hint->translation().matrix();
 	}
 	else
 	{
 		const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
-		Rcurr = cameraPos.getRotation(); // tranform to global coo for ith camera pose
+		Rinv = cameraPos.getRotation().inverse(); // tranform to global coo for ith camera pose
 		tcurr = cameraPos.getTranslation();
 	}
 	cl_mem previousTransform = pCLCamera->GetCameraTransformBuffer();
@@ -552,11 +552,9 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCam
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), NULL);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*8, Rinv.data());
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*8, Rcurr.data());
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), Rcurr.data()+8);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(float), Rinv.data()+8);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*4, tcurr.data());
 			NUI_CHECK_CL_ERR(err);
@@ -567,8 +565,6 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCam
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &previousTransform);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &m_configuration.dist_threshold);
-			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &m_configuration.normal_threshold);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_corespsBlocksCL);
 			NUI_CHECK_CL_ERR(err);
@@ -693,12 +689,12 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(NuiKinfuCameraState* pCam
 			Vector3f tinc = result.tail<3> ();
 
 			//compose
-			tcurr = Rinc * tcurr + tinc;
-			Rcurr = Rinc * Rcurr;
+			tcurr = Rinc * tcurr - tinc;
+			Rinv = Rinc * Rinv;
 		}
 	}
 
-	pCameraState->UpdateCameraTransform(Rcurr, tcurr);
+	pCameraState->UpdateCameraTransform(Rinv.inverse(), tcurr);
 
 #ifdef _DEBUG
 	//For debug
@@ -796,7 +792,7 @@ bool	NuiKinfuOpenCLDepthTracker::BufferToMappableTexture(NuiCLMappableData* pMap
 		bufferCL = m_verticesHierarchyCL[0];
 		break;
 	case NuiKinfuTracker::eTracker_Normals:
-		bufferCL = m_normalsHierarchyCL[0];
+		bufferCL = m_normalsCL;
 		break;
 	default:
 		break;

@@ -1,6 +1,8 @@
 #pragma once
 #include "NuiMemoryBlock.h"
 
+#include <Eigen/Geometry>
+
 template<typename T>
 class NuiImageBuffer : public NuiMemoryBlock <T>
 {
@@ -57,4 +59,4 @@ typedef NuiImageBuffer<float>                    NuiFloatImage;
 typedef NuiImageBuffer<CameraSpacePoint>         NuiCameraSpaceImage;
 typedef NuiImageBuffer<ColorSpacePoint>          NuiColorSpaceImage;
 typedef NuiImageBuffer<DepthSpacePoint>          NuiDepthSpaceImage;
-typedef NuiImageBuffer<Vector3f>				 NuiFloat3Image;
+typedef NuiImageBuffer<Eigen::Vector3f>			 NuiFloat3Image;

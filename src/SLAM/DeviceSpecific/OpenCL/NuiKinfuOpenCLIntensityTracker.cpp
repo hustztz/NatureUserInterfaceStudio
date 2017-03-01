@@ -172,35 +172,6 @@ void NuiKinfuOpenCLIntensityTracker::resizePrevsMaps()
 	for (UINT i = 1; i < iterations.size(); ++i)
 	{
 		// Vertices
-		idx = 0;
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i-1]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(resizeKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[i]);
-		NUI_CHECK_CL_ERR(err);
-
-		// Run kernel to calculate
-		kernelGlobalSize[0] = m_nWidth >> i;
-		kernelGlobalSize[1] = m_nHeight >> i;
-		err = clEnqueueNDRangeKernel(
-			queue,
-			resizeKernel,
-			2,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
 
 		// Intensity Derivative
 		if(m_intensitiesArrCL[i] && m_intensityDerivsPrevArrCL[i])
@@ -420,7 +391,7 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesHierarchyCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsHierarchyCL[level_index]);
+			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), NULL);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_intensitiesArrCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
@@ -430,9 +401,9 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(float)*4, tcurr.data());
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_verticesPrevArrCL[level_index]);
+			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), NULL);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_normalsPrevArrCL[level_index]);
+			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), NULL);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(colorIcpKernel, idx++, sizeof(cl_mem), &m_intensitiesPrevArrCL[level_index]);
 			NUI_CHECK_CL_ERR(err);
@@ -647,5 +618,5 @@ bool	NuiKinfuOpenCLIntensityTracker::VerticesToMappablePosition(NuiCLMappableDat
 		NUI_ERROR("Get kernel 'E_INTENSITY_TO_FLOAT4' failed!\n");
 	}
 
-	return NuiKinfuOpenCLDepthTracker::previousBufferToData(pMappableData);
+	return NuiKinfuOpenCLDepthTracker::VerticesToMappablePosition(pMappableData);
 }

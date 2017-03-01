@@ -189,18 +189,46 @@ static void reduce(	uint lid,
 	}
 }
 
+inline static float3 interpolateBilinear_withHoles(__global float* source, float2 position, int nWidth)
+{
+	float3 a, b, c, d;
+	float3 result;
+	int2 p; float2 delta;
+
+	p.x = (int)floor(position.x); p.y = (int)floor(position.y);
+	delta.x = position.x - (float)p.x; delta.y = position.y - (float)p.y;
+
+	a = vload3(p.x + p.y * nWidth, source);
+	b = vload3((p.x + 1) + p.y * nWidth, source);
+	c = vload3(p.x + (p.y + 1) * nWidth, source);
+	d = vload3((p.x + 1) + (p.y + 1) * nWidth, source);
+
+	if (_isnan3(a) || _isnan3(b) || _isnan3(c) || _isnan3(d))
+	{
+		result.x = NAN; result.y = NAN; result.z = NAN;
+		return result;
+	}
+
+	result.x = ((float)a.x * (1.0f - delta.x) * (1.0f - delta.y) + (float)b.x * delta.x * (1.0f - delta.y) +
+		(float)c.x * (1.0f - delta.x) * delta.y + (float)d.x * delta.x * delta.y);
+	result.y = ((float)a.y * (1.0f - delta.x) * (1.0f - delta.y) + (float)b.y * delta.x * (1.0f - delta.y) +
+		(float)c.y * (1.0f - delta.x) * delta.y + (float)d.y * delta.x * delta.y);
+	result.z = ((float)a.z * (1.0f - delta.x) * (1.0f - delta.y) + (float)b.z * delta.x * (1.0f - delta.y) +
+		(float)c.z * (1.0f - delta.x) * delta.y + (float)d.z * delta.x * delta.y);
+
+	return result;
+}
+
 __kernel void icp_block_kernel(
 			__constant		struct  NuiCLCameraParams* cameraParams,
             __global		float*	vertices,
-            __global		float*	normals,
-			const			float8	Rcurr1,
-			const			float	Rcurr2,
+			const			float8	Rinv1,
+			const			float	Rinv2,
 			const			float3	tcurr,
 			__global		float*	verticesPrev,
             __global		float*	normalsPrev,
 			__global		struct	NuiCLRigidTransform* previousMatrix,
 			const			float	distThres,
-			const			float	angleThres,
 			__global		float*	corespsSumBuffer
         )
 {
@@ -216,37 +244,26 @@ __kernel void icp_block_kernel(
 		vstore(0.0f, local_id + i, localBuffer);
     }
 
-	
 	float3 vcurr = vload3(gid, vertices);
 	if( !_isnan3(vcurr) )
 	{
-		float3 projectedVertex = rotate3(vcurr, Rcurr1, Rcurr2) + tcurr;
-		float3 projectedPos = transformInverse(projectedVertex, previousMatrix);         // prev camera coo space
+		float3 projectedVertex = rotate3((vcurr-tcurr), Rinv1, Rinv2);
+		float3 projectedPos = transform(projectedVertex, previousMatrix);         // prev camera coo space
 
 		struct NuiCLCameraParams camParams = *cameraParams;
-		int2 projPixel = (int2)(round(projectedPos.x * camParams.fx / projectedPos.z + camParams.cx), round(projectedPos.y * camParams.fy / projectedPos.z + camParams.cy));
-		if(projPixel.x >= 0 && projPixel.x < camParams.depthImageWidth && projPixel.y >= 0 && projPixel.y < camParams.depthImageHeight)
+		float2 projPixel = (float2)(projectedPos.x * camParams.fx / projectedPos.z + camParams.cx, projectedPos.y * camParams.fy / projectedPos.z + camParams.cy);
+		if(projPixel.x >= 0.0 && projPixel.x < convert_float(camParams.depthImageWidth) && projPixel.y >= 0.0 && projPixel.y < convert_float(camParams.depthImageHeight))
 		{
-			int refPixel = mul24(projPixel.y, camParams.depthImageWidth)+projPixel.x;
-			float3 referenceNormal = vload3(refPixel, normalsPrev);
+			float3 referenceNormal = interpolateBilinear_withHoles(normalsPrev, projPixel, camParams.depthImageWidth);
 			if( !_isnan3(referenceNormal) )
 			{
-				float3 referenceVertex = vload3(refPixel, verticesPrev);
+				float3 referenceVertex = interpolateBilinear_withHoles(verticesPrev, projPixel, camParams.depthImageWidth);
 				if( !_isnan3(referenceVertex) )
 				{
 					float3 diff = fabs(referenceVertex - projectedVertex);
 					bool bInThreshold = false;
 					float dist = fast_length (diff);
-					bool bInThreshold = (dist < distThres);
-					float3 ncurr = vload3(gid, normals);
-					if( !_isnan3(ncurr) )
-					{
-						float3 projectedNormal = rotate3(ncurr, Rcurr1, Rcurr2);
-						float sine = fast_length (cross (projectedNormal, referenceNormal));
-						bInThreshold &= (sine < angleThres);
-					}
-
-					if (bInThreshold)
+					if (dist < distThres)
 					{
 						/*float3 referencePos = transformInverse(referenceVertex, previousMatrix);
 						diff = referencePos - projectedPos;
