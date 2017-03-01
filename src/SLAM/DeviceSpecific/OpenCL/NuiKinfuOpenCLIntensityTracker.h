@@ -10,7 +10,7 @@ public:
 
 	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) override;
 	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) override;
-	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState) override;
+	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) override;
 
 	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) override;
 

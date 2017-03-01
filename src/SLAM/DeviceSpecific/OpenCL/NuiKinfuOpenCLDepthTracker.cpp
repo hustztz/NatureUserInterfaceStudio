@@ -162,14 +162,8 @@ bool NuiKinfuOpenCLDepthTracker::EstimatePose(NuiKinfuCameraState* pCameraState,
 	return IterativeClosestPoint(pCameraState, hint);
 }
 
-void NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
+void NuiKinfuOpenCLDepthTracker::TransformBuffers(cl_mem transformCL)
 {
-	if(!pCameraState)
-		return;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
-	if(!pCLCamera)
-		return;
-	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
 	if(!transformCL)
 		return;
 
@@ -217,12 +211,6 @@ void NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
 
 void	NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene)
 {
-	if(!pScene)
-		return;
-	NuiKinfuOpenCLScene* pCLScene = dynamic_cast<NuiKinfuOpenCLScene*>(pScene);
-	if(!pCLScene)
-		return;
-
 	if(!pCameraState)
 		return;
 	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
@@ -230,17 +218,24 @@ void	NuiKinfuOpenCLDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState,
 		return;
 	const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
 	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
-	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 
-	pCLScene->raycastRender(
-		m_verticesPrevCL,
-		m_normalsPrevCL,
-		NULL,
-		cameraParamsCL,
-		transformCL,
-		m_nWidth, m_nHeight,
-		cameraPos.getSensorDepthMin(), cameraPos.getSensorDepthMax()
-		);
+	if(pScene && dynamic_cast<NuiKinfuOpenCLScene*>(pScene))
+	{
+		NuiKinfuOpenCLScene* pCLScene = dynamic_cast<NuiKinfuOpenCLScene*>(pScene);
+		pCLScene->raycastRender(
+			m_verticesPrevCL,
+			m_normalsPrevCL,
+			NULL,
+			pCLCamera->GetCameraParamsBuffer(),
+			transformCL,
+			m_nWidth, m_nHeight,
+			cameraPos.getSensorDepthMin(), cameraPos.getSensorDepthMax()
+			);
+	}
+	else
+	{
+		TransformBuffers(transformCL);
+	}
 }
 
 void NuiKinfuOpenCLDepthTracker::GenerateGaussianBuffer()

@@ -18,7 +18,6 @@ public:
 
 	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) = 0;
 	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) = 0;
-	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState) = 0;
 	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) = 0;
 
 	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) { return false; }

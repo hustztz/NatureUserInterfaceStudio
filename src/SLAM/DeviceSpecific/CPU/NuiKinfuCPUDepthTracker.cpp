@@ -95,7 +95,7 @@ bool NuiKinfuCPUDepthTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCamer
 
 	Depth2vertex(pCameraState->GetCameraPos().getIntrinsics());
 	Vertex2Normal();
-	pCPUFrame->SetNormalsBuffer(m_normalsHierarchy.at(0)->GetBuffer());
+	pCPUFrame->SetNormalsBuffer(m_normals.GetBuffer());
 
 	return true;
 }
@@ -105,7 +105,7 @@ bool NuiKinfuCPUDepthTracker::EstimatePose(NuiKinfuCameraState* pCameraState, Ei
 	return IterativeClosestPoint(pCameraState, hint);
 }
 
-void NuiKinfuCPUDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
+void NuiKinfuCPUDepthTracker::TransformBuffers(NuiKinfuCameraState* pCameraState)
 {
 	if(!pCameraState)
 		return;
@@ -150,30 +150,18 @@ void NuiKinfuCPUDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
 
 void	NuiKinfuCPUDepthTracker::FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene)
 {
-	if(!pScene)
-		return;
-	NuiKinfuOpenCLScene* pCLScene = dynamic_cast<NuiKinfuOpenCLScene*>(pScene);
-	if(!pCLScene)
-		return;
-
 	if(!pCameraState)
 		return;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
-	if(!pCLCamera)
-		return;
-	const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
-	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
-	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 
-	pCLScene->raycastRender(
-		m_verticesPrev,
-		m_normalsPrev,
-		NULL,
-		cameraParamsCL,
-		transformCL,
-		m_nWidth, m_nHeight,
-		cameraPos.getSensorDepthMin(), cameraPos.getSensorDepthMax()
-		);
+
+	if(pScene)
+	{
+
+	}
+	else
+	{
+		TransformBuffers(pCameraState);
+	}
 }
 
 #define MEAN_SIGMA_L 1.2232f
@@ -643,7 +631,7 @@ bool	NuiKinfuCPUDepthTracker::BufferToMappableTexture(NuiCLMappableData* pMappab
 		buffer = m_verticesHierarchy.at(0) ? m_verticesHierarchy.at(0)->GetBuffer() : NULL;
 		break;
 	case NuiKinfuTracker::eTracker_Normals:
-		buffer = m_normalsHierarchy.at(0) ? m_normalsHierarchy.at(0)->GetBuffer() : NULL;
+		buffer = m_normals.GetBuffer();
 		break;
 	default:
 		break;

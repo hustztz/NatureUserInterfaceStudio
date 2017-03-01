@@ -96,7 +96,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 			if( pScene->integrateVolume(m_pFrame, m_pCameraState) )
 				return false;
 		}
-		m_pTracker->FeedbackPose(m_pCameraState);
+		m_pTracker->FeedbackPose(m_pCameraState, NULL);
 	}
 	else
 	{
@@ -129,7 +129,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 		else
 		{
 			// Only ICP
-			m_pTracker->FeedbackPose(m_pCameraState);
+			m_pTracker->FeedbackPose(m_pCameraState, NULL);
 		}
 	}
 

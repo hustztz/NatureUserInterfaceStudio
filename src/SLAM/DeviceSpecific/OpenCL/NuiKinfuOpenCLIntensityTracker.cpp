@@ -24,11 +24,11 @@ using Eigen::AngleAxisf;
 NuiKinfuOpenCLIntensityTracker::NuiKinfuOpenCLIntensityTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight)
 	: NuiKinfuOpenCLDepthTracker(config, nWidth, nHeight)
 {
-	m_iterations = config.iterations;
-	m_intensitiesArrCL.resize(m_iterations.size());
-	m_intensitiesPrevArrCL.resize(m_iterations.size());
-	m_intensityDerivsPrevArrCL.resize(m_iterations.size());
-	for (UINT i = 0; i < m_iterations.size(); ++i)
+	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
+	m_intensitiesArrCL.resize(iterations.size());
+	m_intensitiesPrevArrCL.resize(iterations.size());
+	m_intensityDerivsPrevArrCL.resize(iterations.size());
+	for (UINT i = 0; i < iterations.size(); ++i)
 	{
 		m_intensitiesArrCL[i] = NULL;
 		m_intensitiesPrevArrCL[i] = NULL;
@@ -48,7 +48,8 @@ void NuiKinfuOpenCLIntensityTracker::AcquireBuffers()
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
 
-	for (UINT i = 0; i < m_iterations.size(); ++i)
+	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
+	for (UINT i = 0; i < iterations.size(); ++i)
 	{
 		m_intensitiesArrCL[i] = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_nWidth>>i)*(m_nHeight>>i)*sizeof(cl_float), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
@@ -61,7 +62,8 @@ void NuiKinfuOpenCLIntensityTracker::AcquireBuffers()
 
 void NuiKinfuOpenCLIntensityTracker::ReleaseBuffers()
 {
-	for (UINT i = 0; i < m_iterations.size(); ++i)
+	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
+	for (UINT i = 0; i < iterations.size(); ++i)
 	{
 		if (m_intensitiesArrCL[i]) {
 			cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_intensitiesArrCL[i]);
@@ -100,9 +102,9 @@ bool NuiKinfuOpenCLIntensityTracker::EstimatePose(NuiKinfuCameraState* pCameraSt
 	return IntensityIterativeClosestPoint(pCameraState, hint);
 }
 
-void NuiKinfuOpenCLIntensityTracker::FeedbackPose(NuiKinfuCameraState* pCameraState)
+void NuiKinfuOpenCLIntensityTracker::FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene)
 {
-	NuiKinfuOpenCLDepthTracker::FeedbackPose(pCameraState);
+	NuiKinfuOpenCLDepthTracker::FeedbackPose(pCameraState, pScene);
 	CopyPrevIntensityMaps();
 }
 
@@ -166,8 +168,8 @@ void NuiKinfuOpenCLIntensityTracker::resizePrevsMaps()
 			);
 		NUI_CHECK_CL_ERR(err);
 	}
-
-	for (UINT i = 1; i < m_iterations.size(); ++i)
+	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
+	for (UINT i = 1; i < iterations.size(); ++i)
 	{
 		// Vertices
 		idx = 0;
@@ -280,7 +282,8 @@ void NuiKinfuOpenCLIntensityTracker::ColorsToIntensity(cl_mem colorsCL)
 	}
 
 	size_t kernelGlobalSize[2];
-	for (UINT i = 1; i < m_iterations.size(); ++i)
+	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
+	for (UINT i = 1; i < iterations.size(); ++i)
 	{
 		// Set kernel arguments
 		idx = 0;
@@ -316,7 +319,8 @@ void NuiKinfuOpenCLIntensityTracker::CopyPrevIntensityMaps()
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	for (UINT i = 0; i < m_iterations.size(); ++i)
+	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
+	for (UINT i = 0; i < iterations.size(); ++i)
 	{
 		if(!m_intensitiesArrCL[i] || !m_intensitiesPrevArrCL[i])
 			continue;
@@ -394,13 +398,14 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] / WORK_GROUP_SIZE * KINFU_ICP_CORESPS_NUM]);
 
 	/** \brief array with IPC iteration numbers for each pyramid level */
-	int LEVELS = (int)m_iterations.size();
+	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
+	int LEVELS = (int)iterations.size();
 
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
 	{
 		int div = 1 << level_index;
-		int iter_num = m_iterations[level_index];
+		int iter_num = iterations[level_index].m_num;
 		for (int iter = 0; iter < iter_num; ++iter)
 		{
 			// Compute euler angles
