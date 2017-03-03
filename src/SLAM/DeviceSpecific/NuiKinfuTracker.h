@@ -3,25 +3,18 @@
 #include <Eigen/Geometry>
 
 class NuiKinfuFrame;
+class NuiKinfuFeedbackFrame;
 class NuiKinfuCameraState;
-class NuiKinfuScene;
-class NuiCLMappableData;
 
 class NuiKinfuTracker
 {
 public:
-	enum TrackerBufferType
-	{
-		eTracker_Vertices = 0,
-		eTracker_Normals,
-	};
-
-	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) = 0;
-	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) = 0;
-	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) = 0;
-
-	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) { return false; }
-	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData, TrackerBufferType bufferType) { return false; }
+	virtual bool	EstimatePose(
+		NuiKinfuFrame* pFrame,
+		NuiKinfuFeedbackFrame* pFeedbackFrame,
+		NuiKinfuCameraState* pCameraState,
+		Eigen::Affine3f *hint
+		) = 0;
 
 	virtual bool	hasColorData() const { return false; }
 	virtual bool	log(const std::string& fileName) const { return false; }

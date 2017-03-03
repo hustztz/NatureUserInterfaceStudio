@@ -17,6 +17,7 @@ using namespace NuiKinfuEngine;
 NuiKinfuTrackingEngine::NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 	: m_pTracker(NULL)
 	, m_pFrame(NULL)
+	, m_pFeedbackFrame(NULL)
 	, m_pCameraState(NULL)
 	, m_integration_metric_threshold(0.15f)
 {
@@ -26,6 +27,7 @@ NuiKinfuTrackingEngine::NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, U
 NuiKinfuTrackingEngine::NuiKinfuTrackingEngine()
 	: m_pTracker(NULL)
 	, m_pFrame(NULL)
+	, m_pFeedbackFrame(NULL)
 	, m_pCameraState(NULL)
 	, m_integration_metric_threshold(0.15f)
 {
@@ -35,6 +37,7 @@ NuiKinfuTrackingEngine::NuiKinfuTrackingEngine()
 NuiKinfuTrackingEngine::~NuiKinfuTrackingEngine()
 {
 	SafeDelete(m_pFrame);
+	SafeDelete(m_pFeedbackFrame);
 	SafeDelete(m_pTracker);
 	SafeDelete(m_pCameraState);
 }
@@ -56,7 +59,7 @@ void NuiKinfuTrackingEngine::reset(const Vector3f& translateBasis)
 void NuiKinfuTrackingEngine::initialize(const NuiTrackerConfig& trackerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
 {
 	NuiKinfuTrackingFactory::Instance().BuildTrackingEngine(
-		&m_pTracker, &m_pFrame, &m_pCameraState, trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
+		&m_pTracker, &m_pFrame, &m_pFeedbackFrame, &m_pCameraState, trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
 
 	reset( Vector3f::Zero() );
 }
@@ -77,7 +80,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 
 	// Build the frame buffers
 	m_pCameraState->UpdateCameraParams(cameraParams, m_pFrame->GetWidth(), m_pFrame->GetHeight());
-	m_pFrame->UpdateDepthBuffers(pDepths, nPointNum, cameraParams.m_sensorDepthMin, cameraParams.m_sensorDepthMax);
+	m_pFrame->UpdateVertexBuffers(pDepths, nPointNum, m_pCameraState);
 	if( m_pTracker->hasColorData() ||
 		(pScene && pScene->hasColorData()))
 	{
@@ -85,25 +88,20 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 	}
 	
 	// Tracking
-	UINT frameTime = (UINT)m_poses.size();
-	if (frameTime == 0)
+	if (m_poses.size() == 0) //frameTime
 	{
-		if( !m_pTracker->EvaluateFrame(m_pFrame, m_pCameraState) )
-			return false;
-
+		m_pFeedbackFrame->UpdateBuffers(m_pFrame, m_pCameraState);
 		if( pScene )
 		{
-			if( pScene->integrateVolume(m_pFrame, m_pCameraState) )
-				return false;
+			if( !pScene->integrateVolume(m_pFrame, m_pFeedbackFrame, m_pCameraState) )
+			{
+				//std::warning
+			}
 		}
-		m_pTracker->FeedbackPose(m_pCameraState, NULL);
 	}
 	else
 	{
-		if(!m_pTracker->EvaluateFrame(m_pFrame, m_pCameraState))
-			return false;
-
-		if( !m_pTracker->EstimatePose(m_pCameraState, NULL) )
+		if( !m_pTracker->EstimatePose(m_pFrame, m_pFeedbackFrame, m_pCameraState, NULL) )
 			return false;
 		// Debug
 		//m_transform.setTransform(Matrix3frm::Identity(), Vector3f::Zero());
@@ -119,17 +117,17 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 			// Integrate
 			if (bNeedIntegrate)
 			{
-				if( pScene->integrateVolume(m_pFrame, m_pCameraState) )
+				if( pScene->integrateVolume(m_pFrame, m_pFeedbackFrame, m_pCameraState) )
 					return false;
 
 				m_lastIntegrationPos = cameraPos;
 			}
-			m_pTracker->FeedbackPose(m_pCameraState, pScene);
+			pScene->raycastRender(m_pFeedbackFrame, m_pCameraState);
 		}
 		else
 		{
 			// Only ICP
-			m_pTracker->FeedbackPose(m_pCameraState, NULL);
+			m_pFeedbackFrame->UpdateBuffers(m_pFrame, m_pCameraState);
 		}
 	}
 
@@ -151,7 +149,7 @@ float NuiKinfuTrackingEngine::getTrackerError() const
 
 int NuiKinfuTrackingEngine::getTrackerCount() const
 {
-	return m_pTracker ? m_pTracker->getCount() : 0.;
+	return m_pTracker ? m_pTracker->getCount() : 0;
 }
 
 const NuiCameraPos&	NuiKinfuTrackingEngine::getCameraPose (int time /*= -1*/) const
@@ -167,11 +165,11 @@ const NuiCameraPos&	NuiKinfuTrackingEngine::getCameraPose (int time /*= -1*/) co
 
 bool NuiKinfuTrackingEngine::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
 {
-	return m_pTracker ? m_pTracker->VerticesToMappablePosition(pMappableData) : NULL;
+	return m_pFeedbackFrame ? m_pFeedbackFrame->VerticesToMappablePosition(pMappableData) : NULL;
 }
 
 bool	NuiKinfuTrackingEngine::BufferToMappableTexture(NuiCLMappableData* pMappableData)
 {
-	NuiKinfuTracker::TrackerBufferType bufferType = NuiKinfuTracker::eTracker_Vertices;
-	return m_pTracker ? m_pTracker->BufferToMappableTexture(pMappableData, bufferType) : NULL;
+	NuiKinfuFeedbackFrame::TrackerBufferType bufferType = NuiKinfuFeedbackFrame::eTracker_Vertices;
+	return m_pFeedbackFrame ? m_pFeedbackFrame->BufferToMappableTexture(pMappableData, bufferType) : NULL;
 }

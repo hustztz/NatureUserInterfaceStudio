@@ -7,6 +7,7 @@
 
 //Forwards
 class NuiKinfuFrame;
+class NuiKinfuFeedbackFrame;
 class NuiKinfuCameraState;
 class NuiKinfuTracker;
 class NuiCLMappableData;
@@ -26,8 +27,13 @@ public:
 	/** \brief Resets tsdf volume data to uninitialized state */
 	virtual void	reset() = 0;
 	virtual bool	integrateVolume(
-		NuiKinfuFrame*	pFrame,
-		NuiKinfuCameraState*	pTransform
+		NuiKinfuFrame*			pFrame,
+		NuiKinfuFeedbackFrame*	pFeedbackFrame,
+		NuiKinfuCameraState*	pCameraState
+		) = 0;
+	virtual void	raycastRender(
+		NuiKinfuFeedbackFrame*	pFeedbackFrame,
+		NuiKinfuCameraState*	pCameraState
 		) = 0;
 	virtual void	offlineRender() {};
 

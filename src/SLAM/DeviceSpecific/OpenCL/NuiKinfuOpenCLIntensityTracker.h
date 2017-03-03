@@ -8,11 +8,12 @@ public:
 	NuiKinfuOpenCLIntensityTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuOpenCLIntensityTracker();
 
-	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) override;
-	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) override;
-	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) override;
-
-	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) override;
+	virtual bool	EstimatePose(
+		NuiKinfuFrame* pFrame,
+		NuiKinfuFeedbackFrame* pFeedbackFrame,
+		NuiKinfuCameraState* pCameraState,
+		Eigen::Affine3f *hint
+		) override;
 
 	virtual bool	hasColorData() const override { return true; }
 

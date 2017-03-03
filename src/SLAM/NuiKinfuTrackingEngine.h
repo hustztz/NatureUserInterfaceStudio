@@ -9,6 +9,7 @@
 class NuiCLMappableData;
 class NuiKinfuScene;
 class NuiKinfuFrame;
+class NuiKinfuFeedbackFrame;
 class NuiKinfuTracker;
 
 typedef Eigen::Vector3i Vector3i;
@@ -51,6 +52,7 @@ namespace NuiKinfuEngine
 	private:
 		NuiKinfuTracker*		m_pTracker;
 		NuiKinfuFrame*			m_pFrame;
+		NuiKinfuFeedbackFrame*	m_pFeedbackFrame;
 		NuiKinfuCameraState*	m_pCameraState;
 		std::vector<NuiCameraPos> m_poses;
 

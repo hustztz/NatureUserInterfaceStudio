@@ -1,6 +1,7 @@
 #include "NuiHashingOpenCLScene.h"
 
 #include "NuiKinfuOpenCLFrame.h"
+#include "NuiKinfuOpenCLFeedbackFrame.h"
 #include "NuiKinfuOpenCLCameraState.h"
 #include "NuiHashingOpenCLSDF.h"
 #include "NuiHashingOpenCLChunkGrid.h"
@@ -309,26 +310,31 @@ void	NuiHashingOpenCLScene::offlineRender()
 }
 
 void NuiHashingOpenCLScene::raycastRender(
-	cl_mem renderVerticesCL,
-	cl_mem renderNormalsCL,
-	cl_mem renderIntensitiesCL,
-	cl_mem cameraParamsCL,
-	cl_mem transformCL,
-	UINT nWidth, UINT nHeight,
-	float sensorDepthMin, float sensorDepthMax
+	NuiKinfuFeedbackFrame*	pFeedbackFrame,
+	NuiKinfuCameraState*	pCameraState
 	)
 {
-	m_cameraParamsCL = cameraParamsCL;
-	m_transformCL = transformCL;
-	m_sensorDepthMin = sensorDepthMin;
-	m_sensorDepthMax = sensorDepthMax;
-	m_renderVerticesCL = renderVerticesCL;
-	m_renderNormalsCL = renderNormalsCL;
-	m_renderIntensitiesCL = renderIntensitiesCL;
-	m_cameraParamsCL = cameraParamsCL;
-	m_transformCL = transformCL;
-	m_nWidth = nWidth;
-	m_nHeight = nHeight;
+	if(!pCameraState)
+		return;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return ;
+
+	if(!pFeedbackFrame)
+		return;
+	NuiKinfuOpenCLFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLFeedbackFrame*>(pFeedbackFrame);
+	if(!pCLFeedbackFrame)
+		return;
+
+	m_cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+	m_transformCL = pCLCamera->GetCameraTransformBuffer();
+	m_sensorDepthMin = pCameraState->GetCameraPos().getSensorDepthMin();
+	m_sensorDepthMax = pCameraState->GetCameraPos().getSensorDepthMax();
+	m_renderVerticesCL = pCLFeedbackFrame->GetVertexBuffer();
+	m_renderNormalsCL = pCLFeedbackFrame->GetNormalBuffer();
+	m_renderIntensitiesCL = NULL;
+	m_nWidth = pFeedbackFrame->GetWidth();
+	m_nHeight = pFeedbackFrame->GetHeight();
 
 	m_offlineRenderDirty = true;
 	do 
@@ -338,7 +344,8 @@ void NuiHashingOpenCLScene::raycastRender(
 }
 
 bool	NuiHashingOpenCLScene::integrateVolume(
-	NuiKinfuFrame*	pFrame,
+	NuiKinfuFrame*			pFrame,
+	NuiKinfuFeedbackFrame*	pFeedbackFrame,
 	NuiKinfuCameraState*	pCameraState)
 {
 	if(!pCameraState)
@@ -356,13 +363,19 @@ bool	NuiHashingOpenCLScene::integrateVolume(
 	if(!pCLFrame)
 		return false;
 
-	cl_mem floatDepthsCL = pCLFrame->GetDepthsBuffer();
+	if(!pFeedbackFrame)
+		return false;
+	NuiKinfuOpenCLFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLFeedbackFrame*>(pFeedbackFrame);
+	if(!pCLFeedbackFrame)
+		return false;
+
+	cl_mem floatDepthsCL = pCLFrame->GetDepthBuffer();
 	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 	if(!floatDepthsCL || !cameraParamsCL || !transformCL)
 		return false;
 
-	cl_mem normalsCL = pCLFrame->GetNormalsBuffer();
-	cl_mem colorsCL = pCLFrame->GetColorsBuffer();
+	cl_mem normalsCL = pCLFeedbackFrame->GetNormalBuffer();
+	cl_mem colorsCL = pCLFrame->GetColorBuffer();
 	UINT nWidth = pCLFrame->GetWidth();
 	UINT nHeight = pCLFrame->GetHeight();
 

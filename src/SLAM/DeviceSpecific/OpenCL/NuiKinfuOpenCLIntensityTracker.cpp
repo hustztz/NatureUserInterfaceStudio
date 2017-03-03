@@ -83,7 +83,12 @@ void NuiKinfuOpenCLIntensityTracker::ReleaseBuffers()
 	}
 }
 
-bool NuiKinfuOpenCLIntensityTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState)
+bool NuiKinfuOpenCLIntensityTracker::EstimatePose(
+	NuiKinfuFrame* pFrame,
+	NuiKinfuFeedbackFrame* pFeedbackFrame,
+	NuiKinfuCameraState* pCameraState,
+	Eigen::Affine3f *hint
+	)
 {
 	if(!pFrame)
 		return false;
@@ -91,21 +96,10 @@ bool NuiKinfuOpenCLIntensityTracker::EvaluateFrame(NuiKinfuFrame* pFrame, NuiKin
 	if(!pCLFrame)
 		return false;
 
-	cl_mem colorsCL = pCLFrame->GetColorsBuffer();
+	cl_mem colorsCL = pCLFrame->GetColorBuffer();
 	ColorsToIntensity(colorsCL);
 
-	return NuiKinfuOpenCLDepthTracker::EvaluateFrame(pFrame, pCameraState);
-}
-
-bool NuiKinfuOpenCLIntensityTracker::EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint)
-{
 	return IntensityIterativeClosestPoint(pCameraState, hint);
-}
-
-void NuiKinfuOpenCLIntensityTracker::FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene)
-{
-	NuiKinfuOpenCLDepthTracker::FeedbackPose(pCameraState, pScene);
-	CopyPrevIntensityMaps();
 }
 
 void NuiKinfuOpenCLIntensityTracker::resizePrevsMaps()
@@ -551,72 +545,72 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 	return true;
 }
 
-bool	NuiKinfuOpenCLIntensityTracker::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
-{
-	assert(pMappableData);
-	if(!pMappableData)
-		return false;
-
-	// Get the kernel
-	cl_kernel intensityKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_INTENSITY_TO_FLOAT4);
-	assert(intensityKernel);
-	if (intensityKernel && m_intensitiesPrevArrCL[0])
-	{
-		const UINT nPointsNum = m_nWidth * m_nHeight;
-		if( nPointsNum != pMappableData->ColorStream().size() )
-		{
-			NuiMappableAccessor::asVectorImpl(pMappableData->ColorStream())->data().resize(nPointsNum);
-		}
-
-		cl_int           err = CL_SUCCESS;
-		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-		// 
-		err = clFinish(queue);
-		NUI_CHECK_CL_ERR(err);
-
-		cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pMappableData->ColorStream());
-
-		// Acquire OpenGL objects before use
-		cl_mem glObjs[] = {
-			colorsGL
-		};
-		openclutil::enqueueAcquireHWObjects(
-			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
-
-		// Set kernel arguments
-		cl_uint idx = 0;
-		err = clSetKernelArg(intensityKernel, idx++, sizeof(cl_mem), &m_intensitiesPrevArrCL[0]);
-		NUI_CHECK_CL_ERR(err);
-		err = clSetKernelArg(intensityKernel, idx++, sizeof(cl_mem), &colorsGL);
-		NUI_CHECK_CL_ERR(err);
-
-		size_t kernelGlobalSize[1] = { nPointsNum };
-		err = clEnqueueNDRangeKernel(
-			queue,
-			intensityKernel,
-			1,
-			nullptr,
-			kernelGlobalSize,
-			nullptr,
-			0,
-			NULL,
-			NULL
-			);
-		NUI_CHECK_CL_ERR(err);
-
-		err = clFinish(queue);
-		NUI_CHECK_CL_ERR(err);
-
-		// Release OpenGL objects
-		openclutil::enqueueReleaseHWObjects(
-			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
-
-		pMappableData->SetStreamDirty(true);
-	}
-	else
-	{
-		NUI_ERROR("Get kernel 'E_INTENSITY_TO_FLOAT4' failed!\n");
-	}
-
-	return NuiKinfuOpenCLDepthTracker::VerticesToMappablePosition(pMappableData);
-}
+//bool	NuiKinfuOpenCLIntensityTracker::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
+//{
+//	assert(pMappableData);
+//	if(!pMappableData)
+//		return false;
+//
+//	// Get the kernel
+//	cl_kernel intensityKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_INTENSITY_TO_FLOAT4);
+//	assert(intensityKernel);
+//	if (intensityKernel && m_intensitiesPrevArrCL[0])
+//	{
+//		const UINT nPointsNum = m_nWidth * m_nHeight;
+//		if( nPointsNum != pMappableData->ColorStream().size() )
+//		{
+//			NuiMappableAccessor::asVectorImpl(pMappableData->ColorStream())->data().resize(nPointsNum);
+//		}
+//
+//		cl_int           err = CL_SUCCESS;
+//		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+//		// 
+//		err = clFinish(queue);
+//		NUI_CHECK_CL_ERR(err);
+//
+//		cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pMappableData->ColorStream());
+//
+//		// Acquire OpenGL objects before use
+//		cl_mem glObjs[] = {
+//			colorsGL
+//		};
+//		openclutil::enqueueAcquireHWObjects(
+//			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+//
+//		// Set kernel arguments
+//		cl_uint idx = 0;
+//		err = clSetKernelArg(intensityKernel, idx++, sizeof(cl_mem), &m_intensitiesPrevArrCL[0]);
+//		NUI_CHECK_CL_ERR(err);
+//		err = clSetKernelArg(intensityKernel, idx++, sizeof(cl_mem), &colorsGL);
+//		NUI_CHECK_CL_ERR(err);
+//
+//		size_t kernelGlobalSize[1] = { nPointsNum };
+//		err = clEnqueueNDRangeKernel(
+//			queue,
+//			intensityKernel,
+//			1,
+//			nullptr,
+//			kernelGlobalSize,
+//			nullptr,
+//			0,
+//			NULL,
+//			NULL
+//			);
+//		NUI_CHECK_CL_ERR(err);
+//
+//		err = clFinish(queue);
+//		NUI_CHECK_CL_ERR(err);
+//
+//		// Release OpenGL objects
+//		openclutil::enqueueReleaseHWObjects(
+//			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+//
+//		pMappableData->SetStreamDirty(true);
+//	}
+//	else
+//	{
+//		NUI_ERROR("Get kernel 'E_INTENSITY_TO_FLOAT4' failed!\n");
+//	}
+//
+//	return NuiKinfuOpenCLDepthTracker::VerticesToMappablePosition(pMappableData);
+//}

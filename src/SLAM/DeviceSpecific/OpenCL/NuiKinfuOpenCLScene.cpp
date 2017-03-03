@@ -1,6 +1,7 @@
 #include "NuiKinfuOpenCLScene.h"
 
 #include "NuiKinfuOpenCLFrame.h"
+#include "NuiKinfuOpenCLFeedbackFrame.h"
 #include "NuiKinfuOpenCLCameraState.h"
 
 #include "../../NuiKinfuCameraState.h"
@@ -472,7 +473,8 @@ Vector3f NuiKinfuOpenCLScene::shiftVolume(const Vector3f& translation)
 
 /** \brief Function that integrates volume if volume element contains: 2 bytes for round(tsdf*SHORT_MAX) and 2 bytes for integer weight.*/
 bool    NuiKinfuOpenCLScene::integrateVolume(
-	NuiKinfuFrame*	pFrame,
+	NuiKinfuFrame*			pFrame,
+	NuiKinfuFeedbackFrame*	pFeedbackFrame,
 	NuiKinfuCameraState*	pCameraState)
 {
 	if(!pCameraState)
@@ -490,13 +492,19 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 	if(!pCLFrame)
 		return false;
 
-	cl_mem floatDepthsCL = pCLFrame->GetDepthsBuffer();
+	if(!pFeedbackFrame)
+		return false;
+	NuiKinfuOpenCLFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLFeedbackFrame*>(pFeedbackFrame);
+	if(!pCLFeedbackFrame)
+		return false;
+
+	cl_mem floatDepthsCL = pCLFrame->GetDepthBuffer();
 	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 	if(!floatDepthsCL || !cameraParamsCL || !transformCL)
 		return false;
 
-	cl_mem normalsCL = pCLFrame->GetNormalsBuffer();
-	cl_mem colorsCL = pCLFrame->GetColorsBuffer();
+	cl_mem normalsCL = pCLFeedbackFrame->GetNormalBuffer();
+	cl_mem colorsCL = pCLFrame->GetColorBuffer();
 	UINT nWidth = pCLFrame->GetWidth();
 	UINT nHeight = pCLFrame->GetHeight();
 
@@ -609,15 +617,29 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 
 
 void    NuiKinfuOpenCLScene::raycastRender(
-	cl_mem renderVerticesCL,
-	cl_mem renderNormalsCL,
-	cl_mem renderIntensitiesCL,
-	cl_mem cameraParamsCL,
-	cl_mem transformCL,
-	UINT nWidth, UINT nHeight,
-	float sensorDepthMin, float sensorDepthMax)
+	NuiKinfuFeedbackFrame*	pFeedbackFrame,
+	NuiKinfuCameraState*	pCameraState)
 {
-	if(!renderVerticesCL || !renderNormalsCL || !cameraParamsCL || !transformCL)
+	if(!pFeedbackFrame)
+		return;
+	NuiKinfuOpenCLFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLFeedbackFrame*>(pFeedbackFrame);
+	if(!pCLFeedbackFrame)
+		return;
+
+	cl_mem renderVerticesCL = pCLFeedbackFrame->GetVertexBuffer();
+	cl_mem renderNormalsCL = pCLFeedbackFrame->GetNormalBuffer();
+	if(!renderVerticesCL || !renderNormalsCL)
+		return;
+
+	if(!pCameraState)
+		return;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(!pCLCamera)
+		return ;
+
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
+	if(!cameraParamsCL || !transformCL)
 		return;
 
 	// Get the kernel
@@ -652,7 +674,7 @@ void    NuiKinfuOpenCLScene::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderIntensitiesCL);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), NULL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_int3), voxelWrap.data());
 	NUI_CHECK_CL_ERR(err);
@@ -663,7 +685,7 @@ void    NuiKinfuOpenCLScene::raycastRender(
 	cl_ulong time_start, time_end;
 #endif
 	// Run kernel to calculate 
-	size_t kernelGlobalSize[2] = { nWidth, nHeight };
+	size_t kernelGlobalSize[2] = { pFeedbackFrame->GetWidth(), pFeedbackFrame->GetHeight() };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		raycastKernel,

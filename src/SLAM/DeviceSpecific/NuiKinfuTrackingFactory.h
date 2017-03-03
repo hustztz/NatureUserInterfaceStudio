@@ -1,6 +1,7 @@
 #pragma once
 
 #include "OpenCL/NuiKinfuOpenCLFrame.h"
+#include "OpenCL/NuiKinfuOpenCLFeedbackFrame.h"
 #include "OpenCL/NuiKinfuOpenCLDepthTracker.h"
 #include "OpenCL/NuiKinfuOpenCLCameraState.h"
 #include "CPU/NuiKinfuCPUFrame.h"
@@ -20,6 +21,7 @@ namespace NuiKinfuEngine
 		static void BuildTrackingEngine(
 			NuiKinfuTracker**		pTracker,
 			NuiKinfuFrame**			pFrame,
+			NuiKinfuFeedbackFrame**	pFeedbackFrame,
 			NuiKinfuCameraState**	pCameraState,
 			const NuiTrackerConfig& trackerConfig,
 			unsigned int nWidth, unsigned int nHeight,
@@ -31,16 +33,14 @@ namespace NuiKinfuEngine
 
 			// OpenCL
 			{
-				*pFrame = new NuiKinfuOpenCLFrame();
-				(*pFrame)->AcquireBuffers(nWidth, nHeight, nColorWidth, nColorHeight);
-
+				*pFrame = new NuiKinfuOpenCLFrame(trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
+				*pFeedbackFrame = new NuiKinfuOpenCLFeedbackFrame(nWidth, nHeight);
 				*pTracker = new NuiKinfuOpenCLDepthTracker(trackerConfig, nWidth, nHeight);
 				*pCameraState = new NuiKinfuCameraState(new NuiKinfuOpenCLCameraState());
 			}
 			/*{
-				*pFrame = new NuiKinfuCPUFrame();
-				(*pFrame)->AcquireBuffers(nWidth, nHeight, nColorWidth, nColorHeight);
-
+				*pFrame = new NuiKinfuCPUFrame(trackerConfig, nWidth, nHeight);
+				*pFeedbackFrame = new NuiKinfuCPUFeedbackFrame(nWidth, nHeight);
 				*pTracker = new NuiKinfuCPUDepthTracker(trackerConfig, nWidth, nHeight);
 				*pCameraState = new NuiKinfuCameraState(NULL);
 			}*/

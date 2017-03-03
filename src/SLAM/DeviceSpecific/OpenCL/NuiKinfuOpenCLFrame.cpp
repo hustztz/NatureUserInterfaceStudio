@@ -1,25 +1,34 @@
 #include "NuiKinfuOpenCLFrame.h"
 
+#include "NuiKinfuOpenCLCameraState.h"
+
+#include "../../NuiTrackerConfig.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 
-#include "Shape\NuiCameraParams.h"
-#include "Kernels/gpu_def.h"
 #include "assert.h"
 
-NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame()
-	: m_rawDepthsCL(NULL)
+NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+	: m_nWidth(nWidth)
+	, m_nHeight(nHeight) 
+	, m_rawDepthsCL(NULL)
 	, m_floatDepthsCL(NULL)
+	, m_gaussianCL(NULL)
+	, m_filteredDepthsCL(NULL)
+	, m_verticesCL(NULL)
 	, m_colorUVsCL(NULL)
 	, m_colorImageCL(NULL)
 	, m_colorsCL(NULL)
-	, m_pNormalCL(NULL)
+	, m_filter_radius(config.filter_radius)
+	, m_sigma_depth2_inv_half(config.sigma_depth2_inv_half)
+	, m_depth_threshold(config.depth_threshold)
 	, m_nColorWidth(0)
 	, m_nColorHeight(0)
 {
-	
+	AcquireBuffers(nWidth, nHeight, nColorWidth, nColorHeight);
+	GenerateGaussianBuffer(config.filter_radius, config.sigma_space2_inv_half);
 }
 
 NuiKinfuOpenCLFrame::~NuiKinfuOpenCLFrame()
@@ -46,6 +55,10 @@ void	NuiKinfuOpenCLFrame::AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorW
 	m_rawDepthsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, m_nWidth*m_nHeight*sizeof(UINT16), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_floatDepthsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(cl_float), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+	m_filteredDepthsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(cl_float), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+	m_verticesCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*3*sizeof(cl_float), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	if(m_nColorWidth * m_nColorHeight > 0)
 	{
@@ -75,6 +88,21 @@ void	NuiKinfuOpenCLFrame::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_floatDepthsCL = NULL;
 	}
+	if (m_gaussianCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_gaussianCL);
+		NUI_CHECK_CL_ERR(err);
+		m_gaussianCL = NULL;
+	}
+	if (m_filteredDepthsCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_filteredDepthsCL);
+		NUI_CHECK_CL_ERR(err);
+		m_filteredDepthsCL = NULL;
+	}
+	if (m_verticesCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_verticesCL);
+		NUI_CHECK_CL_ERR(err);
+		m_verticesCL = NULL;
+	}
 	if (m_colorUVsCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorUVsCL);
 		NUI_CHECK_CL_ERR(err);
@@ -90,8 +118,6 @@ void	NuiKinfuOpenCLFrame::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_colorsCL = NULL;
 	}
-
-	m_pNormalCL = NULL;
 }
 
 void NuiKinfuOpenCLFrame::PassingDepths(float nearPlane, float farPlane)
@@ -140,7 +166,156 @@ void NuiKinfuOpenCLFrame::PassingDepths(float nearPlane, float farPlane)
 	NUI_CHECK_CL_ERR(err);
 }
 
-void	NuiKinfuOpenCLFrame::UpdateDepthBuffers(UINT16* pDepths, UINT nNum, float minDepth, float maxDepth)
+void NuiKinfuOpenCLFrame::GenerateGaussianBuffer(UINT filter_radius, float sigma_space2_inv_half)
+{
+	// Get the kernel
+	cl_kernel gaussianKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_GENERATE_GAUSSIAN);
+	assert(gaussianKernel);
+	if (!gaussianKernel)
+	{
+		NUI_ERROR("Get kernel 'E_GENERATE_GAUSSIAN' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_context       context = NuiOpenCLGlobal::instance().clContext();
+
+	int gaussianSize = filter_radius*2+1;
+	float* guassian_table = new float[gaussianSize];
+	for (int i = 0; i < gaussianSize; ++i)
+	{
+		int x = i - (int)filter_radius;
+		guassian_table[i] = exp(-(x * x) * sigma_space2_inv_half);
+	}
+
+	m_gaussianCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, gaussianSize*sizeof(float), guassian_table, &err);
+	NUI_CHECK_CL_ERR(err);
+
+	SafeDeleteArray(guassian_table);
+
+	// Set kernel arguments
+	//cl_uint idx = 0;
+	//err = clSetKernelArg(gaussianKernel, idx++, sizeof(cl_mem), &m_gaussianCL);
+	//NUI_CHECK_CL_ERR(err);
+	//err = clSetKernelArg(gaussianKernel, idx++, sizeof(float), &m_configuration.sigma_space2_inv_half);
+	//NUI_CHECK_CL_ERR(err);
+	//err = clSetKernelArg(gaussianKernel, idx++, sizeof(UINT), &m_configuration.filter_radius);
+	//NUI_CHECK_CL_ERR(err);
+
+	//// Run kernel to calculate 
+	//size_t kernelGlobalSize = m_configuration.filter_radius*2+1;
+	//err = clEnqueueNDRangeKernel(
+	//	queue,
+	//	gaussianKernel,
+	//	1,
+	//	nullptr,
+	//	&kernelGlobalSize,
+	//	nullptr,
+	//	0,
+	//	NULL,
+	//	NULL
+	//	);
+	//NUI_CHECK_CL_ERR(err);
+}
+
+void NuiKinfuOpenCLFrame::SmoothDepths(UINT filter_radius, float sigma_depth2_inv_half, float depth_threshold)
+{
+	assert(m_gaussianCL);
+	if(!m_gaussianCL)
+		return;
+
+	// Get the kernel
+	cl_kernel smoothKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_BILATERAL_FILTER_DEPTH);
+	assert(smoothKernel);
+	if (!smoothKernel)
+	{
+		NUI_ERROR("Get kernel 'E_BILATERAL_FILTER' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(smoothKernel, idx++, sizeof(cl_mem), &m_floatDepthsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(smoothKernel, idx++, sizeof(cl_mem), &m_filteredDepthsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(smoothKernel, idx++, sizeof(cl_mem), &m_gaussianCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(smoothKernel, idx++, sizeof(UINT), &filter_radius);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(smoothKernel, idx++, sizeof(float), &sigma_depth2_inv_half);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(smoothKernel, idx++, sizeof(float), &depth_threshold);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		smoothKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+}
+
+void NuiKinfuOpenCLFrame::Depth2vertex(cl_mem cameraParamsCL)
+{
+	// Get the kernel
+	cl_kernel depth2vertexKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_DEPTH2VERTEX);
+	assert(depth2vertexKernel);
+	if (!depth2vertexKernel)
+	{
+		NUI_ERROR("Get kernel 'E_DEPTH2VERTEX' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	int div = 1;
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_filteredDepthsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &m_verticesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(depth2vertexKernel, idx++, sizeof(int), &div);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		depth2vertexKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+}
+
+void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState)
 {
 	assert(m_nWidth*m_nHeight == nNum);
 	if(!pDepths|| !m_rawDepthsCL)
@@ -182,8 +357,17 @@ void	NuiKinfuOpenCLFrame::UpdateDepthBuffers(UINT16* pDepths, UINT nNum, float m
 	clReleaseEvent(timing_event);
 #endif
 
-	// filter the input depth map
-	PassingDepths(minDepth, maxDepth);
+	if(pCameraState)
+	{
+		// filter the input depth map
+		PassingDepths(pCameraState->GetCameraPos().getSensorDepthMin(), pCameraState->GetCameraPos().getSensorDepthMax());
+		SmoothDepths(m_filter_radius, m_sigma_depth2_inv_half, m_depth_threshold);
+	}
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	if(pCLCamera)
+	{
+		Depth2vertex(pCLCamera->GetCameraParamsBuffer());
+	}
 }
 
 void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image)

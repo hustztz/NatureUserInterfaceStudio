@@ -18,8 +18,14 @@ public:
 	virtual bool	hasColorData() const override { return (m_colorVolumeCL ?  true : false); }
 
 	virtual bool	integrateVolume(
-		NuiKinfuFrame*	pFrame,
-		NuiKinfuCameraState*	pTransform
+		NuiKinfuFrame*			pFrame,
+		NuiKinfuFeedbackFrame*	pFeedbackFrame,
+		NuiKinfuCameraState*	pCameraState
+		) override;
+
+	virtual void	raycastRender(
+		NuiKinfuFeedbackFrame*	pFeedbackFrame,
+		NuiKinfuCameraState*	pCameraState
 		) override;
 
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
@@ -27,16 +33,6 @@ public:
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
 public:
-	void    raycastRender(
-		cl_mem renderVerticesCL,
-		cl_mem renderNormalsCL,
-		cl_mem renderIntensitiesCL,
-		cl_mem cameraParamsCL,
-		cl_mem transformCL,
-		UINT nWidth, UINT nHeight,
-		float sensorDepthMin, float sensorDepthMax
-		);
-
 	/** \brief Returns volume size in meters */
 	const Vector3f&	getDimensions() const;
 

@@ -3,21 +3,17 @@
 #include "stdafx.h"
 #include "Shape\NuiImageBuffer.h"
 
-struct NuiCameraParams;
+class NuiKinfuCameraState;
 
 class NuiKinfuFrame
 {
 public:
-	NuiKinfuFrame() : m_nWidth(0), m_nHeight(0) {}
+	NuiKinfuFrame(){}
 	virtual ~NuiKinfuFrame(){}
 
-	virtual void	AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight) = 0;
-	virtual void	ReleaseBuffers() = 0;
-	virtual void	UpdateDepthBuffers(UINT16* pDepths, UINT nNum, float minDepth, float maxDepth) = 0;
+	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState) = 0;
 	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image) = 0;
 
-	UINT	GetWidth() const { return m_nWidth; }
-	UINT	GetHeight() const { return m_nHeight; }
-protected:
-	UINT m_nWidth, m_nHeight;
+	virtual UINT	GetWidth() const = 0;
+	virtual UINT	GetHeight() const = 0;
 };

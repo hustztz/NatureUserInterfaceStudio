@@ -17,12 +17,12 @@ public:
 	NuiKinfuCPUDepthTracker(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuCPUDepthTracker();
 
-	virtual bool	EvaluateFrame(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) override;
-	virtual bool	EstimatePose(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint) override;
-	virtual void	FeedbackPose(NuiKinfuCameraState* pCameraState, NuiKinfuScene* pScene) override;
-
-	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) override;
-	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData, TrackerBufferType bufferType) override;
+	virtual bool	EstimatePose(
+		NuiKinfuFrame* pFrame,
+		NuiKinfuFeedbackFrame* pFeedbackFrame,
+		NuiKinfuCameraState* pCameraState,
+		Eigen::Affine3f *hint
+		) override;
 
 	virtual bool	log(const std::string& fileName) const override;
 
@@ -30,26 +30,26 @@ public:
 	virtual int		getCount() const override { return m_numValidPoints; }
 
 protected:
-	void	AcquireBuffers();
+	void	AcquireBuffers( UINT nWidth, UINT nHeight);
 	void	ReleaseBuffers();
 
-	void	SmoothDepths(float* floatDepths);
-	void	SubSampleDepths();
-	void	Depth2vertex(NuiCameraIntrinsics cameraIntrics);
-	void	Vertex2Normal();
-	void	TransformBuffers(NuiKinfuCameraState* pCameraState);
+	void	SubSampleDepths(float* filteredDepths);
+	void	HierarchyDepth2vertex(NuiCameraIntrinsics cameraIntrics);
 	Vector3f InterpolateBilinear_withHoles(const Vector3f* source, Vector2f position, UINT nWidth);
-	bool	IterativeClosestPoint(NuiKinfuCameraState* pCameraState, Eigen::Affine3f *hint);
+	bool	IterativeClosestPoint(
+		Vector3f* verticesBuffer,
+		Vector3f* verticesPrevBuffer,
+		Vector3f* normalsPrevBuffer,
+		UINT	nWidth,
+		UINT	nHeight,
+		NuiKinfuCameraState* pCameraState,
+		Eigen::Affine3f *hint);
 
 protected:
 	std::vector<NuiFloatImage*>		m_depthsHierarchy;
 	std::vector<NuiFloat3Image*>	m_verticesHierarchy;
-	NuiFloat3Image					m_normals;
-	NuiFloat3Image					m_verticesPrev;
-	NuiFloat3Image					m_normalsPrev;
 
 	NuiTrackerConfig m_configuration;
-	UINT m_nWidth, m_nHeight;
 
 	float m_error;
 	int m_numValidPoints;
