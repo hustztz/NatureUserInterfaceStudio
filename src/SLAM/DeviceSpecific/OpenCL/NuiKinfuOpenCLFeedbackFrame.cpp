@@ -13,8 +13,8 @@
 #include "assert.h"
 
 NuiKinfuOpenCLFeedbackFrame::NuiKinfuOpenCLFeedbackFrame(UINT nWidth, UINT nHeight)
-	: m_nWidth(nWidth)
-	, m_nHeight(nHeight)
+	: m_nWidth(0)
+	, m_nHeight(0)
 	, m_verticesCL(NULL)
 	, m_normalsCL(NULL)
 {

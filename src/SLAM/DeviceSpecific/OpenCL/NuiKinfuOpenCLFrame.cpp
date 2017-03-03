@@ -11,8 +11,8 @@
 #include "assert.h"
 
 NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
-	: m_nWidth(nWidth)
-	, m_nHeight(nHeight) 
+	: m_nWidth(0)
+	, m_nHeight(0) 
 	, m_rawDepthsCL(NULL)
 	, m_floatDepthsCL(NULL)
 	, m_gaussianCL(NULL)
