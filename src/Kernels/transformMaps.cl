@@ -348,6 +348,48 @@ __kernel void bgra_to_intensity_kernel(
 	vstore(intensity, idx, intensities);
 }
 
+__kernel void half_sample_bgra_kernel(
+            __global uchar* src,
+            __global uchar* dst,
+			uint			radius
+        )
+{
+    const int gidx = get_global_id(0);
+	const int gidy = get_global_id(1);
+    const int gsizex = get_global_size(0);
+	const int gsizey = get_global_size(1);
+
+	const int dstId = mul24(gidy, gsizex)+gidx;
+
+	const int src_x = gidx << 1;
+	const int src_y = gidy << 1;
+	const int src_size_x = gsizex << 1;
+	const int src_size_y = gsizey << 1;
+	const int srcId = mul24(src_y, src_size_x)+src_x;
+	uchar4 center = vload4(srcId, src);
+	
+	const int tx_min = max(src_x-convert_int(radius), 0);
+	const int tx_max = min(src_x+convert_int(radius)+1, src_size_x);
+	const int ty_min = max(src_y-convert_int(radius), 0);
+	const int ty_max = min(src_y+convert_int(radius)+1, src_size_y);
+
+	int4 sum = (int4)(0,0,0,0);
+    int sumWeight = 0;
+
+	for(int cy = ty_min; cy < ty_max; ++ cy)
+	{
+		for(int cx = tx_min; cx < tx_max; ++ cx)
+		{
+			const int nearId = mul24(cy, src_size_x)+cx;
+			uchar4 near = vload4(nearId, src);
+			sum += (int4)(convert_int(near.x), convert_int(near.y), convert_int(near.z), convert_int(near.w));
+			sumWeight ++;
+		}
+	}
+	int4 outDepth = (sumWeight > 0) ? sum/sumWeight : (int4)(0,0,0,0);
+	vstore4((uchar4)(convert_uchar(outDepth.x), convert_uchar(outDepth.y), convert_uchar(outDepth.z), convert_uchar(outDepth.w)), dstId, dst);
+}
+
 __kernel void intensity_derivatives_kernel(
 					__global float* intensities,
 					__global float* intensityDerivs
@@ -411,4 +453,56 @@ __kernel void intensity_derivatives_kernel(
 		vstore2(derivative, idx, intensityDerivs);
 	}
 	
+}
+
+__kernel void bgra_gradient_kernel(
+					__global uchar* colors,
+					__global uchar* gradientXs,
+					__global uchar* gradientYs
+						)
+{
+	const int gidx = get_global_id(0);
+	const int gidy = get_global_id(1);
+    const int gsizex = get_global_size(0);
+	const int gsizey = get_global_size(1);
+	int idx = mul24(gidy, gsizex)+gidx;
+	//uchar4 s22 = vload4(idx, colors);
+
+	if(gidx > 0 && gidx < gsizex-1 && gidy > 0 && gidy < gsizey-1)
+	{
+		idx --;
+		uchar4 s21 = vload4(idx, colors);
+		idx += 2;
+		uchar4 s23 = vload4(idx, colors);
+		idx = idx - gsizey;
+		uchar4 s13 = vload4(idx, colors);
+		idx --;
+		uchar4 s12 = vload4(idx, colors);
+		idx --;
+		uchar4 s11 = vload4(idx, colors);
+		idx = idx + 2*gsizey;
+		uchar4 s31 = vload4(idx, colors);
+		idx ++;
+		uchar4 s32 = vload4(idx, colors);
+		idx ++;
+		uchar4 s33 = vload4(idx, colors);
+
+		float3 tmp;
+		tmp.x = (convert_float(s13.x) - convert_float(s11.x)) + 2*(convert_float(s23.x) - convert_float(s21.x)) + (convert_float(s33.x) - convert_float(s31.x));
+		tmp.y = (convert_float(s13.y) - convert_float(s11.y)) + 2*(convert_float(s23.y) - convert_float(s21.y)) + (convert_float(s33.y) - convert_float(s31.y));
+		tmp.z = (convert_float(s13.z) - convert_float(s11.z)) + 2*(convert_float(s23.z) - convert_float(s21.z)) + (convert_float(s33.z) - convert_float(s31.z));
+		tmp /= 8.0f;
+		vstore4((uchar4)(convert_uchar(tmp.x), convert_uchar(tmp.y), convert_uchar(tmp.z), 255), idx, gradientXs);
+		
+		tmp.x = (convert_float(s31.x) - convert_float(s11.x)) + 2*(convert_float(s32.x) - convert_float(s12.x)) + (convert_float(s33.x) - convert_float(s13.x));
+		tmp.y = (convert_float(s31.y) - convert_float(s11.y)) + 2*(convert_float(s32.y) - convert_float(s12.y)) + (convert_float(s33.y) - convert_float(s13.y));
+		tmp.z = (convert_float(s31.z) - convert_float(s11.z)) + 2*(convert_float(s32.z) - convert_float(s12.z)) + (convert_float(s33.z) - convert_float(s13.z));
+		tmp /= 8.0f;
+		vstore4((uchar4)(convert_uchar(tmp.x), convert_uchar(tmp.y), convert_uchar(tmp.z), 255), idx, gradientYs);
+	}
+	else
+	{
+		vstore4((uchar4)(0,0,0,0), idx, gradientXs);
+		vstore4((uchar4)(0,0,0,0), idx, gradientYs);
+	}
 }
