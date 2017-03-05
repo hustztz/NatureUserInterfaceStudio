@@ -6,7 +6,7 @@
 #include "NuiHashingOpenCLSDF.h"
 #include "NuiHashingOpenCLChunkGrid.h"
 
-#include "../../NuiKinfuCameraState.h"
+#include "../NuiKinfuCameraState.h"
 
 #include "Kernels/gpu_def.h"
 #include "Foundation/NuiDebugMacro.h"
@@ -316,7 +316,7 @@ void NuiHashingOpenCLScene::raycastRender(
 {
 	if(!pCameraState)
 		return;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return ;
 
@@ -350,7 +350,7 @@ bool	NuiHashingOpenCLScene::integrateVolume(
 {
 	if(!pCameraState)
 		return false;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return false;
 	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();

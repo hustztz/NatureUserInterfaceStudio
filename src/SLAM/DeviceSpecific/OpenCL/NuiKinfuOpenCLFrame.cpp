@@ -363,7 +363,7 @@ void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKin
 		PassingDepths(pCameraState->GetCameraPos().getSensorDepthMin(), pCameraState->GetCameraPos().getSensorDepthMax());
 		SmoothDepths(m_filter_radius, m_sigma_depth2_inv_half, m_depth_threshold);
 	}
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(pCLCamera)
 	{
 		Depth2vertex(pCLCamera->GetCameraParamsBuffer());

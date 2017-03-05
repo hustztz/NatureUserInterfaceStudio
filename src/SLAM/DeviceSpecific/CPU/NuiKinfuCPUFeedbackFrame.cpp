@@ -3,12 +3,12 @@
 #include "NuiKinfuCPUUtilities.h"
 #include "NuiKinfuCPUFrame.h"
 
-#include "../../NuiKinfuCameraState.h"
+#include "../NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "Shape/NuiCLMappableData.h"
 #include "assert.h"
 
-NuiKinfuCPUFeedbackFrame::NuiKinfuCPUFeedbackFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight)
+NuiKinfuCPUFeedbackFrame::NuiKinfuCPUFeedbackFrame(UINT nWidth, UINT nHeight)
 {
 	AcquireBuffers(nWidth, nHeight);
 }
@@ -236,12 +236,43 @@ bool	NuiKinfuCPUFeedbackFrame::BufferToMappableTexture(NuiCLMappableData* pMappa
 	if(!buffer)
 		return false;
 
+	UINT nWidth = m_vertices.GetWidth();
+	UINT nHeight = m_vertices.GetHeight();
+	BGRQUAD* texBuffer = new BGRQUAD[nWidth*nHeight];
+#ifdef WITH_OPENMP
+	#pragma omp parallel for
+#endif
+	for (UINT y = 0; y < nHeight; y++)
+	{
+		for (UINT x = 0; x < nWidth; x++)
+		{
+			UINT id = y*nWidth+x;
+			Vector3f value = buffer[id];
+			if(_IsNan(value))
+			{
+				texBuffer[id].rgbRed = 0;
+				texBuffer[id].rgbGreen = 0;
+				texBuffer[id].rgbBlue = 0;
+				texBuffer[id].rgbReserved = 0;
+			}
+			else
+			{
+				texBuffer[id].rgbRed = (BYTE)(value[0] * 255);
+				texBuffer[id].rgbGreen = (BYTE)(value[1] * 255);
+				texBuffer[id].rgbBlue = (BYTE)(value[2] * 255);
+				texBuffer[id].rgbReserved = 255;
+			}
+		}
+	}
+
 	NuiTextureMappableAccessor::updateImpl(
 		pMappableData->ColorTex(),
 		m_vertices.GetWidth(),
-		m_vertices.GetHeight(),
-		buffer
+		nHeight,
+		texBuffer
 		);
+
+	delete[] texBuffer;
 
 	return true;
 }

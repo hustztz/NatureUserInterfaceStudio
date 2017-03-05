@@ -70,7 +70,7 @@ void	NuiKinfuOpenCLFeedbackFrame::UpdateBuffers(NuiKinfuFrame* pFrame, NuiKinfuC
 
 	if(!pCameraState)
 		return;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return;
 

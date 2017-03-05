@@ -4,7 +4,7 @@
 #include "NuiKinfuOpenCLFeedbackFrame.h"
 #include "NuiKinfuOpenCLCameraState.h"
 
-#include "../../NuiKinfuCameraState.h"
+#include "../NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "Foundation/NuiTimeLog.h"
 #include "NuiMarchingCubeTable.h"
@@ -479,7 +479,7 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 {
 	if(!pCameraState)
 		return false;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return false;
 	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
@@ -633,7 +633,7 @@ void    NuiKinfuOpenCLScene::raycastRender(
 
 	if(!pCameraState)
 		return;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return ;
 

@@ -10,13 +10,16 @@ class NuiCameraPos;
 class NuiKinfuCPUFeedbackFrame : public NuiKinfuFeedbackFrame
 {
 public:
-	NuiKinfuCPUFeedbackFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
+	NuiKinfuCPUFeedbackFrame(UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuCPUFeedbackFrame();
 
 	virtual void	UpdateBuffers(NuiKinfuFrame* pFrame, NuiKinfuCameraState* pCameraState) override;
 
 	virtual bool	VerticesToMappablePosition(NuiCLMappableData* pMappableData) override;
 	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData, TrackerBufferType bufferType) override;
+
+	virtual UINT	GetWidth() const override { return m_vertices.GetWidth(); };
+	virtual UINT	GetHeight() const override { return m_vertices.GetHeight(); };
 
 	Vector3f*		GetVertexBuffer() const { return m_vertices.GetBuffer(); }
 	Vector3f*		GetNormalsBuffer() const { return m_normals.GetBuffer(); }

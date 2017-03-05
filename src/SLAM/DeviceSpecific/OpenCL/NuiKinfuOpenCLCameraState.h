@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../../NuiKinfuCameraState.h"
+#include "../NuiKinfuCameraState.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 
-class NuiKinfuOpenCLCameraState : public NuiKinfuCameraDeviceCacheImpl
+class NuiKinfuOpenCLCameraState : public NuiKinfuCameraState
 {
 public:
 	NuiKinfuOpenCLCameraState();

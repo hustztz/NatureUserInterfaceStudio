@@ -261,7 +261,6 @@ __kernel void icp_block_kernel(
 				if( !_isnan3(referenceVertex) )
 				{
 					float3 diff = fabs(referenceVertex - projectedVertex);
-					bool bInThreshold = false;
 					float dist = fast_length (diff);
 					if (dist < distThres)
 					{

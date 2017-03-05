@@ -311,7 +311,7 @@ bool NuiKinfuOpenCLIntensityTracker::IntensityIterativeClosestPoint(NuiKinfuCame
 {
 	if(!pCameraState)
 		return false;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return false;
 

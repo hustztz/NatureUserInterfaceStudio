@@ -1,7 +1,7 @@
 #include "NuiKinfuCPUFrame.h"
 
 #include "NuiKinfuCPUUtilities.h"
-#include "../../NuiKinfuCameraState.h"
+#include "../NuiKinfuCameraState.h"
 #include "../../NuiTrackerConfig.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "assert.h"
@@ -55,6 +55,9 @@ void NuiKinfuCPUFrame::SmoothDepths(UINT filter_radius, float sigma_depth2_inv_h
 
 	int nWidth = (int)m_floatDepths.GetWidth();
 	int nHeight = (int)m_floatDepths.GetHeight();
+#ifdef WITH_OPENMP
+	#pragma omp parallel for
+#endif
 	for (int y = 0; y < nHeight; y++)
 	{
 		for (int x = 0; x < nWidth; x++)
@@ -63,7 +66,7 @@ void NuiKinfuCPUFrame::SmoothDepths(UINT filter_radius, float sigma_depth2_inv_h
 			float center = floatDepths[centerId];
 
 			dstDepths[centerId] = NAN_FLOAT;
-			if(center < 0.0f)
+			if(NAN_FLOAT == center)
 			{
 				continue;
 			}
@@ -82,6 +85,8 @@ void NuiKinfuCPUFrame::SmoothDepths(UINT filter_radius, float sigma_depth2_inv_h
 					{
 						const int nearId = nearY * nWidth + nearX;
 						float near = floatDepths[nearId];
+						if(NAN_FLOAT == near)
+							continue;
 						float diff = fabs(center - near);
 						if(near > 0.0f && diff < depth_threshold)
 						{
@@ -109,6 +114,9 @@ void NuiKinfuCPUFrame::Depth2vertex(NuiCameraIntrinsics cameraIntrics)
 
 	UINT nWidth = m_filteredDepths.GetWidth();
 	UINT nHeight = m_filteredDepths.GetHeight();
+#ifdef WITH_OPENMP
+	#pragma omp parallel for
+#endif
 	for (UINT y = 0; y < nHeight; y++)
 	{
 		for (UINT x = 0; x < nWidth; x++)
@@ -116,7 +124,7 @@ void NuiKinfuCPUFrame::Depth2vertex(NuiCameraIntrinsics cameraIntrics)
 			const UINT id = y * nWidth + x;
 			float dp = depthsBuffer[id];
 
-			if(dp > 0.0f)
+			if(dp != NAN_FLOAT)
 			{
 				const float intr_fx_inv = 1 / cameraIntrics.m_fx;
 				const float intr_fy_inv = 1 / cameraIntrics.m_fy;
@@ -144,11 +152,14 @@ void	NuiKinfuCPUFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuC
 	float maxDepth = pCameraState->GetCameraPos().getSensorDepthMax();
 
 	float* pBuffers = m_floatDepths.GetBuffer();
+#ifdef WITH_OPENMP
+	#pragma omp parallel for
+#endif
 	for (UINT i = 0; i < nNum; ++i)
 	{
 		pBuffers[i] = pDepths[i] * 0.001f;
 		if((pBuffers[i] < minDepth) || (pBuffers[i] > maxDepth))
-			pBuffers[i] = -1.0f;
+			pBuffers[i] = NAN_FLOAT;
 	}
 
 	SmoothDepths(m_filter_radius, m_sigma_depth2_inv_half, m_depth_threshold);
@@ -163,6 +174,9 @@ void	NuiKinfuCPUFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT n
 
 	BGRQUAD* pBuffers = m_colors.GetBuffer();
 	BGRQUAD* pSrc = image.GetBuffer();
+#ifdef WITH_OPENMP
+	#pragma omp parallel for
+#endif
 	for (UINT i = 0; i < nNum; ++i)
 	{
 		int colorX = (int)(pDepthToColor[i].X + 0.5f);

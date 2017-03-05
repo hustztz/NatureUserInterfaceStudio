@@ -60,6 +60,8 @@ void	NuiKinfuOpenCLCameraState::UpdateCameraParams(const NuiCameraParams& camPar
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+	NuiKinfuCameraState::UpdateCameraParams(camParams, nWidth, nHeight);
 }
 
 void NuiKinfuOpenCLCameraState::UpdateCameraTransform(const Matrix3frm& rot, const Vector3f& tran)
@@ -85,6 +87,8 @@ void NuiKinfuOpenCLCameraState::UpdateCameraTransform(const Matrix3frm& rot, con
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+	NuiKinfuCameraState::UpdateCameraTransform(rot, tran);
 }
 
 //void NuiKinfuTransform::setTransform(cl_mem transformCL)

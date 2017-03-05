@@ -117,7 +117,7 @@ bool NuiKinfuOpenCLDepthTracker::EstimatePose(
 
 	if(!pCameraState)
 		return false;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return false;
 
@@ -246,7 +246,7 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 {
 	if(!verticesCL || !verticesPrevCL || !normalsPrevCL || !pCameraState)
 		return false;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState->GetDeviceCache());
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
 	if(!pCLCamera)
 		return false;
 
@@ -299,10 +299,13 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 	/** \brief array with IPC iteration numbers for each pyramid level */
 	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
 	int LEVELS = (int)iterations.size();
+	float distThreshStep = m_configuration.dist_threshold / LEVELS;
+	float distThresh = m_configuration.dist_threshold + distThreshStep;
 
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
 	{
+		//distThresh = distThresh - distThreshStep;
 		cl_mem srcVertices = (0 == level_index) ? verticesCL : m_verticesHierarchyCL[level_index-1];
 		int iter_num = iterations[level_index].m_num;
 		for (int iter = 0; iter < iter_num; ++iter)
@@ -324,7 +327,7 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &previousTransform);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &m_configuration.dist_threshold);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(float), &distThresh);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &m_corespsBlocksCL);
 			NUI_CHECK_CL_ERR(err);

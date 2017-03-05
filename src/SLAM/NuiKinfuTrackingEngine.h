@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NuiKinfuCameraState.h"
+#include "DeviceSpecific/NuiKinfuCameraState.h"
 #include "NuiTrackerConfig.h"
 
 #include "Shape\NuiImageBuffer.h"

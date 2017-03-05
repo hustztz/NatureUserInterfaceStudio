@@ -3,7 +3,7 @@
 #include "NuiKinfuCPUUtilities.h"
 #include "NuiKinfuCPUFrame.h"
 #include "NuiKinfuCPUFeedbackFrame.h"
-#include "../../NuiKinfuCameraState.h"
+#include "../NuiKinfuCameraState.h"
 
 #include "Foundation/NuiDebugMacro.h"
 #include "Foundation/NuiCholesky.h"
@@ -119,6 +119,9 @@ void NuiKinfuCPUDepthTracker::SubSampleDepths(float* filteredDepths)
 
 		UINT rangeX = depthsDstImg->GetWidth();
 		UINT rangeY = depthsDstImg->GetHeight();
+#ifdef WITH_OPENMP
+		#pragma omp parallel for
+#endif
 		for (UINT y = 0; y < rangeY; y++)
 		{
 			for (UINT x = 0; x < rangeX; x++)
@@ -151,7 +154,7 @@ void NuiKinfuCPUDepthTracker::SubSampleDepths(float* filteredDepths)
 						}
 					}
 				}
-				depthsDstBuffer[dstId] = (sumWeight > 0) ? sumDepth/sumWeight : -1.0f;
+				depthsDstBuffer[dstId] = (sumWeight > 0) ? sumDepth/sumWeight : NAN_FLOAT;
 			}
 		}
 	}
@@ -176,6 +179,9 @@ void NuiKinfuCPUDepthTracker::HierarchyDepth2vertex(NuiCameraIntrinsics cameraIn
 
 		UINT rangeX = depthsImg->GetWidth();
 		UINT rangeY = depthsImg->GetHeight();
+#ifdef WITH_OPENMP
+		#pragma omp parallel for
+#endif
 		for (UINT y = 0; y < rangeY; y++)
 		{
 			for (UINT x = 0; x < rangeX; x++)
@@ -183,7 +189,7 @@ void NuiKinfuCPUDepthTracker::HierarchyDepth2vertex(NuiCameraIntrinsics cameraIn
 				const UINT id = y * rangeX + x;
 				float dp = depthsBuffer[id];
 
-				if(dp > 0.0f)
+				if(dp != NAN_FLOAT)
 				{
 					const float intr_fx_inv = div / cameraIntrics.m_fx;
 					const float intr_fy_inv = div / cameraIntrics.m_fy;
@@ -216,14 +222,14 @@ Vector3f NuiKinfuCPUDepthTracker::InterpolateBilinear_withHoles(const Vector3f* 
 	c = source[p[0] + (p[1] + 1) * nWidth];
 	d = source[(p[0] + 1) + (p[1] + 1) * nWidth];
 
-	if (a[0] == NAN_FLOAT || a[1] == NAN_FLOAT || a[2] == NAN_FLOAT ||
-		b[0] == NAN_FLOAT || b[1] == NAN_FLOAT || b[2] == NAN_FLOAT ||
-		c[0] == NAN_FLOAT || c[1] == NAN_FLOAT || c[2] == NAN_FLOAT ||
-		d[0] == NAN_FLOAT || d[1] == NAN_FLOAT || d[2] == NAN_FLOAT)
-	{
-		result[0] = NAN_FLOAT; result[1] = NAN_FLOAT; result[2] = NAN_FLOAT;
-		return result;
-	}
+	if (_IsNan(a))
+		delta[0] = 1.0f;
+	if (_IsNan(b))
+		delta[0] = 0.0f;
+	if (_IsNan(c))
+		delta[1] = 1.0f;
+	if (_IsNan(d))
+		delta[1] = 0.0f;
 
 	result[0] = ((float)a[0] * (1.0f - delta[0]) * (1.0f - delta[1]) + (float)b[0] * delta[0] * (1.0f - delta[1]) +
 		(float)c[0] * (1.0f - delta[0]) * delta[1] + (float)d[0] * delta[0] * delta[1]);
@@ -270,19 +276,24 @@ bool NuiKinfuCPUDepthTracker::IterativeClosestPoint(
 	/** \brief array with IPC iteration numbers for each pyramid level */
 	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
 	int LEVELS = (int)iterations.size();
+	float distThreshStep = m_configuration.dist_threshold / LEVELS;
+	float distThresh = m_configuration.dist_threshold + distThreshStep;
 
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
 	{
-		NuiFloat3Image* verticesImg = m_verticesHierarchy.at(level_index);
-		if(!verticesImg)
-			continue;
-		Vector3f* verticesBuffer = (0 == level_index) ? verticesBuffer : m_verticesHierarchy.at(level_index-1)->GetBuffer();
-		if(!verticesBuffer)
-			continue;
+		Vector3f* vertices = verticesBuffer;
+		UINT rangeX = nWidth;
+		UINT rangeY = nHeight;
 
-		const UINT rangeX = (0 == level_index) ? nWidth : m_verticesHierarchy.at(level_index-1)->GetWidth();
-		const UINT rangeY = (0 == level_index) ? nHeight : m_verticesHierarchy.at(level_index-1)->GetHeight();
+		if(level_index > 0)
+		{
+			vertices = m_verticesHierarchy.at(level_index-1)->GetBuffer();
+			rangeX = m_verticesHierarchy.at(level_index-1)->GetWidth();
+			rangeY = m_verticesHierarchy.at(level_index-1)->GetHeight();
+		}
+		if(!vertices)
+			continue;
 
 		//Vector3f* normalsBuffer = m_normals.GetBuffer();
 
@@ -298,6 +309,7 @@ bool NuiKinfuCPUDepthTracker::IterativeClosestPoint(
 		float lambda = 1.0;
 		Matrix3frm lastGoodRotInv = Rinv;
 		Vector3f lastGoodTrans = tcurr;
+		distThresh = distThresh - distThreshStep;
 
 		for (int iter = 0; iter < iter_num; ++iter)
 		{
@@ -310,28 +322,28 @@ bool NuiKinfuCPUDepthTracker::IterativeClosestPoint(
 				for (UINT x = 0; x < rangeX; x ++)
 				{
 					const UINT id = y * rangeX + x;
-					Vector3f vert = verticesBuffer[id];
-					if(NAN_FLOAT == vert[0] || NAN_FLOAT == vert[1] || NAN_FLOAT == vert[2])
+					Vector3f vert = vertices[id];
+					if(_IsNan(vert))
 						continue;
 
 					Vector3f projectedVert = Rinv * (vert - tcurr);
 					Vector3f projectedPos = Rprev * projectedVert + tprev;
 					Vector2f projPixel( projectedPos[0] * cameraIntrinsics.m_fx / projectedPos[2] + cameraIntrinsics.m_cx,
 										projectedPos[1] * cameraIntrinsics.m_fy / projectedPos[2] + cameraIntrinsics.m_cy);
-					if(projPixel[0] < 0 || projPixel[0] >= nWidth || projPixel[1] < 0 || projPixel[1] >= nHeight)
+					if(projPixel[0] < 0 || (UINT)projPixel[0] >= nWidth-1 || projPixel[1] < 0 || (UINT)projPixel[1] >= nHeight-1)
 						continue;
 
 					Vector3f referenceVert = InterpolateBilinear_withHoles(verticesPrevBuffer, projPixel, nWidth);
-					if(NAN_FLOAT == referenceVert[0] || NAN_FLOAT == referenceVert[1] || NAN_FLOAT == referenceVert[2])
+					if(_IsNan(referenceVert))
 						continue;
 
 					Vector3f ptDiff = referenceVert - projectedVert;
-					float dist = ptDiff[0] * ptDiff[0] + ptDiff[1] * ptDiff[1] + ptDiff[2] * ptDiff[2];
-					if (dist > m_configuration.dist_threshold)
+					float dist = ptDiff.norm();
+					if (dist > distThresh)
 						continue;
 
 					Vector3f referenceNorm = InterpolateBilinear_withHoles(normalsPrevBuffer, projPixel, nWidth);
-					if(NAN_FLOAT == referenceNorm[0] || NAN_FLOAT == referenceNorm[1] || NAN_FLOAT == referenceNorm[2])
+					if(_IsNan(referenceNorm))
 						continue;
 
 					/*if (normalsBuffer)
@@ -416,6 +428,9 @@ bool NuiKinfuCPUDepthTracker::IterativeClosestPoint(
 			}
 			for (int i = 0; i < 6; ++i)
 				hessian[i+i*6] *= 1.0f + lambda;
+
+			if(!m_numValidPoints)
+				break;
 
 			// ComputeDelta
 			float step[6];
