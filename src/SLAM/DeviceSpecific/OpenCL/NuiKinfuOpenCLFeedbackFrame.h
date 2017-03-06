@@ -18,16 +18,19 @@ public:
 
 	cl_mem GetVertexBuffer() const { return m_verticesCL; }
 	cl_mem GetNormalBuffer() const { return m_normalsCL; }
+	cl_mem GetColorBuffer() const { return m_colorsCL; }
 
 protected:
 	void	AcquireBuffers(UINT nWidth, UINT nHeight);
 	void	ReleaseBuffers();
 	void	Vertex2Normal(cl_mem verticesCL, float depth_threshold);
-	void	TransformBuffers(cl_mem verticesCL, cl_mem transformCL);
+	void	TransformBuffers(cl_mem verticesCL, cl_mem normalsCL, cl_mem transformCL);
+	void	CopyColors(cl_mem colorsCL);
 
 private:
 	cl_mem m_verticesCL;
 	cl_mem m_normalsCL;
+	cl_mem m_colorsCL;
 
 	UINT m_nWidth, m_nHeight;
 };

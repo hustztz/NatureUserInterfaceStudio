@@ -628,6 +628,7 @@ void    NuiKinfuOpenCLScene::raycastRender(
 
 	cl_mem renderVerticesCL = pCLFeedbackFrame->GetVertexBuffer();
 	cl_mem renderNormalsCL = pCLFeedbackFrame->GetNormalBuffer();
+	cl_mem renderColorsCL = pCLFeedbackFrame->GetColorBuffer();
 	if(!renderVerticesCL || !renderNormalsCL)
 		return;
 
@@ -674,7 +675,7 @@ void    NuiKinfuOpenCLScene::raycastRender(
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), NULL);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderColorsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_int3), voxelWrap.data());
 	NUI_CHECK_CL_ERR(err);

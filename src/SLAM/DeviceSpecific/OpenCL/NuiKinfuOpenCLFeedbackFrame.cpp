@@ -17,6 +17,7 @@ NuiKinfuOpenCLFeedbackFrame::NuiKinfuOpenCLFeedbackFrame(UINT nWidth, UINT nHeig
 	, m_nHeight(0)
 	, m_verticesCL(NULL)
 	, m_normalsCL(NULL)
+	, m_colorsCL(NULL)
 {
 	AcquireBuffers(nWidth, nHeight);
 }
@@ -44,6 +45,8 @@ void	NuiKinfuOpenCLFeedbackFrame::AcquireBuffers(UINT nWidth, UINT nHeight)
 	NUI_CHECK_CL_ERR(err);
 	m_normalsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*3*sizeof(cl_float), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
+	m_colorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(BGRQUAD), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
 }
 
 void	NuiKinfuOpenCLFeedbackFrame::ReleaseBuffers()
@@ -57,6 +60,11 @@ void	NuiKinfuOpenCLFeedbackFrame::ReleaseBuffers()
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_normalsCL);
 		NUI_CHECK_CL_ERR(err);
 		m_normalsCL = NULL;
+	}
+	if (m_colorsCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorsCL);
+		NUI_CHECK_CL_ERR(err);
+		m_colorsCL = NULL;
 	}
 }
 
@@ -78,7 +86,8 @@ void	NuiKinfuOpenCLFeedbackFrame::UpdateBuffers(NuiKinfuFrame* pFrame, NuiKinfuC
 		return;
 
 	Vertex2Normal(pCLFrame->GetVertexBuffer(), pCLFrame->GetDepthThreshold());
-	TransformBuffers(pCLFrame->GetVertexBuffer(), pCLCamera->GetCameraTransformBuffer());
+	TransformBuffers(pCLFrame->GetVertexBuffer(), m_normalsCL, pCLCamera->GetCameraTransformBuffer());
+	CopyColors(pCLFrame->GetColorBuffer());
 }
 
 
@@ -127,9 +136,9 @@ void NuiKinfuOpenCLFeedbackFrame::Vertex2Normal(cl_mem verticesCL, float depth_t
 }
 
 
-void NuiKinfuOpenCLFeedbackFrame::TransformBuffers(cl_mem verticesCL, cl_mem transformCL)
+void NuiKinfuOpenCLFeedbackFrame::TransformBuffers(cl_mem verticesCL, cl_mem normalsCL, cl_mem transformCL)
 {
-	if(!verticesCL || !transformCL)
+	if(!verticesCL || !normalsCL || !transformCL)
 		return;
 
 	// Get the kernel
@@ -149,7 +158,7 @@ void NuiKinfuOpenCLFeedbackFrame::TransformBuffers(cl_mem verticesCL, cl_mem tra
 	cl_uint idx = 0;
 	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &verticesCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_normalsCL);
+	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &normalsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(transformKernel, idx++, sizeof(cl_mem), &m_verticesCL);
 	NUI_CHECK_CL_ERR(err);
@@ -174,6 +183,24 @@ void NuiKinfuOpenCLFeedbackFrame::TransformBuffers(cl_mem verticesCL, cl_mem tra
 	NUI_CHECK_CL_ERR(err);
 }
 
+void	NuiKinfuOpenCLFeedbackFrame::CopyColors(cl_mem colorsCL)
+{
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	err = clEnqueueCopyBuffer(
+		queue,
+		colorsCL,
+		m_colorsCL,
+		0,
+		0,
+		m_nWidth * m_nHeight * sizeof(BGRQUAD),
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+}
 
 bool NuiKinfuOpenCLFeedbackFrame::VerticesToMappablePosition(NuiCLMappableData* pMappableData)
 {

@@ -133,7 +133,7 @@ __kernel void raycastKernel(
 					__global	struct	NuiCLRigidTransform* matrix,
                     __global	float*	vmap,
 					__global	float*	nmap,
-					__global	float*	intensityMap,
+					__global	uchar*	cmap,
 					const		int3	voxelWrap
                     )
 {
@@ -146,8 +146,8 @@ __kernel void raycastKernel(
 
 	vstore3(NAN, id, vmap);
 	vstore3(NAN, id, nmap);
-	if(intensityMap)
-		vstore(NAN, id, intensityMap);
+	if(cmap)
+		vstore((uchar4)(0,0,0,0), id, cmap);
 	
 	struct TsdfParams l_params = *params;
 	float3 volumeOffset = (float3)(l_params.dimension[0]/2.0, l_params.dimension[1]/2.0, l_params.dimension[2]/4.0);
@@ -227,11 +227,10 @@ __kernel void raycastKernel(
 			float3 vetex_found = ray_start + ray_dir * Ts;
 			vstore3(vetex_found - volumeOffset, id, vmap);
 
-			if(color_volume && intensityMap)
+			if(color_volume && cmap)
 			{
 				uchar4 bgra = vload4( idx, color_volume );
-				float intensity = 0.299f*(convert_float(bgra.z)/255.0f) + 0.587f*(convert_float(bgra.y)/255.0f) + 0.114f*(convert_float(bgra.x)/255.0f);
-				vstore(intensity, id, intensityMap);
+				vstore4(bgra, id, cmap);
 			}
 
 			int3 g = getVoxel ( ray_start + ray_dir * time_curr, l_params.cell_size );
