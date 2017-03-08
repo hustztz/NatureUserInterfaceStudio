@@ -281,17 +281,17 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 	size_t local_ws[1] = {WORK_GROUP_SIZE};
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] * KINFU_ICP_CORESPS_NUM / WORK_GROUP_SIZE]);
 
-	Matrix3frm Rinv;
+	Matrix3frm Rcurr;
 	Vector3f tcurr;
 	if(hint)
 	{
-		Rinv = hint->rotation().inverse();
+		Rcurr = hint->rotation();
 		tcurr = hint->translation().matrix();
 	}
 	else
 	{
 		const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
-		Rinv = cameraPos.getRotation().inverse(); // tranform to global coo for ith camera pose
+		Rcurr = cameraPos.getRotation(); // tranform to global coo for ith camera pose
 		tcurr = cameraPos.getTranslation();
 	}
 	cl_mem previousTransform = pCLCamera->GetCameraTransformBuffer();
@@ -315,9 +315,9 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(cl_mem), &srcVertices);
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*8, Rinv.data());
+			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*8, Rcurr.data());
 			NUI_CHECK_CL_ERR(err);
-			err = clSetKernelArg(icpKernel, idx++, sizeof(float), Rinv.data()+8);
+			err = clSetKernelArg(icpKernel, idx++, sizeof(float), Rcurr.data()+8);
 			NUI_CHECK_CL_ERR(err);
 			err = clSetKernelArg(icpKernel, idx++, sizeof(float)*4, tcurr.data());
 			NUI_CHECK_CL_ERR(err);
@@ -394,12 +394,19 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 				m_error += corespResult[stride + KINFU_ICP_CORESPS_NUM-2];
 				m_count += corespResult[stride + KINFU_ICP_CORESPS_NUM-1];
 			}
+
+			if(m_count < 1.f)
+			{
+
 #ifdef _DEBUG
-			//For debug
-			//std::cout << "icpcount:" << icpCount << "\t" << "icperror:" << sqrt(icpError) / icpCount << std::endl;
+				//For debug
+				std::cout << "icp failed due to no valid point count." << std::endl;
 #endif
-			m_error = (m_count > 0.f) ? (sqrt(m_error) / m_count) : std::numeric_limits<float>::max();
-			if((m_count < 1.f) || m_error < 1e-5f)
+				break;
+			}
+
+			m_error = sqrt(m_error) / m_count;
+			if(m_error < 1e-5f)
 			{
 				break;
 			}
@@ -452,12 +459,12 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 			Vector3f tinc = result.tail<3> ();
 
 			//compose
-			tcurr = Rinc * tcurr - tinc;
-			Rinv = Rinc * Rinv;
+			tcurr = Rinc * tcurr + tinc;
+			Rcurr =  Rinc * Rcurr;
 		}
 	}
 
-	pCameraState->UpdateCameraTransform(Rinv.inverse(), tcurr);
+	pCameraState->UpdateCameraTransform(Rcurr, tcurr);
 
 #ifdef _DEBUG
 	//For debug

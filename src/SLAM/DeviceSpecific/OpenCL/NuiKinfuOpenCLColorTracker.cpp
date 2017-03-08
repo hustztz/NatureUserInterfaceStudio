@@ -549,6 +549,11 @@ bool NuiKinfuOpenCLColorTracker::ColorIterativeClosestPoint(
 			float beta  = result (1);
 			float gamma = result (2);
 
+			if( fabs(alpha) < m_configuration.dist_threshold &&
+				fabs(beta) < m_configuration.dist_threshold &&
+				fabs(gamma) < m_configuration.dist_threshold)
+				break;
+
 			Eigen::Matrix3f Rinc = (Eigen::Matrix3f)AngleAxisf (gamma, Vector3f::UnitZ ()) * AngleAxisf (beta, Vector3f::UnitY ()) * AngleAxisf (alpha, Vector3f::UnitX ());
 			Vector3f tinc = result.tail<3> ();
 
@@ -587,7 +592,7 @@ bool NuiKinfuOpenCLColorTracker::EstimatePose(
 
 	return ColorIterativeClosestPoint(
 		pCLFeedbackFrame->GetVertexBuffer(),
-		pCLFrame->GetColorBuffer(), //pCLFeedbackFrame->GetColorBuffer(),
+		pCLFeedbackFrame->GetColorBuffer(),
 		pCameraState,
 		hint);
 }

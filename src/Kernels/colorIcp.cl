@@ -153,9 +153,9 @@ __kernel void color_icp_block_kernel(
 				{
 					switch (para + startPara)
 					{
-					case 0: d_pt_cam_dpi.x = pt_camera.w;  d_pt_cam_dpi.y = 0.0f;         d_pt_cam_dpi.z = 0.0f;         break;
-					case 1: d_pt_cam_dpi.x = 0.0f;         d_pt_cam_dpi.y = pt_camera.w;  d_pt_cam_dpi.z = 0.0f;         break;
-					case 2: d_pt_cam_dpi.x = 0.0f;         d_pt_cam_dpi.y = 0.0f;         d_pt_cam_dpi.z = pt_camera.w;  break;
+					case 0: d_pt_cam_dpi.x = 1.0f;		   d_pt_cam_dpi.y = 0.0f;         d_pt_cam_dpi.z = 0.0f;         break;
+					case 1: d_pt_cam_dpi.x = 0.0f;         d_pt_cam_dpi.y = 1.0f;		  d_pt_cam_dpi.z = 0.0f;         break;
+					case 2: d_pt_cam_dpi.x = 0.0f;         d_pt_cam_dpi.y = 0.0f;         d_pt_cam_dpi.z = 1.0f;		 break;
 					case 3: d_pt_cam_dpi.x = 0.0f;         d_pt_cam_dpi.y = -pt_camera.z;  d_pt_cam_dpi.z = pt_camera.y;  break;
 					case 4: d_pt_cam_dpi.x = pt_camera.z;  d_pt_cam_dpi.y = 0.0f;         d_pt_cam_dpi.z = -pt_camera.x;  break;
 					default:

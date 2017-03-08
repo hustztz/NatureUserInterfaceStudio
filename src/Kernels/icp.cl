@@ -222,8 +222,8 @@ inline static float3 interpolateBilinear_withHoles(__global float* source, float
 __kernel void icp_block_kernel(
 			__constant		struct  NuiCLCameraParams* cameraParams,
             __global		float*	vertices,
-			const			float8	Rinv1,
-			const			float	Rinv2,
+			const			float8	Rcurr1,
+			const			float	Rcurr2,
 			const			float3	tcurr,
 			__global		float*	verticesPrev,
             __global		float*	normalsPrev,
@@ -247,8 +247,8 @@ __kernel void icp_block_kernel(
 	float3 vcurr = vload3(gid, vertices);
 	if( !_isnan3(vcurr) )
 	{
-		float3 projectedVertex = rotate3((vcurr-tcurr), Rinv1, Rinv2);
-		float3 projectedPos = transform(projectedVertex, previousMatrix);         // prev camera coo space
+		float3 projectedVertex = rotate3(vcurr, Rcurr1, Rcurr2) + tcurr;
+		float3 projectedPos = transformInverse(projectedVertex, previousMatrix);         // prev camera coo space
 
 		struct NuiCLCameraParams camParams = *cameraParams;
 		float2 projPixel = (float2)(projectedPos.x * camParams.fx / projectedPos.z + camParams.cx, projectedPos.y * camParams.fy / projectedPos.z + camParams.cy);
