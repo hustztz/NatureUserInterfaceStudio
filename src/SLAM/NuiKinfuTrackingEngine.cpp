@@ -117,7 +117,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 			// Integrate
 			if (bNeedIntegrate)
 			{
-				if( pScene->integrateVolume(m_pFrame, m_pFeedbackFrame, m_pCameraState) )
+				if( !pScene->integrateVolume(m_pFrame, m_pFeedbackFrame, m_pCameraState) )
 					return false;
 
 				m_lastIntegrationPos = cameraPos;

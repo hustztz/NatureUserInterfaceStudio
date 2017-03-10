@@ -16,7 +16,7 @@ NuiTrackerConfig::NuiTrackerConfig()
 	color_gradiant_min = 0.2f;
 	track_threshold = 1e-3f;
 	TrackerIterationParams iterParams;
-	iterParams.m_num = 5;
+	iterParams.m_num = 10;
 	iterParams.m_type = eTracker_Iteration_Both;
 	iterations.push_back( iterParams );
 	iterations.push_back( iterParams );

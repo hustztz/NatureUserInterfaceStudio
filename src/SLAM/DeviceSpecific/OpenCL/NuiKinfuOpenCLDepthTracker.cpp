@@ -280,6 +280,7 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 	size_t kernelGlobalSize[1] = {m_nWidth * m_nHeight};
 	size_t local_ws[1] = {WORK_GROUP_SIZE};
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] * KINFU_ICP_CORESPS_NUM / WORK_GROUP_SIZE]);
+	float goodCores[KINFU_ICP_CORESPS_NUM];
 
 	Matrix3frm Rcurr;
 	Vector3f tcurr;
@@ -305,6 +306,11 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 	//ScopeTime time("icp-all");
 	for (int level_index = LEVELS-1; level_index>=0; --level_index)
 	{
+		const UINT numValidThreshould = (kernelGlobalSize[0] >> (2*level_index)) * 0.1;
+		float lambda = 1.0;
+		Matrix3frm Rgood = Rcurr;
+		Vector3f tgood = tcurr;
+		float errorOld = 1e20f;
 		//distThresh = distThresh - distThreshStep;
 		cl_mem srcVertices = (0 == level_index) ? verticesCL : m_verticesHierarchyCL[level_index-1];
 		int iter_num = iterations[level_index].m_num;
@@ -395,46 +401,64 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 				m_count += corespResult[stride + KINFU_ICP_CORESPS_NUM-1];
 			}
 
-			if(m_count < 1.f)
+			m_error = (m_count > 0.0f) ? sqrt(m_error) / m_count : std::numeric_limits<float>::max();
+			/*if(newError < 1e-5f)
 			{
+				break;
+			}*/
 
+			if(m_count < (float)numValidThreshould || m_error > errorOld)
+			{
+				lambda *= 10.0f;
+				Rcurr = Rgood;
+				tcurr = tgood;
+				if(0 == iter)
+					break;
 #ifdef _DEBUG
 				//For debug
-				std::cout << "icp failed due to no valid point count." << std::endl;
-#endif
-				break;
+				std::cout << "icp reverse due to no enough valid point count." << std::endl;
+#endif	
 			}
+			else
+			{
+				lambda /= 10.0f;
+				Rgood = Rcurr;
+				tgood = tcurr;
+				errorOld = m_error;
 
-			m_error = sqrt(m_error) / m_count;
-			if(m_error < 1e-5f)
-			{
-				break;
+				for (int i = 0, shift = 0; i < 6; ++i)  //rows
+				{
+					for (int j = i; j < 7; ++j)    // cols + b
+					{
+						goodCores[shift] = 0.0f;
+						for(UINT n = 0; n < nblocks; ++n)
+						{
+							UINT stride = n * KINFU_ICP_CORESPS_NUM;
+							goodCores[shift] +=  corespResult[stride + shift];
+						}
+						shift++;
+					}
+				}
+#ifdef _DEBUG
+				//For debug
+				std::cout << "icp:" << level_index << ". iter:" << iter << ". count:" << m_count << ". error:" << m_error << std::endl;
+#endif
 			}
-			/*else
-			{
-				std::cout << "icpcount:" << icpCount << "\t" << "icperror:" << sqrt(icpError) / icpCount << std::endl;
-			}*/
 
 			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> A;
 			Eigen::Matrix<double, 6, 1> b;
 
-			int shift = 0;
-			for (int i = 0; i < 6; ++i)  //rows
+			for (int i = 0, shift = 0; i < 6; ++i)  //rows
 			{
 				for (int j = i; j < 7; ++j)    // cols + b
 				{
-					float value = 0.0f;
-					for(UINT n = 0; n < nblocks; ++n)
-					{
-						UINT stride = n * KINFU_ICP_CORESPS_NUM;
-						value +=  corespResult[stride + shift];
-					}
 					if (j == 6)       // vector b
-						b[i] = value;
+						b[i] = goodCores[shift] / m_count;
 					else
-						A(j,i) = A(i,j) = value;
+						A(j,i) = A(i,j) = goodCores[shift] / m_count;
 					shift++;
 				}
+				A(i,i) *= 1.0f + lambda;
 			}
 
 			//checking nullspace
@@ -455,12 +479,17 @@ bool NuiKinfuOpenCLDepthTracker::IterativeClosestPoint(
 			float beta  = result (1);
 			float gamma = result (2);
 
+			float stepLength = alpha * alpha + beta * beta + gamma * gamma;
+			if (stepLength < 1e-6f)
+				break;
+
 			Eigen::Matrix3f Rinc = (Eigen::Matrix3f)AngleAxisf (gamma, Vector3f::UnitZ ()) * AngleAxisf (beta, Vector3f::UnitY ()) * AngleAxisf (alpha, Vector3f::UnitX ());
+			Eigen::Matrix3f RincInv = Rinc.inverse();
 			Vector3f tinc = result.tail<3> ();
 
 			//compose
-			tcurr = Rinc * tcurr + tinc;
-			Rcurr =  Rinc * Rcurr;
+			tcurr = RincInv * tcurr + tinc;
+			Rcurr =  RincInv * Rcurr;
 		}
 	}
 

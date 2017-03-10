@@ -260,15 +260,15 @@ __kernel void icp_block_kernel(
 				float3 referenceVertex = interpolateBilinear_withHoles(verticesPrev, projPixel, camParams.depthImageWidth);
 				if( !_isnan3(referenceVertex) )
 				{
-					float3 diff = fabs(referenceVertex - projectedVertex);
+					float3 diff = referenceVertex - projectedVertex;
 					float dist = fast_length (diff);
 					if (dist < distThres)
 					{
 						/*float3 referencePos = transformInverse(referenceVertex, previousMatrix);
 						diff = referencePos - projectedPos;
 						float3 referenceNorm = rotationInverse(referenceNormal, previousMatrix);*/
-						float3 row0 = cross (projectedVertex, referenceNormal);
-						float coresp[7] = { row0.x, row0.y, row0.z, referenceNormal.x, referenceNormal.y, referenceNormal.z, dot (referenceNormal, diff) };
+						float3 row0 = cross (referenceNormal, projectedVertex);
+						float coresp[7] = { row0.x, row0.y, row0.z, referenceNormal.x, referenceNormal.y, referenceNormal.z, dot(referenceNormal, diff) };
 	
 						uint shift = 0;
 						for (uint i = 0; i < 6; ++i)        //rows
@@ -277,7 +277,7 @@ __kernel void icp_block_kernel(
 							{
 								vstore(coresp[i] * coresp[j],  local_id + shift, localBuffer);
 								shift ++;
-								}
+							}
 						}
 						vstore(coresp[6] * coresp[6],  local_id + shift, localBuffer);
 						shift ++;
