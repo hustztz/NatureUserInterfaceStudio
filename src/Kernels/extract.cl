@@ -23,7 +23,6 @@ __kernel void fetchVolumeKernel(
 
 	const float half_x = convert_float(resolution_x >> 1);
 	const float half_y = convert_float(resolution_y >> 1);
-	const float half_z = convert_float(resolution_z >> 1);
 
 	const int voxel_id = mul24((mul24((voxel_y+voxelWrap.y)%resolution_y, resolution_x) + (voxel_x+voxelWrap.x)%resolution_x), resolution_z);
 
@@ -77,7 +76,7 @@ __kernel void fetchVolumeKernel(
 		tsdf = unpack_tsdf_dp( value );
 		if(0.f == tsdf)
 		{
-			float3 vertex_value = (float3)((convert_float(voxel_x+offset.x) + 0.5f - half_x)*l_params.cell_size[0], (-convert_float(voxel_y+offset.y) - 0.5f + half_y)*l_params.cell_size[1], (convert_float(voxel_z+offset.z) + 0.5f - half_z)*l_params.cell_size[2]);
+			float3 vertex_value = (float3)((convert_float(voxel_x+offset.x) + 0.5f - half_x)*l_params.cell_size[0], (-convert_float(voxel_y+offset.y) - 0.5f + half_y)*l_params.cell_size[1], (convert_float(voxel_z+offset.z) + 0.5f)*l_params.cell_size[2]);
 			float4 color_value = (float4)(0.0f, 0.0f, 0.0f, 1.0f);
 			if(color_volume)
 			{
@@ -97,7 +96,7 @@ __kernel void fetchVolumeKernel(
 			float tsdf_inv = 1.f / fabs(tsdf);
 			float tsdf_prev_inv = 1.f / fabs(tsdf_prev);
 			float dp = (tsdf_inv * convert_float(voxel_z+offset.z) + tsdf_prev_inv * convert_float(voxel_z+offset.z - 1)) / (tsdf_inv + tsdf_prev_inv);
-			float3 vertex_value = (float3)((convert_float(voxel_x+offset.x) + 0.5f - half_x)*l_params.cell_size[0], (-convert_float(voxel_y+offset.y) - 0.5f + half_y)*l_params.cell_size[1], (dp + 0.5f - half_z)*l_params.cell_size[2]);
+			float3 vertex_value = (float3)((convert_float(voxel_x+offset.x) + 0.5f - half_x)*l_params.cell_size[0], (-convert_float(voxel_y+offset.y) - 0.5f + half_y)*l_params.cell_size[1], (dp + 0.5f)*l_params.cell_size[2]);
 			float4 color_value = (float4)(0.0f, 0.0f, 0.0f, 1.0f);
 			if(color_volume)
 			{

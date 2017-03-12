@@ -1,7 +1,7 @@
 
 #include "utils.cl"
 
-#define COLOR_CORESPS_NUM 28+1
+#define COLOR_CORESPS_NUM 29
 #define WORK_GROUP_SIZE 128
 
 __kernel void color_difference_kernel(
@@ -118,7 +118,6 @@ __kernel void color_icp_block_kernel(
 
 	float3 pt_model = vload3(gid, vertices);
 	uchar4 color_known = vload4(gid, colors);
-
 	if( !_isnan3(pt_model) && color_known.w == 255 )
 	{
 		float3 pt_camera = rotate3(pt_model, Rcurr1, Rcurr2) + tcurr;
@@ -137,7 +136,6 @@ __kernel void color_icp_block_kernel(
 			uchar4 gx_obs = vload4(level_idx, level_gradientXs);
 			uchar4 gy_obs = vload4(level_idx, level_gradientYs);
 			uchar4 color_obs = vload4(level_idx, level_colors);
-
 			if(color_obs.w == 255 && gx_obs.w == 255 && gy_obs.w == 255)
 			{
 				float3 color_diff = (float3)(
@@ -171,11 +169,12 @@ __kernel void color_icp_block_kernel(
 					d[para].z = d_proj_dpi.x * convert_float(gx_obs.z) + d_proj_dpi.y * convert_float(gy_obs.z);
 
 					for (int col = 0; col <= para; col++)
-						localBuffer[counter++] = 2.0f * dot(d[para], d[col]);//(d[para].x * d[col].x + d[para].y * d[col].y + d[para].z * d[col].z);
+						localBuffer[local_id + (counter++)] = dot(d[para], d[col]);//(d[para].x * d[col].x + d[para].y * d[col].y + d[para].z * d[col].z);
 					
-					localBuffer[counter++] = dot(d[para], color_diff); //d[para].x * color_diff.x + d[para].y * color_diff.y + d[para].z * color_diff.z;
+					localBuffer[local_id + (counter++)] = dot(d[para], color_diff); //d[para].x * color_diff.x + d[para].y * color_diff.y + d[para].z * color_diff.z;
 				}
-				localBuffer[counter++] = 1.0f;
+				localBuffer[local_id + (counter++)] = fast_length(color_diff);
+				localBuffer[local_id + (counter++)] = 1.0f;
 			}
 		}
 	}

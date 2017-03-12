@@ -24,6 +24,8 @@ public:
 		) override;
 
 	virtual bool	hasColorData() const override { return true; }
+	virtual float	getError() const override { return m_error; }
+	virtual int		getCount() const override { return (int)m_count; }
 
 protected:
 	void	AcquireBuffers();
@@ -60,5 +62,6 @@ protected:
 	NuiTrackerConfig m_configuration;
 	UINT m_nWidth, m_nHeight;
 
+	float m_error;
 	float m_count;
 };

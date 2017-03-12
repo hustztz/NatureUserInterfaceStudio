@@ -296,6 +296,7 @@ __kernel void UV2color(
 		{
 			int color_id = mul24(colorY, color_width) + colorX;
 			uchar4 new_color = vload4(color_id, colorImage);
+			new_color.w = 255;
 			vstore4(new_color, idx, colors);
 			return;
 		}
@@ -386,8 +387,9 @@ __kernel void half_sample_bgra_kernel(
 			sumWeight ++;
 		}
 	}
-	int4 outDepth = (sumWeight > 0) ? sum/sumWeight : (int4)(0,0,0,0);
-	vstore4((uchar4)(convert_uchar(outDepth.x), convert_uchar(outDepth.y), convert_uchar(outDepth.z), convert_uchar(outDepth.w)), dstId, dst);
+	int4 outColor = (sumWeight > 0) ? sum/sumWeight : (int4)(0,0,0,0);
+	outColor.w = 255;
+	vstore4((uchar4)(convert_uchar(outColor.x), convert_uchar(outColor.y), convert_uchar(outColor.z), convert_uchar(outColor.w)), dstId, dst);
 }
 
 __kernel void intensity_derivatives_kernel(

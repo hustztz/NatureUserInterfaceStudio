@@ -16,7 +16,7 @@
 #include <iostream>
 #include <boost/smart_ptr.hpp>
 
-#define KINFU_COLOR_ICP_CORESPS_NUM 28+1
+#define KINFU_COLOR_ICP_CORESPS_NUM 29
 #define WORK_GROUP_SIZE 128
 
 using Eigen::AngleAxisf;
@@ -29,6 +29,7 @@ NuiKinfuOpenCLColorTracker::NuiKinfuOpenCLColorTracker(const NuiTrackerConfig& c
 	, m_corespsBlocksCL(NULL)
 	, m_nWidth(nWidth)
 	, m_nHeight(nHeight)
+	, m_error(0.0f)
 	, m_count(0.0f)
 {
 	const NuiTrackerConfig::ITERATION_CLASS& iterations = m_configuration.iterations;
@@ -392,7 +393,8 @@ bool NuiKinfuOpenCLColorTracker::ColorIterativeClosestPoint(
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 	cl_uint idx = 0;
 	cl_short bBackgroundMask = false;
-	size_t kernelGlobalSize[1] = {m_nWidth * m_nHeight};
+	const UINT numPoints = m_nWidth * m_nHeight;
+	size_t kernelGlobalSize[1] = {numPoints};
 	size_t local_ws[1] = {WORK_GROUP_SIZE};
 	boost::scoped_array<float> corespResult(new float[kernelGlobalSize[0] / WORK_GROUP_SIZE * KINFU_COLOR_ICP_CORESPS_NUM]);
 
@@ -445,6 +447,7 @@ bool NuiKinfuOpenCLColorTracker::ColorIterativeClosestPoint(
 			NUI_CHECK_CL_ERR(err);
 
 			// Run kernel to calculate
+			kernelGlobalSize[0] = numPoints;
 			err = clEnqueueNDRangeKernel(
 				queue,
 				colorIcpKernel,
@@ -497,23 +500,29 @@ bool NuiKinfuOpenCLColorTracker::ColorIterativeClosestPoint(
 				);
 			NUI_CHECK_CL_ERR(err);
 
+			m_error = 0.0f;
 			m_count = 0.0f;
 			for(UINT n = 0; n < nblocks; ++n)
 			{
 				UINT stride = n * KINFU_COLOR_ICP_CORESPS_NUM;
+				m_error += corespResult[stride + KINFU_COLOR_ICP_CORESPS_NUM-2];
 				m_count += corespResult[stride + KINFU_COLOR_ICP_CORESPS_NUM-1];
 			}
+			m_error = (m_count > 0.0f) ? sqrt(m_error) / m_count : std::numeric_limits<float>::max();
+#ifdef _DEBUG
+			//For debug
+			std::cout << "color icp:" << level_index << ". iter:" << iter << ". count:" << m_count << ". error:" << m_error << std::endl;
+#endif
 			if(m_count < 1.f)
 			{
 				break;
 			}
-			float scaleForOcclusions = (float)(m_nWidth * m_nHeight) / m_count;
+			float scaleForOcclusions = (float)(numPoints) / m_count;
 
 			Eigen::Matrix<double, 6, 6, Eigen::RowMajor> A;
 			Eigen::Matrix<double, 6, 1> b;
 
-			int shift = 0;
-			for (int i = 0; i < 6; ++i)  //rows
+			for (int i = 0, shift = 0; i < 6; ++i)  //rows
 			{
 				for (int j = i; j < 7; ++j)    // cols + b
 				{
@@ -558,8 +567,8 @@ bool NuiKinfuOpenCLColorTracker::ColorIterativeClosestPoint(
 			Vector3f tinc = result.tail<3> ();
 
 			//compose
-			tcurr = Rinc * tcurr + tinc;
-			Rcurr = Rinc * Rcurr;
+			tcurr = Rinc.inverse() * tcurr + tinc;
+			Rcurr = Rinc.inverse() * Rcurr;
 		}
 	}
 
