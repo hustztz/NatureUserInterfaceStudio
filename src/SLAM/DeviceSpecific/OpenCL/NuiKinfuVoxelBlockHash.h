@@ -2,8 +2,9 @@
 
 #include "stdafx.h"
 #include "Foundation/SgVec3T.h"
-#include "NuiKinfuHashGlobalCache.h"
 #include "../../NuiHashingSDFConfig.h"
+
+#include "OpenCLUtilities/NuiOpenCLUtil.h"
 
 class NuiKinfuVoxelBlockHash
 {

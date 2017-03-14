@@ -2,6 +2,8 @@
 
 #include "../NuiKinfuScene.h"
 #include "NuiKinfuVoxelBlockHash.h"
+#include "NuiOpenCLPrefixSum.h"
+
 #include "../../NuiHashingSDFConfig.h"
 #include "../../NuiHashingRaycastConfig.h"
 #include "../../NuiHashingChunkGridConfig.h"
@@ -11,6 +13,7 @@
 #include "OpenCLUtilities/NuiTextureMappable.h"
 
 // Forwards
+class NuiKinfuOpenCLHashGlobalCache;
 
 class NuiKinfuOpenCLHashScene : public NuiKinfuScene
 {
@@ -23,7 +26,6 @@ public:
 
 	virtual bool	integrateVolume(
 		NuiKinfuFrame*			pFrame,
-		NuiKinfuFeedbackFrame*	pFeedbackFrame,
 		NuiKinfuCameraState*	pCameraState
 		) override;
 
@@ -36,7 +38,7 @@ public:
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 public:
-	void			updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
+	void			updateGlobalCacheConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
 protected:
 	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL);
 	void			raycast(
@@ -47,9 +49,20 @@ protected:
 		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		);
+
+	void			AllocateSceneFromDepth(
+		UINT nWidth, UINT nHeight,
+		cl_mem floatDepthsCL,
+		cl_mem cameraParamsCL,
+		cl_mem transformCL);
+	void			IntegrateIntoScene(
+		cl_mem floatDepthsCL,
+		cl_mem colorsCL,
+		cl_mem cameraParamsCL,
+		cl_mem transformCL);
 private:
-	void			AcquireBuffer();
-	void			ReleaseBuffer();
+	void			AcquireBuffers();
+	void			ReleaseBuffers();
 	void			ResetVisibleEntrys();
 	void			ResetAllocType();
 	void			BuildHashAllocAndVisibleType(
@@ -58,18 +71,17 @@ private:
 		cl_mem cameraParamsCL,
 		cl_mem transformCL);
 	void			AllocateVoxelBlocksList();
+	void			BuildVisibleList(cl_mem cameraParamsCL, cl_mem transformCL);
+	void			ReAllocateSwappedOutVoxelBlocks();
+
+	void			CreateExpectedDepths(NuiKinfuFeedbackFrame*	pFeedbackFrame);
 private:
-	NuiKinfuVoxelBlockHash		m_hashingVoxelData;
-	NuiHashingOpenCLChunkGrid*	m_pChunkGrid;
+	NuiKinfuVoxelBlockHash			m_hashingVoxelData;
+	NuiKinfuOpenCLHashGlobalCache*	m_pGlobalCache;
 
-	UINT						m_numOccupiedBlocks;
-
-	NuiHashingRaycastConfig		m_raycastConfig;
-	NuiMappable4f				m_raycastVertexBuffer;
-	NuiTextureMappable			m_rayIntervalMinBuffer;
-	NuiTextureMappable			m_rayIntervalMaxBuffer;
-
-
+	NuiOpenCLPrefixSum				m_scan;
+	
+	NuiHashingSDFConfig	m_config;
 	// Reconstruction
 	cl_mem		m_entriesAllocTypeCL;
 	cl_mem		m_blockCoordsCL;
@@ -84,7 +96,9 @@ private:
 			and tracker.
 	*/
 	cl_mem		m_entriesVisibleTypeCL;
+	cl_mem		m_entriesVisibleTypePrefixCL;
 	UINT		m_numVisibleEntries;
 
-	NuiHashingSDFConfig	m_config;
+	// Raycast rendering
+	NuiHashingRaycastConfig		m_raycastConfig;
 };

@@ -3,6 +3,7 @@
 #include "OpenCL/NuiKinfuOpenCLFrame.h"
 #include "OpenCL/NuiKinfuOpenCLFeedbackFrame.h"
 #include "OpenCL/NuiKinfuOpenCLDepthTracker.h"
+#include "OpenCL/NuiKinfuOpenCLColorTracker.h"
 #include "OpenCL/NuiKinfuOpenCLCameraState.h"
 #include "CPU/NuiKinfuCPUFrame.h"
 #include "CPU/NuiKinfuCPUFeedbackFrame.h"
@@ -36,7 +37,7 @@ namespace NuiKinfuEngine
 			{
 				*pFrame = new NuiKinfuOpenCLFrame(trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
 				*pFeedbackFrame = new NuiKinfuOpenCLFeedbackFrame(nWidth, nHeight);
-				*pTracker = new NuiKinfuOpenCLDepthTracker(trackerConfig, nWidth, nHeight);
+				*pTracker = new NuiKinfuOpenCLColorTracker(trackerConfig, nWidth, nHeight);
 				*pCameraState = new NuiKinfuOpenCLCameraState();
 			}
 			/*{

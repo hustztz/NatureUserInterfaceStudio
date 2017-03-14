@@ -34,10 +34,10 @@ unsigned int iSnapUp(unsigned int dividend, unsigned int divisor){
 	return ((dividend % divisor) == 0) ? dividend : (dividend - dividend % divisor + divisor);
 }
 
-void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input, cl_mem d_output)
+void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag)
 {
 	// Get the kernel
-	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE1);
+	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(bSrcFlag ? E_PREFIX_FLAG_SUM_EXCLUSIVE1 : E_PREFIX_SUM_EXCLUSIVE1);
 	assert(scanKernel);
 	if (!scanKernel)
 	{
@@ -78,10 +78,10 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_
 	NUI_CHECK_CL_ERR(err);
 }
 
-void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input, cl_mem d_output)
+void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag)
 {
 	// Get the kernel
-	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE2);
+	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(bSrcFlag ? E_PREFIX_FLAG_SUM_EXCLUSIVE2 : E_PREFIX_SUM_EXCLUSIVE2);
 	assert(scanKernel);
 	if (!scanKernel)
 	{
@@ -203,7 +203,7 @@ unsigned int iFactorRadix2Up(unsigned int num)
 	return L;
 }
 
-unsigned int NuiOpenCLPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output)
+unsigned int NuiOpenCLPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag /*= false*/)
 {
 	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
 	numElements = iFactorRadix2Up(numElements / 8) * 8;
@@ -212,9 +212,9 @@ unsigned int NuiOpenCLPrefixSum::prefixSum(unsigned int numElements, cl_mem d_in
 	if(numElements < cArrayLength || numElements > MAX_BATCH_ELEMENTS)
 		return 0;
 
-	scanExclusiveLocal1(numElements, d_input, d_output);
+	scanExclusiveLocal1(numElements, d_input, d_output, bSrcFlag);
 	unsigned int batchSize = numElements / cArrayLength;
-	scanExclusiveLocal2(batchSize, d_input, d_output);
+	scanExclusiveLocal2(batchSize, d_input, d_output, bSrcFlag);
 	uniformUpdate(batchSize, d_output);
 
 	// OpenCL command queue and device

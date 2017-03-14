@@ -36,8 +36,8 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 	else*/
 	{
 		NuiKinfuVolumeConfig volumeConfig;
-		volumeConfig.dimensions = Vector3f::Constant(3.0f);
-		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
+		volumeConfig.dimensions = Vector3f::Constant(5.0f);
+		volumeConfig.resolution = Vector3i::Constant(int(5.0f / voxelSize));
 		m_pScene = new NuiKinfuOpenCLScene(volumeConfig);
 	}
 }
@@ -60,7 +60,7 @@ bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	// Color image
 	m_trackingEngine.BufferToMappableTexture(pCLData);
 
-	//bool returnStatus = m_tracker.previousBufferToData(pCLData);
+	//bool returnStatus = m_trackingEngine.VerticesToMappablePosition(pCLData);
 	bool returnStatus = false;
 	if( m_pScene )
 	{

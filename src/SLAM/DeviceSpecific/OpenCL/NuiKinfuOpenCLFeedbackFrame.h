@@ -27,10 +27,11 @@ protected:
 	void	TransformBuffers(cl_mem verticesCL, cl_mem normalsCL, cl_mem transformCL);
 	void	CopyColors(cl_mem colorsCL);
 
+protected:
+	UINT m_nWidth, m_nHeight;
+
 private:
 	cl_mem m_verticesCL;
 	cl_mem m_normalsCL;
 	cl_mem m_colorsCL;
-
-	UINT m_nWidth, m_nHeight;
 };

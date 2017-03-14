@@ -1,13 +1,11 @@
 #include "NuiKinfuOpenCLHashScene.h"
 
+#include "NuiKinfuOpenCLHashGlobalCache.h"
 #include "NuiKinfuOpenCLFrame.h"
-#include "NuiKinfuOpenCLFeedbackFrame.h"
+#include "NuiKinfuOpenCLAcceleratedFeedbackFrame.h"
 #include "NuiKinfuOpenCLCameraState.h"
-#include "NuiHashingOpenCLSDF.h"
-#include "NuiHashingOpenCLChunkGrid.h"
 
-#include "../NuiKinfuCameraState.h"
-
+#include "Kernels/hashing_gpu_def.h"
 #include "Kernels/gpu_def.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
@@ -19,7 +17,7 @@
 #include "Shape/NuiCLMappableData.h"
 
 NuiKinfuOpenCLHashScene::NuiKinfuOpenCLHashScene(const NuiHashingSDFConfig& sdfConfig, const NuiHashingRaycastConfig& raycastConfig)
-	: m_pSDFData(NULL)
+	: m_pGlobalCache(NULL)
 	, m_entriesAllocTypeCL(NULL)
 	, m_blockCoordsCL(NULL)
 	, m_visibleEntryIDsCL(NULL)
@@ -27,43 +25,18 @@ NuiKinfuOpenCLHashScene::NuiKinfuOpenCLHashScene(const NuiHashingSDFConfig& sdfC
 	, m_numVisibleEntries(0)
 
 	, m_raycastConfig(raycastConfig)
-	, m_raycastVertexBuffer("raycastVertex")
-	, m_offlineRenderDirty(false)
 {
-	m_pSDFData = new NuiHashingOpenCLSDF(sdfConfig);
-
-	NuiOfflineRenderFactory::initializeOfflineRender();
-	NuiMappableAccessor::asVectorImpl(m_raycastVertexBuffer)->data().resize(sdfConfig.m_numSDFBlocks * 6);
-	NuiOpenCLBufferFactory::asColor4fBufferCL(m_raycastVertexBuffer);
-	NuiTextureMappableAccessor::updateImpl(
-		m_rayIntervalMinBuffer,
-		512,
-		424,
-		NULL
-		);
-	NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMinBuffer);
-	NuiTextureMappableAccessor::updateImpl(
-		m_rayIntervalMaxBuffer,
-		512,
-		424,
-		NULL
-		);
-	NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMaxBuffer);
-
 	reset();
-	AcquireBuffer();
+	AcquireBuffers();
 }
 
 NuiKinfuOpenCLHashScene::~NuiKinfuOpenCLHashScene()
 {
-	SafeDelete(m_pSDFData);
-	SafeDelete(m_pChunkGrid);
-
-	NuiMappableAccessor::reset(m_raycastVertexBuffer);
-	ReleaseBuffer();
+	SafeDelete(m_pGlobalCache);
+	ReleaseBuffers();
 }
 
-void NuiKinfuOpenCLHashScene::AcquireBuffer()
+void NuiKinfuOpenCLHashScene::AcquireBuffers()
 {
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
@@ -71,16 +44,18 @@ void NuiKinfuOpenCLHashScene::AcquireBuffer()
 	const UINT nTotalEntries = SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE;
 	m_entriesAllocTypeCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nTotalEntries * sizeof(cl_uchar), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	m_blockCoordsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nTotalEntries * 3 * sizeof(cl_short), NULL, &err);
+	m_blockCoordsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nTotalEntries * sizeof(cl_short3), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_visibleEntryIDsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, SDF_LOCAL_BLOCK_NUM * sizeof(cl_int), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_entriesVisibleTypeCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nTotalEntries * sizeof(cl_uchar), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
+	m_entriesVisibleTypePrefixCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nTotalEntries * sizeof(cl_uint), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
 }
 
 
-void NuiKinfuOpenCLHashScene::ReleaseBuffer()
+void NuiKinfuOpenCLHashScene::ReleaseBuffers()
 {
 	if (m_entriesAllocTypeCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_entriesAllocTypeCL);
@@ -102,6 +77,11 @@ void NuiKinfuOpenCLHashScene::ReleaseBuffer()
 		NUI_CHECK_CL_ERR(err);
 		m_entriesVisibleTypeCL = NULL;
 	}
+	if (m_entriesVisibleTypePrefixCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_entriesVisibleTypePrefixCL);
+		NUI_CHECK_CL_ERR(err);
+		m_entriesVisibleTypePrefixCL = NULL;
+	}
 }
 
 bool NuiKinfuOpenCLHashScene::log(const std::string& fileName) const
@@ -112,8 +92,8 @@ bool NuiKinfuOpenCLHashScene::log(const std::string& fileName) const
 void	NuiKinfuOpenCLHashScene::reset()
 {
 	m_hashingVoxelData.reset();
-	if(m_pChunkGrid)
-		m_pChunkGrid->reset();
+	if(m_pGlobalCache)
+		m_pGlobalCache->reset();
 	m_numVisibleEntries = 0;
 
 	setDirty();
@@ -169,7 +149,7 @@ void	NuiKinfuOpenCLHashScene::ResetAllocType()
 	// Run kernel to calculate
 	const UINT nTotalEntries = SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE;
 	cl_uchar* entriesAllocType = new cl_uchar[nTotalEntries];
-	memset(entriesAllocType, 0, nTotalEntries);
+	memset(entriesAllocType, 0, nTotalEntries * sizeof(cl_uchar));
 	err = clEnqueueWriteBuffer(
 		queue,
 		m_entriesAllocTypeCL,
@@ -300,76 +280,49 @@ void	NuiKinfuOpenCLHashScene::AllocateVoxelBlocksList()
 	NUI_CHECK_CL_ERR(err);
 }
 
-void	NuiHashingOpenCLScene::updateChunkGridConfig(const NuiHashingChunkGridConfig& chunkGridConfig)
+void	NuiKinfuOpenCLHashScene::BuildVisibleList(cl_mem cameraParamsCL, cl_mem transformCL)
 {
-	if(chunkGridConfig.m_enable)
-	{
-		if(!m_pChunkGrid)
-			m_pChunkGrid = new NuiHashingOpenCLChunkGrid(m_pSDFData);
-		m_pChunkGrid->updateConfig(chunkGridConfig);
-	}
-	else
-	{
-		SafeDelete(m_pChunkGrid);
-	}
-}
-
-void NuiHashingOpenCLScene::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL)
-{
-	if(!m_pSDFData || !m_numOccupiedBlocks)
-		return;
-
-	if(!cameraParamsCL || !transformCL)
-		return;
-
 	// Get the kernel
-	cl_kernel intervalSplatKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAY_INTERVAL_SPLAT);
-	assert(intervalSplatKernel);
-	if (!intervalSplatKernel)
+	cl_kernel buildVisibleKernel = NuiOpenCLKernelManager::instance().acquireKernel(
+			m_pGlobalCache ? E_HASHING_BUILD_VISIBLE_ENLARGED_LIST : E_HASHING_BUILD_VISIBLE_LIST);
+	assert(buildVisibleKernel);
+	if (!buildVisibleKernel)
 	{
-		NUI_ERROR("Get kernel 'E_HASHING_RAY_INTERVAL_SPLAT' failed!\n");
+		NUI_ERROR("Get kernel 'E_HASHING_BUILD_HASH_ALLOC' failed!\n");
 		return;
 	}
 
-	cl_mem hashCompactifiedCL = m_pSDFData->getHashCompactifiedCL();
-	const NuiHashingSDFConfig& hashParams = m_pSDFData->getConfig();
-	cl_mem raycastVertexBufferGL = NuiOpenCLBufferFactory::asColor4fBufferCL(m_raycastVertexBuffer);
-
-	// Acquire OpenGL objects before use
-	cl_mem glObjs[] = {
-		raycastVertexBufferGL
-	};
+	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
-	//glFinish();
-	err = clEnqueueAcquireGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs,
-		0, nullptr, nullptr);
-	NUI_CHECK_CL_ERR(err);
-	/*openclutil::enqueueAcquireHWObjects(
-		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
-
 	// Set kernel arguments
 	cl_uint idx = 0;
-	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &raycastVertexBufferGL);
+	err = clSetKernelArg(buildVisibleKernel, idx++, sizeof(cl_mem), &m_entriesVisibleTypeCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	err = clSetKernelArg(buildVisibleKernel, idx++, sizeof(cl_mem), &hashEntriesCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &transformCL);
+	err = clSetKernelArg(buildVisibleKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_mem), &hashCompactifiedCL);
+	err = clSetKernelArg(buildVisibleKernel, idx++, sizeof(cl_mem), &transformCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(intervalSplatKernel, idx++, sizeof(cl_float), &hashParams.m_virtualVoxelSize);
+	err = clSetKernelArg(buildVisibleKernel, idx++, sizeof(cl_float), &m_config.m_virtualVoxelSize);
 	NUI_CHECK_CL_ERR(err);
+	if(m_pGlobalCache)
+	{
+		cl_mem swapStatesCL = m_pGlobalCache->getSwapStatesCL();
+		err = clSetKernelArg(buildVisibleKernel, idx++, sizeof(cl_mem), &swapStatesCL);
+		NUI_CHECK_CL_ERR(err);
+	}
 
-	m_numOccupiedBlocks = std::min(m_numOccupiedBlocks, (UINT)m_raycastVertexBuffer.size()/6);
 	// Run kernel to calculate
-	size_t kernelGlobalSize[1] = { m_numOccupiedBlocks };
+	const UINT nTotalEntries = SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE;
+	size_t kernelGlobalSize[1] = { nTotalEntries };
 	err = clEnqueueNDRangeKernel(
 		queue,
-		intervalSplatKernel,
+		buildVisibleKernel,
 		1,
 		nullptr,
 		kernelGlobalSize,
@@ -380,108 +333,33 @@ void NuiHashingOpenCLScene::rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem t
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	err = clFinish(queue);
-	NUI_CHECK_CL_ERR(err);
-
-	// Release OpenGL objects
-	/*openclutil::enqueueReleaseHWObjects(
-		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
-
-	err = clEnqueueReleaseGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
-	NUI_CHECK_CL_ERR(err);
-}
-
-void	NuiHashingOpenCLScene::raycast(
-	cl_mem renderVerticesCL,
-	cl_mem renderNormalsCL,
-	cl_mem renderIntensitiesCL,
-	cl_mem cameraParamsCL,
-	cl_mem transformCL,
-	UINT nWidth, UINT nHeight
-	)
-{
-	if(!m_pSDFData || !m_numOccupiedBlocks)
+	m_numVisibleEntries = m_scan.prefixSum(nTotalEntries, m_entriesVisibleTypeCL, m_entriesVisibleTypePrefixCL, true);
+	if(0 == m_numVisibleEntries)
 		return;
+	m_numVisibleEntries --;
 
-	if(!renderVerticesCL || !renderNormalsCL || !cameraParamsCL || !transformCL)
-		return;
-
-	// Get the kernel
-	cl_kernel raycastKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAYCAST_SDF);
-	assert(raycastKernel);
-	if (!raycastKernel)
+	cl_kernel compacityKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_COMPACTIFY_VISIBLE_TYPE);
+	assert(compacityKernel);
+	if (!compacityKernel)
 	{
-		NUI_ERROR("Get kernel 'E_HASHING_RAYCAST_SDF' failed!\n");
+		NUI_ERROR("Get kernel 'E_HASHING_COMPACTIFY_HASH' failed!\n");
 		return;
 	}
 
-	cl_mem hashCL = m_pSDFData->getHashCL();
-	cl_mem SDFBlocksCL = m_pSDFData->getSDFBlocksCL();
-	const NuiHashingSDFConfig& hashParams = m_pSDFData->getConfig();
-
-	float rayIncrement = m_raycastConfig.m_rayIncrementFactor * m_pSDFData->getConfig().m_truncation;
-	float thresSampleDist = m_raycastConfig.m_thresSampleDistFactor * rayIncrement;
-	float thresDist = m_raycastConfig.m_thresDistFactor * rayIncrement;
-
-	cl_mem rayIntervalMinGL = NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMinBuffer);
-	cl_mem rayIntervalMaxGL = NuiOpenCLBufferFactory::asFrameTexture2DCL(m_rayIntervalMaxBuffer);
-
-	// Acquire OpenGL objects before use
-	cl_mem glObjs[] = {
-		rayIntervalMinGL,
-		rayIntervalMaxGL
-	};
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	//glFinish();
-	err = clEnqueueAcquireGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs,
-		0, nullptr, nullptr);
-	NUI_CHECK_CL_ERR(err);
-	/*openclutil::enqueueAcquireHWObjects(
-		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
-
 	// Set kernel arguments
-	cl_uint idx = 0;
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	idx = 0;
+	err = clSetKernelArg(compacityKernel, idx++, sizeof(cl_mem), &m_entriesVisibleTypeCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &transformCL);
+	err = clSetKernelArg(compacityKernel, idx++, sizeof(cl_mem), &m_entriesVisibleTypePrefixCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderVerticesCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderIntensitiesCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &hashCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &SDFBlocksCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &rayIntervalMinGL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &rayIntervalMaxGL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &hashParams.m_virtualVoxelSize);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &hashParams.m_hashNumBuckets);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_uint), &hashParams.m_hashMaxCollisionLinkedListSize);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &thresSampleDist);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &thresDist);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &rayIncrement);
+	err = clSetKernelArg(compacityKernel, idx++, sizeof(cl_mem), &m_visibleEntryIDsCL);
 	NUI_CHECK_CL_ERR(err);
 
-	// Run kernel to calculate
-	size_t kernelGlobalSize[2] = { nWidth, nHeight };
+	// Run kernel to calculate 
 	err = clEnqueueNDRangeKernel(
 		queue,
-		raycastKernel,
-		2,
+		compacityKernel,
+		1,
 		nullptr,
 		kernelGlobalSize,
 		nullptr,
@@ -490,19 +368,264 @@ void	NuiHashingOpenCLScene::raycast(
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+}
 
-	err = clFinish(queue);
+void	NuiKinfuOpenCLHashScene::ReAllocateSwappedOutVoxelBlocks()
+{
+	// Get the kernel
+	cl_kernel reallocKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_REALLOC_SWAPPEDOUT_VOXEL);
+	assert(reallocKernel);
+	if (!reallocKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_BUILD_HASH_ALLOC' failed!\n");
+		return;
+	}
+
+	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
+	cl_mem voxelAllocationListCL = m_hashingVoxelData.getVoxelAllocationListCL();
+	cl_mem lastFreeBlockIdCL = m_hashingVoxelData.getLastFreeBlockIdCL();
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &m_entriesVisibleTypeCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &hashEntriesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &lastFreeBlockIdCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &voxelAllocationListCL);
 	NUI_CHECK_CL_ERR(err);
 
-	// Release OpenGL objects
-	/*openclutil::enqueueReleaseHWObjects(
-		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);*/
-
-	err = clEnqueueReleaseGLObjects(queue, sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+	// Run kernel to calculate
+	const UINT nTotalEntries = SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE;
+	size_t kernelGlobalSize[1] = { nTotalEntries };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		reallocKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
 	NUI_CHECK_CL_ERR(err);
 }
 
-void NuiHashingOpenCLScene::raycastRender(
+void	NuiKinfuOpenCLHashScene::AllocateSceneFromDepth(
+	UINT nWidth, UINT nHeight,
+	cl_mem floatDepthsCL,
+	cl_mem cameraParamsCL,
+	cl_mem transformCL)
+{
+	ResetVisibleEntrys();
+	ResetAllocType();
+
+	BuildHashAllocAndVisibleType(
+		nWidth, nHeight,
+		floatDepthsCL,
+		cameraParamsCL,
+		transformCL);
+	AllocateVoxelBlocksList();
+	BuildVisibleList(cameraParamsCL, transformCL);
+	ReAllocateSwappedOutVoxelBlocks();
+}
+
+void	NuiKinfuOpenCLHashScene::IntegrateIntoScene(
+	cl_mem floatDepthsCL,
+	cl_mem colorsCL,
+	cl_mem cameraParamsCL,
+	cl_mem transformCL)
+{
+	// Get the kernel
+	cl_kernel integrateKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_INTEGRATE_INTO_SCENE);
+	assert(integrateKernel);
+	if (!integrateKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_INTEGRATE_INTO_SCENE' failed!\n");
+		return;
+	}
+
+	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
+	cl_mem voxelBlocksCL = m_hashingVoxelData.getVoxelBlocksCL();
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &m_visibleEntryIDsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &hashEntriesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &voxelBlocksCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &floatDepthsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &colorsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_virtualVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_float), &m_config.m_truncation);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_uchar), &m_config.m_integrationWeightMax);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t local_ws[1] = {SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE};
+	size_t kernelGlobalSize[1] = { m_numVisibleEntries * local_ws[0] };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		integrateKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		local_ws,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+}
+
+bool	NuiKinfuOpenCLHashScene::integrateVolume(
+	NuiKinfuFrame*			pFrame,
+	NuiKinfuCameraState*	pCameraState)
+{
+	if(!pCameraState)
+		return false;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
+	if(!pCLCamera)
+		return false;
+	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+	if(!cameraParamsCL || !transformCL)
+		return false;
+
+	if(!pFrame)
+		return false;
+	NuiKinfuOpenCLFrame* pCLFrame = dynamic_cast<NuiKinfuOpenCLFrame*>(pFrame);
+	if(!pCLFrame)
+		return false;
+	cl_mem floatDepthsCL = pCLFrame->GetDepthBuffer();
+	if(!floatDepthsCL)
+		return false;
+
+	cl_mem colorsCL = pCLFrame->GetColorBuffer();
+	UINT nWidth = pCLFrame->GetWidth();
+	UINT nHeight = pCLFrame->GetHeight();
+
+	AllocateSceneFromDepth(
+		nWidth, nHeight,
+		floatDepthsCL,
+		cameraParamsCL,
+		transformCL);
+
+	if(m_numVisibleEntries > 0)
+	{
+		IntegrateIntoScene(
+			floatDepthsCL,
+			colorsCL,
+			cameraParamsCL,
+			transformCL);
+		setDirty();
+	}
+
+	return true;
+}
+
+void	NuiKinfuOpenCLHashScene::updateGlobalCacheConfig(const NuiHashingChunkGridConfig& chunkGridConfig)
+{
+	if(chunkGridConfig.m_enable)
+	{
+		if(!m_pGlobalCache)
+			m_pGlobalCache = new NuiKinfuOpenCLHashGlobalCache();
+		//m_pGlobalCache->updateConfig(chunkGridConfig);
+	}
+	else
+	{
+		SafeDelete(m_pGlobalCache);
+	}
+}
+
+void	NuiKinfuOpenCLHashScene::CreateExpectedDepths(
+	NuiKinfuFeedbackFrame*	pFeedbackFrame,
+	NuiKinfuCameraState*	pCameraState)
+{
+	NuiKinfuOpenCLAcceleratedFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLAcceleratedFeedbackFrame*>(pFeedbackFrame);
+	if(!pCLFeedbackFrame)
+		return;
+	pCLFeedbackFrame->resetExpectedRange();
+
+	if(!pCameraState)
+		return;
+	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
+	if(!pCLCamera)
+		return;
+	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
+	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
+	if(!cameraParamsCL || !transformCL)
+		return;
+
+	// Get the kernel
+	cl_kernel projectBlocksKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_PROJECT_SPLIT_BLOCKS);
+	assert(projectBlocksKernel);
+	if (!projectBlocksKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_PROJECT_SPLIT_BLOCKS' failed!\n");
+		return;
+	}
+
+	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
+	cl_mem voxelBlocksCL = m_hashingVoxelData.getVoxelBlocksCL();
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(projectBlocksKernel, idx++, sizeof(cl_mem), &m_visibleEntryIDsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(projectBlocksKernel, idx++, sizeof(cl_mem), &hashEntriesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(projectBlocksKernel, idx++, sizeof(cl_mem), &voxelBlocksCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(projectBlocksKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(projectBlocksKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(projectBlocksKernel, idx++, sizeof(cl_float), &m_config.m_virtualVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t kernelGlobalSize[1] = { m_numVisibleEntries };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		projectBlocksKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+}
+
+
+void NuiKinfuOpenCLHashScene::raycastRender(
 	NuiKinfuFeedbackFrame*	pFeedbackFrame,
 	NuiKinfuCameraState*	pCameraState
 	)
@@ -529,77 +652,10 @@ void NuiHashingOpenCLScene::raycastRender(
 	m_nWidth = pFeedbackFrame->GetWidth();
 	m_nHeight = pFeedbackFrame->GetHeight();
 
-	m_offlineRenderDirty = true;
-	do 
-	{
-	} while (m_offlineRenderDirty);
 
 }
 
-bool	NuiHashingOpenCLScene::integrateVolume(
-	NuiKinfuFrame*			pFrame,
-	NuiKinfuFeedbackFrame*	pFeedbackFrame,
-	NuiKinfuCameraState*	pCameraState)
-{
-	if(!pCameraState)
-		return false;
-	NuiKinfuOpenCLCameraState* pCLCamera = dynamic_cast<NuiKinfuOpenCLCameraState*>(pCameraState);
-	if(!pCLCamera)
-		return false;
-	cl_mem transformCL = pCLCamera->GetCameraTransformBuffer();
-	if(!transformCL)
-		return false;
-
-	if(!pFrame)
-		return false;
-	NuiKinfuOpenCLFrame* pCLFrame = dynamic_cast<NuiKinfuOpenCLFrame*>(pFrame);
-	if(!pCLFrame)
-		return false;
-
-	if(!pFeedbackFrame)
-		return false;
-	NuiKinfuOpenCLFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLFeedbackFrame*>(pFeedbackFrame);
-	if(!pCLFeedbackFrame)
-		return false;
-
-	cl_mem floatDepthsCL = pCLFrame->GetDepthBuffer();
-	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
-	if(!floatDepthsCL || !cameraParamsCL || !transformCL)
-		return false;
-
-	cl_mem normalsCL = pCLFeedbackFrame->GetNormalBuffer();
-	cl_mem colorsCL = pCLFrame->GetColorBuffer();
-	UINT nWidth = pCLFrame->GetWidth();
-	UINT nHeight = pCLFrame->GetHeight();
-
-	SgVec3f streamingVoxelExtends;
-	SgVec3i	streamingGridDimensions;
-	SgVec3i	streamingMinGridPos;
-	if(m_pChunkGrid)
-	{
-		const NuiHashingChunkGridConfig& streamingConfig = m_pChunkGrid->getConfig();
-		streamingVoxelExtends = streamingConfig.m_voxelExtends;
-		streamingGridDimensions = streamingConfig.m_gridDimensions;
-		streamingMinGridPos = streamingConfig.m_minGridPos;
-	}
-	m_numOccupiedBlocks = m_pSDFData->integrate(
-		nWidth, nHeight,
-		floatDepthsCL,
-		colorsCL,
-		cameraParamsCL,
-		transformCL,
-		m_pChunkGrid ? m_pChunkGrid->getBitMaskCL() : NULL,
-		streamingVoxelExtends,
-		streamingGridDimensions,
-		streamingMinGridPos
-		);
-	if(m_numOccupiedBlocks)
-		setDirty();
-
-	return true;
-}
-
-bool NuiHashingOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
+bool NuiKinfuOpenCLHashScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
 	if(!pCLData)
@@ -768,7 +824,7 @@ bool NuiHashingOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	return true;
 }
 
-bool NuiHashingOpenCLScene::Volume2CLMesh(NuiCLMappableData* pCLData)
+bool NuiKinfuOpenCLHashScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
 	if(!pCLData)
@@ -777,7 +833,7 @@ bool NuiHashingOpenCLScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 	return true;
 }
 
-bool NuiHashingOpenCLScene::Volume2Mesh(NuiMeshShape* pMesh)
+bool NuiKinfuOpenCLHashScene::Volume2Mesh(NuiMeshShape* pMesh)
 {
 	assert(pMesh);
 	if(!pMesh)
