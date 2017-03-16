@@ -431,7 +431,7 @@ __kernel void integrateIntoScene_kernel(
         )
 {
 	const uint gidx = get_global_id(0);
-	const int entryID = d_visibleEntryIDs[gidx];
+	const int entryID = d_visibleEntryIDs[gidx / SDF_BLOCK_SIZE3];
 	if(entryID < 0)
 		return;
 	const struct NuiKinfuHashEntry& hashEntry = d_hashEntry[entryID];
@@ -500,4 +500,53 @@ __kernel void integrateIntoScene_kernel(
 
 	localVoxelBlock.sdf = convert_short(newF * 32767.0f);
 	localVoxelBlock.weight = min(convert_uchar(combinedW), integrationWeightMax);
+}
+
+
+__kernel void fetchHashScene_kernel(
+            __global float3*					d_vmap,
+			__global float4*					d_cmap,
+			__global volatile int*				vertex_id,
+			__global	int*					d_visibleEntryIDs,
+			__global struct NuiKinfuHashEntry*	d_hashEntry,
+			__global struct NuiKinfuVoxel*		d_SDFBlocks,
+			const		float					virtualVoxelSize,
+			const		float					truncation)
+{
+	const uint gidx = get_global_id(0);
+	const int entryID = d_visibleEntryIDs[gidx];
+	if(entryID < 0)
+		return;
+	const struct NuiKinfuHashEntry& hashEntry = d_hashEntry[entryID];
+	if (hashEntry.ptr < 0)
+		return;
+
+	for (int i = 0; i < SDF_BLOCK_SIZE3; i++)
+	{
+		const struct NuiKinfuVoxel localVoxelBlock = d_SDFBlocks[hashEntry.ptr * SDF_BLOCK_SIZE3 + i];
+		float sdfValue = convert_float(localVoxelBlock.sdf) / 32767.0f;
+		if (sdfValue <=50 * truncation && sdfValue >=-50 * truncation){ //mu=0.02
+			float voxelSize = 0.125f;
+			float3 pt;
+			pt.z = (hashEntry.pos.z + (i / (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE) + 0.5f) * voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
+			pt.y = (hashEntry.pos.y + ((j % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
+			pt.x = (hashEntry.pos.x + ((j % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) % SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
+
+			float4 color_value(0.0f, 0.0f, 0.0f, 1.0f);
+			if(color_volume)
+			{
+				color_value.x = convert_float(localVoxelBlock.color[0]) /255.f;
+				color_value.y = convert_float(localVoxelBlock.color[1]) /255.f;
+				color_value.z = convert_float(localVoxelBlock.color[2]) /255.f;
+				color_value.w = 1.0f;
+			}
+
+			int current_id = atomic_inc(vertex_id);
+			if(current_id < MAX_OUTPUT_VERTEX_SIZE)
+			{
+				d_vmap[gidx] = pt;
+				d_cmap[gidx] = color_value;
+			}
+		}
+	}
 }

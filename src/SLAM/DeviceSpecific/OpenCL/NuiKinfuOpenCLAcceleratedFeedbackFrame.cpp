@@ -2,6 +2,7 @@
 
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiGPUMemManager.h"
+#include "OpenCLUtilities/NuiOpenCLFoundationUtils.h"
 
 #include "assert.h"
 
@@ -40,28 +41,6 @@ void	NuiKinfuOpenCLAcceleratedFeedbackFrame::ReleaseBuffers()
 
 void	NuiKinfuOpenCLAcceleratedFeedbackFrame::resetExpectedRange()
 {
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
 	const UINT nNum = m_nWidth * m_nHeight;
-	cl_float2* minmaxData = new cl_float2[nNum];
-	for(UINT i = 0;i < nNum; i ++)
-	{
-		minmaxData[i].x = FAR_AWAY;
-		minmaxData[i].y = VERY_CLOSE;
-	}
-	err = clEnqueueWriteBuffer(
-		queue,
-		m_rangeImageCL,
-		CL_FALSE,//blocking
-		0,
-		nNum * sizeof(cl_float2),
-		minmaxData,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-	delete[] minmaxData;
+	NuiOpenCLFoundationUtils::setFloat2Buffer(FAR_AWAY, VERY_CLOSE, m_rangeImageCL, nNum);
 }

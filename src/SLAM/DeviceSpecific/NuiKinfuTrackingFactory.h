@@ -37,7 +37,7 @@ namespace NuiKinfuEngine
 			{
 				*pFrame = new NuiKinfuOpenCLFrame(trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
 				*pFeedbackFrame = new NuiKinfuOpenCLFeedbackFrame(nWidth, nHeight);
-				*pTracker = new NuiKinfuOpenCLColorTracker(trackerConfig, nWidth, nHeight);
+				*pTracker = new NuiKinfuOpenCLDepthTracker(trackerConfig, nWidth, nHeight);
 				*pCameraState = new NuiKinfuOpenCLCameraState();
 			}
 			/*{
