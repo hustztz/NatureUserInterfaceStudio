@@ -1,6 +1,9 @@
 #include "cameraUtils.cl"
 #include "hashing_gpu_def.h"
 
+#define SDF_HASH_MASK 0xfffff			// Used for get hashing value of the bucket index,  SDF_HASH_MASK = SDF_BUCKET_NUM - 1
+
+
 inline static short3 worldToVoxelPos(float3 pos)
 {
 	return convert_short3(pos + convert_float3(sign(pos))*0.5f);
@@ -12,7 +15,7 @@ inline static uint computeHashIndex(short3 virtualVoxelPos)
 	const uint p1 = 19349669u;
 	const uint p2 = 83492791u;
 
-	return ((convert_uint(virtualVoxelPos.x) * p0) ^ (convert_uint(virtualVoxelPos.y) * p1) ^ (convert_uint(virtualVoxelPos.z) * p2));
+	return ((convert_uint(virtualVoxelPos.x) * p0) ^ (convert_uint(virtualVoxelPos.y) * p1) ^ (convert_uint(virtualVoxelPos.z) * p2)) & convert_uint(SDF_HASH_MASK);
 }
 
 inline static int3 virtualPosToVoxelBlock(int3 virtualVoxelPos)

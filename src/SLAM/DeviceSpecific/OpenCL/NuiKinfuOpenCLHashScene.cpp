@@ -267,6 +267,46 @@ void	NuiKinfuOpenCLHashScene::AllocateVoxelBlocksList()
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+
+#ifdef _DEBUG
+	cl_uchar* entriesVisibleTypes = new cl_uchar[nTotalEntries];
+	err = clEnqueueReadBuffer(
+		queue,
+		m_entriesVisibleTypeCL,
+		CL_TRUE,//blocking
+		0, //offset
+		nTotalEntries * sizeof(cl_uchar),
+		entriesVisibleTypes,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+	UINT count = 0;
+	for (UINT i = 0; i < nTotalEntries; ++i)
+	{
+		if( entriesVisibleTypes[i] > 0)
+			count ++;
+	}
+	std::cout << count  << std::endl;
+	SafeDeleteArray(entriesVisibleTypes);
+
+	cl_int lastFreeBlockId = 0;
+	err = clEnqueueReadBuffer(
+		queue,
+		lastFreeBlockIdCL,
+		CL_TRUE,//blocking
+		0, //offset
+		sizeof(cl_int),
+		&lastFreeBlockId,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+	std::cout << lastFreeBlockId  << std::endl;
+#endif
 }
 
 UINT	NuiKinfuOpenCLHashScene::BuildVisibleList(cl_mem cameraParamsCL, cl_mem transformCL)

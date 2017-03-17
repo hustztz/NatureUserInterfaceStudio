@@ -70,8 +70,6 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 	if(isnan(Dp))
 		return;
 
-	const uint nTotalEntries = SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE;
-
 	float3 pt_camera = kinectDepthToSkeleton(gidx, gidy, Dp, cameraParams);
 	const float norm = truncScale / fast_length(pt_camera);
 
@@ -85,10 +83,8 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 	//add neighbouring blocks
 	for (int i = 0; i < numSteps; i++)
 	{
-		short3 blockPos = worldToVoxelPos(rayMin);
-		uint hashIdx = computeHashIndex(blockPos);
-		if(hashIdx >= nTotalEntries)
-			continue;
+		short3 blockPos = (short3)(floor(rayMin.x), floor(rayMin.y), floor(rayMin.z));
+		uint hashIdx = computeHashIndex(blockPos) % SDF_BUCKET_NUM;
 
 		//check if hash table contains entry
 		bool isFound = false;
@@ -110,8 +106,6 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 				while (hashEntry.offset >= 1)
 				{
 					hashIdx = SDF_BUCKET_NUM + hashEntry.offset - 1;
-					if(hashIdx >= nTotalEntries)
-						break;
 					hashEntry = d_hashEntry[hashIdx];
 
 					if (hashEntry.pos[0] == blockPos.x && hashEntry.pos[1] == blockPos.y && hashEntry.pos[2] == blockPos.z &&
