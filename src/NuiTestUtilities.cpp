@@ -38,8 +38,8 @@ namespace NuiTestUtilities
 		cl_mem outputCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, sizeof(cl_uint)*cInputSize, NULL, &err);
 		NUI_CHECK_CL_ERR(err);
 
-		NuiOpenCLPrefixSum scan;
-		scan.prefixSum(cInputSize, inputCL, outputCL);
+		NuiOpenCLPrefixSum scan(cInputSize);
+		scan.prefixSum(inputCL, outputCL);
 
 		UINT outputGPU[cInputSize];
 		err = clEnqueueReadBuffer(

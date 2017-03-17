@@ -345,7 +345,6 @@ void NuiHashingOpenCLScene::raycastRender(
 
 bool	NuiHashingOpenCLScene::integrateVolume(
 	NuiKinfuFrame*			pFrame,
-	NuiKinfuFeedbackFrame*	pFeedbackFrame,
 	NuiKinfuCameraState*	pCameraState)
 {
 	if(!pCameraState)
@@ -363,18 +362,12 @@ bool	NuiHashingOpenCLScene::integrateVolume(
 	if(!pCLFrame)
 		return false;
 
-	if(!pFeedbackFrame)
-		return false;
-	NuiKinfuOpenCLFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLFeedbackFrame*>(pFeedbackFrame);
-	if(!pCLFeedbackFrame)
-		return false;
-
 	cl_mem floatDepthsCL = pCLFrame->GetDepthBuffer();
 	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 	if(!floatDepthsCL || !cameraParamsCL || !transformCL)
 		return false;
 
-	cl_mem normalsCL = pCLFeedbackFrame->GetNormalBuffer();
+	//cl_mem normalsCL = pCLFeedbackFrame->GetNormalBuffer();
 	cl_mem colorsCL = pCLFrame->GetColorBuffer();
 	UINT nWidth = pCLFrame->GetWidth();
 	UINT nHeight = pCLFrame->GetHeight();

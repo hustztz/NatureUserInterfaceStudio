@@ -474,7 +474,6 @@ Vector3f NuiKinfuOpenCLScene::shiftVolume(const Vector3f& translation)
 /** \brief Function that integrates volume if volume element contains: 2 bytes for round(tsdf*SHORT_MAX) and 2 bytes for integer weight.*/
 bool    NuiKinfuOpenCLScene::integrateVolume(
 	NuiKinfuFrame*			pFrame,
-	NuiKinfuFeedbackFrame*	pFeedbackFrame,
 	NuiKinfuCameraState*	pCameraState)
 {
 	if(!pCameraState)
@@ -492,18 +491,12 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 	if(!pCLFrame)
 		return false;
 
-	if(!pFeedbackFrame)
-		return false;
-	NuiKinfuOpenCLFeedbackFrame* pCLFeedbackFrame = dynamic_cast<NuiKinfuOpenCLFeedbackFrame*>(pFeedbackFrame);
-	if(!pCLFeedbackFrame)
-		return false;
-
 	cl_mem floatDepthsCL = pCLFrame->GetDepthBuffer();
 	cl_mem cameraParamsCL = pCLCamera->GetCameraParamsBuffer();
 	if(!floatDepthsCL || !cameraParamsCL || !transformCL)
 		return false;
 
-	cl_mem normalsCL = pCLFeedbackFrame->GetNormalBuffer();
+	//cl_mem normalsCL = pCLFeedbackFrame->GetNormalBuffer();
 	cl_mem colorsCL = pCLFrame->GetColorBuffer();
 	UINT nWidth = pCLFrame->GetWidth();
 	UINT nHeight = pCLFrame->GetHeight();
@@ -559,7 +552,7 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 	idx = 0;
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &floatDepthsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &normalsCL);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), NULL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &colorsCL);
 	NUI_CHECK_CL_ERR(err);

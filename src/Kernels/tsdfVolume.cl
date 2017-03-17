@@ -156,28 +156,30 @@ __kernel void integrateTsdfVolumeKernel(
 				{
 					if( fabs(sdf) < l_params.tranc_dist )
 					{
-						float3 ncurr = vload3(coo_id, normals);
-						if( !_isnan3(ncurr) )
+						uchar4 new_color = vload4(coo_id, colors);
+						if( 0 != new_color.w )
 						{
-							uchar4 new_color = vload4(coo_id, colors);
-							if( 0 != new_color.w )
+							uchar4 volume_color = vload4(idx, color_volume);
+
+							float Wrk = 1.f;
+							float3 ncurr = vload3(coo_id, normals);
 							{
-								uchar4 volume_color = vload4(idx, color_volume);
-
-								const float Wrk = min(1.0f, fabs(ncurr.z) / RGB_VIEW_ANGLE_WEIGHT) * 2.f;
-								float new_x = (convert_float(volume_color.x * volume_color.w) + Wrk * convert_float(new_color.x)) / (convert_float(volume_color.w) + Wrk);
-								float new_y = (convert_float(volume_color.y * volume_color.w) + Wrk * convert_float(new_color.y)) / (convert_float(volume_color.w) + Wrk);
-								float new_z = (convert_float(volume_color.z * volume_color.w) + Wrk * convert_float(new_color.z)) / (convert_float(volume_color.w) + Wrk);
-								uchar weight_new = volume_color.w + 1;
-
-								uchar4 volume_rgbw_new;
-								volume_rgbw_new.x = convert_uchar( clamp(new_x, 0.0f, 255.f) );
-								volume_rgbw_new.y = convert_uchar( clamp(new_y, 0.0f, 255.f) );
-								volume_rgbw_new.z = convert_uchar( clamp(new_z, 0.0f, 255.f) );
-								volume_rgbw_new.w = min (max_color_weight, weight_new);
-
-								vstore4( volume_rgbw_new, idx, color_volume );
+								if( !_isnan3(ncurr) )
+									Wrk = min(1.0f, fabs(ncurr.z) / RGB_VIEW_ANGLE_WEIGHT) * 2.f;
 							}
+
+							float new_x = (convert_float(volume_color.x * volume_color.w) + Wrk * convert_float(new_color.x)) / (convert_float(volume_color.w) + Wrk);
+							float new_y = (convert_float(volume_color.y * volume_color.w) + Wrk * convert_float(new_color.y)) / (convert_float(volume_color.w) + Wrk);
+							float new_z = (convert_float(volume_color.z * volume_color.w) + Wrk * convert_float(new_color.z)) / (convert_float(volume_color.w) + Wrk);
+							uchar weight_new = volume_color.w + 1;
+
+							uchar4 volume_rgbw_new;
+							volume_rgbw_new.x = convert_uchar( clamp(new_x, 0.0f, 255.f) );
+							volume_rgbw_new.y = convert_uchar( clamp(new_y, 0.0f, 255.f) );
+							volume_rgbw_new.z = convert_uchar( clamp(new_z, 0.0f, 255.f) );
+							volume_rgbw_new.w = min (max_color_weight, weight_new);
+
+							vstore4( volume_rgbw_new, idx, color_volume );
 						}
 					}
 				}

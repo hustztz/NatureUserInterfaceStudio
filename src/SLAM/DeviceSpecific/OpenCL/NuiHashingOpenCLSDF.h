@@ -2,8 +2,11 @@
 
 #include "stdafx.h"
 #include "Foundation/SgVec3T.h"
-#include "NuiOpenCLPrefixSum.h"
 #include "../../NuiHashingSDFConfig.h"
+
+#include "OpenCLUtilities/NuiOpenCLUtil.h"
+
+class NuiOpenCLPrefixSum;
 
 class NuiHashingOpenCLSDF
 {
@@ -62,7 +65,7 @@ private:
 	cl_mem		m_SDFBlocksCL;
 	cl_mem		m_hashBucketMutexCL;
 
-	NuiOpenCLPrefixSum	m_scan;
+	NuiOpenCLPrefixSum*	m_pScan;
 	NuiHashingSDFConfig	m_config;
 	bool			m_bGarbageCollectionEnabled;
 	UINT			m_garbageCollectionStarve;

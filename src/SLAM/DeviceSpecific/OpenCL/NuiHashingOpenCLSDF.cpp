@@ -1,5 +1,7 @@
 #include "NuiHashingOpenCLSDF.h"
 
+#include "NuiOpenCLPrefixSum.h"
+
 #include "Foundation/NuiDebugMacro.h"
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
@@ -91,6 +93,8 @@ void NuiHashingOpenCLSDF::AcquireBuffers()
 	NUI_CHECK_CL_ERR(err);
 	m_hashBucketMutexCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_config.m_hashNumBuckets * sizeof(cl_uchar), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
+
+	m_pScan = new NuiOpenCLPrefixSum(HASH_BUCKET_SIZE * m_config.m_hashNumBuckets);
 }
 
 void NuiHashingOpenCLSDF::ReleaseBuffers()
@@ -135,6 +139,8 @@ void NuiHashingOpenCLSDF::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_hashBucketMutexCL = NULL;
 	}
+
+	SafeDelete(m_pScan);
 }
 
 void NuiHashingOpenCLSDF::ResetHeapBuffer()
@@ -424,7 +430,7 @@ UINT NuiHashingOpenCLSDF::compactifyHashEntries(cl_mem cameraParamsCL, cl_mem tr
 #endif
 
 	//make sure numOccupiedBlocks is updated on the GPU
-	UINT numOccupiedBlocks = m_scan.prefixSum(HASH_BUCKET_SIZE * m_config.m_hashNumBuckets, m_hashDecisionCL, m_hashDecisionPrefixCL);
+	UINT numOccupiedBlocks = m_pScan->prefixSum(m_hashDecisionCL, m_hashDecisionPrefixCL);
 	numOccupiedBlocks --;
 
 	// Set kernel arguments

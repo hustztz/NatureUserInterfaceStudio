@@ -1,5 +1,5 @@
 #include "KinfuHashUtils.cl"
-
+#include "utils.cl"
 
 __kernel void project_minmax_depths_kernel(
 			__global	float2*					d_minmaxData,
@@ -14,7 +14,7 @@ __kernel void project_minmax_depths_kernel(
 	const int entryID = d_visibleEntryIDs[gidx];
 	if(entryID < 0)
 		return;
-	const struct NuiKinfuHashEntry& hashEntry = d_hashEntry[entryID];
+	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[entryID];
 	if (hashEntry.ptr < 0)
 		return;
 
@@ -31,7 +31,7 @@ __kernel void project_minmax_depths_kernel(
 		tmp.y += (corner & 2) ? 1 : 0;
 		tmp.z += (corner & 4) ? 1 : 0;
 
-		float3 pt3d = convert_float3(pos*SDF_BLOCK_SIZE)*virtualVoxelSize;
+		float3 pt3d = convert_float3(convert_int3(tmp)*SDF_BLOCK_SIZE)*virtualVoxelSize;
 		pt3d = transformInverse( pt3d, rigidTransform );
 		if (pt3d.z < 1e-6) continue;
 
@@ -59,7 +59,7 @@ __kernel void project_minmax_depths_kernel(
 	{
 		for(int bx = upperLeft.x; bx <= lowerRight.x; bx ++)
 		{
-			int locId = mul24(by, camParams.depthImageWidth) + bx;
+			int locId = mul24(by, convert_int(camParams.depthImageWidth)) + bx;
 			if (d_minmaxData[locId].x > zRange.x) d_minmaxData[locId].x = zRange.x;
 			if (d_minmaxData[locId].y < zRange.y) d_minmaxData[locId].y = zRange.y;
 		}
@@ -68,17 +68,17 @@ __kernel void project_minmax_depths_kernel(
 
 inline static int findVoxelBlockIndex(const int3 virtualPos,
 							__global struct NuiKinfuHashEntry*	d_hashEntry,
-							short3& cachedBlockPos,
-							int& cachedBlockPtr
+							short3* pCachedBlockPos,
+							int* pCachedBlockPtr
 							)
 {
 	int3 blockPos = virtualPosToVoxelBlock(virtualPos);
 	int linearIdx = virtualPos.x + mul24((virtualPos.y - blockPos.x), SDF_BLOCK_SIZE) + mul24(mul24((virtualPos.z - blockPos.y), SDF_BLOCK_SIZE), SDF_BLOCK_SIZE) - mul24(blockPos.z, SDF_BLOCK_SIZE3);
 	short3 shortBlockPos = convert_short3(blockPos);
 
-	if(shortBlockPos == cachedBlockPos)
+	if(shortBlockPos.x == pCachedBlockPos->x && shortBlockPos.y == pCachedBlockPos->y && shortBlockPos.z == pCachedBlockPos->z)
 	{
-		return cachedBlockPtr + linearIdx;
+		return *pCachedBlockPtr + linearIdx;
 	}
 	else
 	{
@@ -87,11 +87,11 @@ inline static int findVoxelBlockIndex(const int3 virtualPos,
 		while (true) 
 		{
 			const struct NuiKinfuHashEntry hashEntry = d_hashEntry[hashIdx];
-			if(hashEntry.pos == shortBlockPos && hashEntry.ptr >= 0)
+			if(hashEntry.pos[0] == shortBlockPos.x && hashEntry.pos[1] == shortBlockPos.y && hashEntry.pos[2] == shortBlockPos.z && hashEntry.ptr >= 0)
 			{
-				cachedBlockPos = shortBlockPos;
-				cachedBlockPtr = hashEntry.ptr * SDF_BLOCK_SIZE3;
-				return cachedBlockPtr + linearIdx;
+				*pCachedBlockPos = shortBlockPos;
+				*pCachedBlockPtr = hashEntry.ptr * SDF_BLOCK_SIZE3;
+				return *pCachedBlockPtr + linearIdx;
 			}
 			if (hashEntry.offset < 1)
 				break;
@@ -105,11 +105,11 @@ inline static float readVoxelSDF(
 							const int3 virtualPos,
 							__global struct NuiKinfuHashEntry*	d_hashEntry,
 							__global struct NuiKinfuVoxel*		d_SDFBlocks,
-							short3& cachedBlockPos,
-							int& cachedBlockPtr
+							short3* pCachedBlockPos,
+							int* pCachedBlockPtr
 							)
 {
-	const int blockIndex = findVoxelBlockIndex(virtualPos, d_hashEntry, cachedBlockPos, cachedBlockPtr);
+	const int blockIndex = findVoxelBlockIndex(virtualPos, d_hashEntry, pCachedBlockPos, pCachedBlockPtr);
 	return (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
 }
 
@@ -117,27 +117,27 @@ inline static float readInterpolatedVoxelSDF(
 							const float3 point,
 							__global struct NuiKinfuHashEntry*	d_hashEntry,
 							__global struct NuiKinfuVoxel*		d_SDFBlocks,
-							short3& cachedBlockPos,
-							int& cachedBlockPtr
+							short3* pCachedBlockPos,
+							int* pCachedBlockPtr
 							)
 {
 	int3 virtualPos = (int3)(floor(point.x), floor(point.y), floor(point.z));
 	float3 coeff = (float3)(point.x-convert_float(virtualPos.x), point.y-convert_float(virtualPos.y), point.z-convert_float(virtualPos.z));
 
-	float v1 = readVoxelSDF(virtualPos + (int3)(0, 0, 0), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
-	float v2 = readVoxelSDF(virtualPos + (int3)(1, 0, 0), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
+	float v1 = readVoxelSDF(virtualPos + (int3)(0, 0, 0), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
+	float v2 = readVoxelSDF(virtualPos + (int3)(1, 0, 0), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
 	float res1 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 
-	v1 = readVoxelSDF(virtualPos + (int3)(0, 1, 0), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
-	v2 = readVoxelSDF(virtualPos + (int3)(1, 1, 0), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
+	v1 = readVoxelSDF(virtualPos + (int3)(0, 1, 0), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
+	v2 = readVoxelSDF(virtualPos + (int3)(1, 1, 0), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
 	res1 = (1.0f - coeff.y) * res1 + coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
 
-	v1 = readVoxelSDF(virtualPos + (int3)(0, 0, 1), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
-	v2 = readVoxelSDF(virtualPos + (int3)(1, 0, 1), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
+	v1 = readVoxelSDF(virtualPos + (int3)(0, 0, 1), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
+	v2 = readVoxelSDF(virtualPos + (int3)(1, 0, 1), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
 	float res2 = (1.0f - coeff.x) * v1 + coeff.x * v2;
 
-	v1 = readVoxelSDF(virtualPos + (int3)(0, 1, 1), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
-	v2 = readVoxelSDF(virtualPos + (int3)(1, 1, 1), d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
+	v1 = readVoxelSDF(virtualPos + (int3)(0, 1, 1), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
+	v2 = readVoxelSDF(virtualPos + (int3)(1, 1, 1), d_hashEntry, d_SDFBlocks, pCachedBlockPos, pCachedBlockPtr);
 	res2 = (1.0f - coeff.y) * res2 + coeff.y * ((1.0f - coeff.x) * v1 + coeff.x * v2);
 
 	return ((1.0f - coeff.z) * res1 + coeff.z * res2);
@@ -146,7 +146,7 @@ inline static float readInterpolatedVoxelSDF(
 __kernel void raycast_kernel(
 			__global	float3*		d_vmap,
 			__global	float3*		d_nmap,
-			__global	char4*		d_cmap,
+			__global	uchar4*		d_cmap,
 			__global	float2*					d_minmaxData,
 			__global struct NuiKinfuHashEntry*	d_hashEntry,
 			__global struct NuiKinfuVoxel*		d_SDFBlocks,
@@ -154,7 +154,7 @@ __kernel void raycast_kernel(
 			__global struct NuiCLRigidTransform* rigidTransform,
 			const float				virtualVoxelSize,
 			const float				oneOverVoxelSize,
-			const	float			truncation
+			const	float			truncScale
         )
 {
 	const uint gidx = get_global_id(0);
@@ -163,10 +163,10 @@ __kernel void raycast_kernel(
 	const int idx = mul24(gidy, gsizex) + gidx;
 
 	float3 pt_block_s = kinectDepthToSkeleton(gidx, gidy, d_minmaxData[idx].x, cameraParams);
-	float totalLength = fastLength(pt_block_s) * oneOverVoxelSize;
+	float totalLength = fast_length(pt_block_s) * oneOverVoxelSize;
 	pt_block_s = transformInverse( pt_block_s, rigidTransform ) * oneOverVoxelSize;
 	float3 pt_block_e = kinectDepthToSkeleton(gidx, gidy, d_minmaxData[idx].y, cameraParams);
-	float totalLengthMax = fastLength(pt_block_e) * oneOverVoxelSize;
+	float totalLengthMax = fast_length(pt_block_e) * oneOverVoxelSize;
 	pt_block_e = transformInverse( pt_block_e, rigidTransform ) * oneOverVoxelSize;
 
 	// Cache
@@ -174,14 +174,14 @@ __kernel void raycast_kernel(
 	int cachedBlockPtr;
 
 	float stepLength;
-	float stepScale = truncation * oneOverVoxelSize;
+	float stepScale = truncScale * oneOverVoxelSize;
 	float sdfValue = 1.0f;
-	float3 rayDirection = normalized(pt_block_e - pt_block_s);
+	float3 rayDirection = normalize(pt_block_e - pt_block_s);
 	float3 pt_result = pt_block_s;
 	while (totalLength < totalLengthMax)
 	{
 		int3 virtualPos = (int3)(round(pt_result.x), round(pt_result.y), round(pt_result.z));
-		const int blockIndex = findVoxelBlockIndex(virtualPos, d_hashEntry, cachedBlockPos, cachedBlockPtr)
+		const int blockIndex = findVoxelBlockIndex(virtualPos, d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		sdfValue = convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
 		if ( blockIndex < 0 )
 		{
@@ -191,7 +191,7 @@ __kernel void raycast_kernel(
 		{
 			if ((sdfValue <= 0.1f) && (sdfValue >= -0.5f))
 			{
-				sdfValue = readInterpolatedVoxelSDF(pt_result, d_hashEntry, d_SDFBlocks, cachedBlockPos, cachedBlockPtr);
+				sdfValue = readInterpolatedVoxelSDF(pt_result, d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
 			}
 			if (sdfValue <= 0.0f)
 				break;
@@ -209,111 +209,111 @@ __kernel void raycast_kernel(
 		pt_result += stepLength * rayDirection;
 
 		// readInterpolatedVoxel
-		uchar4 resultColor(0, 0, 0, 0);
-		float nearestDist = 1e20.f;
+		uchar4 resultColor = (uchar4)(0, 0, 0, 0);
+		float nearestDist = 1.0e20;
 		float4 front, back;
-		int3 virtualPos = (int3)(floor(point.x), floor(point.y), floor(point.z));
-		float3 coeff = (float3)(point.x-convert_float(virtualPos.x), point.y-convert_float(virtualPos.y), point.z-convert_float(virtualPos.z));
+		int3 virtualPos = (int3)(floor(pt_result.x), floor(pt_result.y), floor(pt_result.z));
+		float3 coeff = (float3)(pt_result.x-convert_float(virtualPos.x), pt_result.y-convert_float(virtualPos.y), pt_result.z-convert_float(virtualPos.z));
 		float3 ncoeff = (float3)(1.0f - coeff.x, 1.0f - coeff.y, 1.0f - coeff.z);
 
 		// 0, 0, 0
-		const int blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 0, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		int blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 0, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		front.x = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		float coeffDist = fastLength(coeff);
+		float coeffDist = fast_length(coeff);
 		if(d_cmap && blockIndex >= 0)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 		// 1, 0, 0
-		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 0, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 0, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		front.y = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		coeffDist = fastLength((float3)(ncoeff.x, coeff.yz));
+		coeffDist = fast_length((float3)(ncoeff.x, coeff.yz));
 		if(d_cmap && blockIndex >= 0 && nearestDist > coeffDist)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 
 		// 0, 1, 0
-		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 1, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		front.z = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		coeffDist = fastLength((float3)(coeff.x, ncoeff.y, coeff.z));
+		coeffDist = fast_length((float3)(coeff.x, ncoeff.y, coeff.z));
 		if(d_cmap && blockIndex >= 0 && nearestDist > coeffDist)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 		// 1, 1, 0
-		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 1, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		front.w = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		coeffDist = fastLength((float3)(ncoeff.xy, coeff.z));
+		coeffDist = fast_length((float3)(ncoeff.xy, coeff.z));
 		if(d_cmap && blockIndex >= 0 && nearestDist > coeffDist)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 
 		// 0, 0, 1
-		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 0, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 0, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		back.x = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		coeffDist = fastLength((float3)(coeff.xy, ncoeff.z));
+		coeffDist = fast_length((float3)(coeff.xy, ncoeff.z));
 		if(d_cmap && blockIndex >= 0 && nearestDist > coeffDist)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 		// 1, 0, 1
-		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 0, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 0, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		back.y = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		coeffDist = fastLength((float3)(ncoeff.x, coeff.y, ncoeff.z));
+		coeffDist = fast_length((float3)(ncoeff.x, coeff.y, ncoeff.z));
 		if(d_cmap && blockIndex >= 0 && nearestDist > coeffDist)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 
 		// 0, 1, 1
-		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 1, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(0, 1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		back.z = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		coeffDist = fastLength((float3)(coeff.x, ncoeff.yz));
+		coeffDist = fast_length((float3)(coeff.x, ncoeff.yz));
 		if(d_cmap && blockIndex >= 0 && nearestDist > coeffDist)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 		// 1, 1, 1
-		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 1, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+		blockIndex = findVoxelBlockIndex(virtualPos + (int3)(1, 1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 		back.w = (blockIndex < 0) ? 1.0f : convert_float(d_SDFBlocks[blockIndex].sdf) / 32767.0f;
-		coeffDist = fastLength((float3)(ncoeff.xyz));
+		coeffDist = fast_length((float3)(ncoeff.xyz));
 		if(d_cmap && blockIndex >= 0 && nearestDist > coeffDist)
 		{
 			nearestDist = coeffDist;
-			resultColor.r = d_SDFBlocks[blockIndex].color[0];
-			resultColor.g = d_SDFBlocks[blockIndex].color[1];
-			resultColor.b = d_SDFBlocks[blockIndex].color[2];
-			resultColor.w = 255;
+			resultColor.s0 = d_SDFBlocks[blockIndex].color[0];
+			resultColor.s1 = d_SDFBlocks[blockIndex].color[1];
+			resultColor.s2 = d_SDFBlocks[blockIndex].color[2];
+			resultColor.s3 = 255;
 		}
 		
 		// Got the finest sdf value.
@@ -341,10 +341,10 @@ __kernel void raycast_kernel(
 				 back.x  * ncoeff.y *  coeff.z +
 				 back.z  *  coeff.y *  coeff.z;
 
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(-1, 0, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(-1, 1, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(-1, 0, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(-1, 1, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(-1, 0, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(-1, 1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(-1, 0, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(-1, 1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.y * ncoeff.z +
 				 tmp.y *  coeff.y * ncoeff.z +
 				 tmp.z * ncoeff.y *  coeff.z +
@@ -355,10 +355,10 @@ __kernel void raycast_kernel(
 				 front.w *  coeff.y * ncoeff.z +
 				 back.y  * ncoeff.y *  coeff.z +
 				 back.w  *  coeff.y *  coeff.z;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(2, 0, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(2, 1, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(2, 0, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(2, 1, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(2, 0, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(2, 1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(2, 0, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(2, 1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.y * ncoeff.z +
 				 tmp.y *  coeff.y * ncoeff.z +
 				 tmp.z * ncoeff.y *  coeff.z +
@@ -371,10 +371,10 @@ __kernel void raycast_kernel(
 				 front.y *  coeff.x * ncoeff.z +
 				 back.x  * ncoeff.x *  coeff.z +
 				 back.y  *  coeff.x *  coeff.z;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, -1, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, -1, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, -1, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, -1, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, -1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, -1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, -1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, -1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.z +
 				 tmp.y *  coeff.x * ncoeff.z +
 				 tmp.z * ncoeff.x *  coeff.z +
@@ -385,26 +385,26 @@ __kernel void raycast_kernel(
 				 front.w *  coeff.x * ncoeff.z +
 				 back.z  * ncoeff.x *  coeff.z +
 				 back.w  *  coeff.x *  coeff.z;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 2, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 2, 0), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 2, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 2, 1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 2, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 2, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 2, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 2, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.z +
 				 tmp.y *  coeff.x * ncoeff.z +
 				 tmp.z * ncoeff.x *  coeff.z +
 				 tmp.w *  coeff.x *  coeff.z;
 
-			ret.y = TVoxel::SDF_valueToFloat(p1 * ncoeff.y + p2 * coeff.y - v1);
+			ret.y = p1 * ncoeff.y + p2 * coeff.y - v1;
 
 			// gradient z
 			p1 = front.x * ncoeff.x * ncoeff.y +
 				 front.y *  coeff.x * ncoeff.y +
 				 front.z * ncoeff.x *  coeff.y +
 				 front.w *  coeff.x *  coeff.y;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 0, -1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 0, -1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 1, -1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 1, -1), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 0, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 0, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 1, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 1, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.y +
 				 tmp.y *  coeff.x * ncoeff.y +
 				 tmp.z * ncoeff.x *  coeff.y +
@@ -415,16 +415,16 @@ __kernel void raycast_kernel(
 				 back.y *  coeff.x * ncoeff.y +
 				 back.z * ncoeff.x *  coeff.y +
 				 back.w *  coeff.x *  coeff.y;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 0, 2), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 0, 2), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 1, 2), d_hashEntry, cachedBlockPos, cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 1, 2), d_hashEntry, cachedBlockPos, cachedBlockPtr);
+			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 0, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 0, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 1, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 1, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.y +
 				 tmp.y *  coeff.x * ncoeff.y +
 				 tmp.z * ncoeff.x *  coeff.y +
 				 tmp.w *  coeff.x *  coeff.y;
 
-			ret.z = 1p1 * ncoeff.z + p2 * coeff.z - v1;
+			ret.z = p1 * ncoeff.z + p2 * coeff.z - v1;
 			d_nmap[idx] = ret;
 		}
 

@@ -23,6 +23,12 @@ NuiOpenCLKernelManager& NuiOpenCLKernelManager::instance() {
 
 static const char * const KernelNames[] =
 {
+	"reset_uchar_kernel",						  "foundation.cl",
+	"set_float2_kernel",						  "foundation.cl",
+	"scanExclusiveLocal1_kernel",				  "prefixSum.cl",
+	"scanExclusiveLocal2_kernel",				  "prefixSum.cl",
+	"uniformUpdate_kernel",						  "prefixSum.cl",
+	"compactifyValidPrefixSum_kernel",			  "prefixSum.cl",
     "estimate_normals_kernel",                    "NormalEstimation.cl",
 	"estimate_normals_simple_kernel",             "NormalEstimation.cl",
 	"estimate_normals_covariance_kernel",         "NormalEstimation.cl",
@@ -60,6 +66,21 @@ static const char * const KernelNames[] =
 	"volumeTraversalKernel",					  "marchingCube.cl",
 	"volume2VertexKernel",						  "marchingCube.cl",
 	"marchingCubeKernel",						  "marchingCube.cl",
+	"reset_voxel_block_kernel",					  "KinfuHashScene.cl",
+	"reset_hash_entry_kernel",					  "KinfuHashScene.cl",
+	"reset_hash_excess_allocation_kernel",		  "KinfuHashScene.cl",
+	"reset_visible_entrys_kernel",				  "KinfuHashScene.cl",
+	"buildHashAllocAndVisibleType_kernel",		  "KinfuHashScene.cl",
+	"allocateVoxelBlocksList_kernel",			  "KinfuHashScene.cl",
+	"buildVisibleList_kernel",					  "KinfuHashScene.cl",
+	"buildVisibleEnlargedList_kernel",			  "KinfuHashScene.cl",
+	"prefix_flag_scan1_kernel",					  "KinfuHashScene.cl",
+	"prefix_flag_scan2_kernel",					  "KinfuHashScene.cl",
+	"reAllocateSwappedOutVoxelBlocks_kernel",	  "KinfuHashScene.cl",
+	"integrateIntoScene_kernel",				  "KinfuHashScene.cl",
+	"fetchHashScene_kernel",					  "KinfuHashScene.cl",
+	"project_minmax_depths_kernel",				  "KinfuHashRaycast.cl",
+	"raycast_kernel",							  "KinfuHashRaycast.cl",
 	"reset_heap_kernel",						  "hashingReset.cl",
 	"reset_hash_kernel",						  "hashingReset.cl",
 	"reset_hash_bucket_mutex_kernel",			  "hashingReset.cl",
@@ -77,9 +98,6 @@ static const char * const KernelNames[] =
 	"chunkToGlobalHashPass1Kernel",				  "hashingChunkGrid.cl",
 	"chunkToGlobalHashPass2Kernel",				  "hashingChunkGrid.cl",
 	"fetch_SDFs_kernel",						  "hashingSDFFetch.cl",
-	"scanExclusiveLocal1",						  "prefixSum.cl",
-	"scanExclusiveLocal2",						  "prefixSum.cl",
-	"uniformUpdate",							  "prefixSum.cl",
 };
 
 NuiOpenCLKernelManager::NuiOpenCLKernelManager()

@@ -1,4 +1,6 @@
 #include "KinfuHashUtils.cl"
+#include "prefixSum.cl"
+#include "utils.cl"
 
 __kernel void reset_voxel_block_kernel(
 			__global struct NuiKinfuVoxel*	d_SDFBlocks,
@@ -48,13 +50,13 @@ __kernel void reset_visible_entrys_kernel(
 }
 
 __kernel void buildHashAllocAndVisibleType_kernel(
-            __global	float*	depths,
-			__constant	struct	NuiCLCameraParams* cameraParams,
-			__global	struct	NuiCLRigidTransform* rigidTransform,
-			__global struct NuiKinfuHashEntry*	d_hashEntry,
 			__global	uchar*	d_entriesVisibleType,
 			__global	uchar*	d_entriesAllocType,
 			__global	short3*	d_blockCoords,
+			__global struct NuiKinfuHashEntry*	d_hashEntry,
+            __global	float*	depths,
+			__global	struct	NuiCLRigidTransform* rigidTransform,
+			__constant	struct	NuiCLCameraParams* cameraParams,
 			const		float	truncScale,
 			const		float	oneOverVoxelSize
         )
@@ -68,14 +70,16 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 	if(isnan(Dp))
 		return;
 
-	float3 pt_camera = kinectDepthToSkeleton(gidx, gidy, Dp, cameraParams);
-	float norm = fast_length(pt_camera);
+	const uint nTotalEntries = SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE;
 
-	float3 rayMin = transform( (pt_camera * (1.0f - truncScale/norm)), rigidTransform) * oneOverVoxelSize;
-	float3 rayMax = transform( (pt_camera * (1.0f + truncScale/norm)), rigidTransform) * oneOverVoxelSize;
+	float3 pt_camera = kinectDepthToSkeleton(gidx, gidy, Dp, cameraParams);
+	const float norm = truncScale / fast_length(pt_camera);
+
+	float3 rayMin = transform( (pt_camera * (1.0f - norm)), rigidTransform) * oneOverVoxelSize;
+	float3 rayMax = transform( (pt_camera * (1.0f + norm)), rigidTransform) * oneOverVoxelSize;
 	float3 rayDir = rayMax - rayMin;
-	norm = fast_length(rayDir);
-	int numSteps = ceil(2.0f*norm);
+	const float rayNorm = fast_length(rayDir);
+	const int numSteps = ceil(2.0f*rayNorm);
 	rayDir /= convert_float(numSteps - 1);
 
 	//add neighbouring blocks
@@ -83,6 +87,8 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 	{
 		short3 blockPos = worldToVoxelPos(rayMin);
 		uint hashIdx = computeHashIndex(blockPos);
+		if(hashIdx >= nTotalEntries)
+			continue;
 
 		//check if hash table contains entry
 		bool isFound = false;
@@ -104,6 +110,8 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 				while (hashEntry.offset >= 1)
 				{
 					hashIdx = SDF_BUCKET_NUM + hashEntry.offset - 1;
+					if(hashIdx >= nTotalEntries)
+						break;
 					hashEntry = d_hashEntry[hashIdx];
 
 					if (hashEntry.pos[0] == blockPos.x && hashEntry.pos[1] == blockPos.y && hashEntry.pos[2] == blockPos.z &&
@@ -203,13 +211,13 @@ inline static bool checkPointVisibility(
 
 	struct NuiCLCameraParams camParams = *cameraParams;
 
-	uint2 screenPos = convert_uint2(cameraToKinectScreen(pt_buff, cameraParams) + (float2)(0.5f, 0.5f));
+	int2 screenPos = convert_int2(cameraToKinectScreen(pt_buff, cameraParams) + (float2)(0.5f, 0.5f));
 	return (screenPos.x >= 0 && screenPos.x < camParams.depthImageWidth && screenPos.y >= 0 && screenPos.y < camParams.depthImageHeight);
 }
 
 inline static bool checkBlockVisibility(
 	const		float3						pt_image,
-	const		float						factor;
+	const		float						factor,
 	__constant struct NuiCLCameraParams*	cameraParams,
 	__global struct NuiCLRigidTransform*	rigidTransform
 	)
@@ -267,7 +275,7 @@ __kernel void buildVisibleList_kernel(
 {
 	const uint gidx = get_global_id(0);
 	uchar hashVisibleType = d_entriesVisibleType[gidx];
-	const struct NuiKinfuHashEntry& hashEntry = d_hashEntry[gidx];
+	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[gidx];
 	if (hashVisibleType == 3)
 	{
 		float factor = convert_float(SDF_BLOCK_SIZE) * virtualVoxelSize;
@@ -305,7 +313,7 @@ inline static bool checkPointVisibilityEnlarged(
 
 inline static bool checkBlockVisibilityEnlarged(
 	const		float3						pt_image,
-	const		float						factor;
+	const		float						factor,
 	__constant struct NuiCLCameraParams*	cameraParams,
 	__global struct NuiCLRigidTransform*	rigidTransform
 	)
@@ -359,12 +367,12 @@ __kernel void buildVisibleEnlargedList_kernel(
 			__constant struct NuiCLCameraParams*	cameraParams,
 			__global struct NuiCLRigidTransform*	rigidTransform,
 			const		float						virtualVoxelSize,
-			__global struct NuiKinfuHashSwapState*	d_swapStates
+			__global	uchar*						d_swapStates
         )
 {
 	const uint gidx = get_global_id(0);
 	uchar hashVisibleType = d_entriesVisibleType[gidx];
-	const struct NuiKinfuHashEntry& hashEntry = d_hashEntry[gidx];
+	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[gidx];
 	if (hashVisibleType == 3)
 	{
 		float factor = convert_float(SDF_BLOCK_SIZE) * virtualVoxelSize;
@@ -378,25 +386,47 @@ __kernel void buildVisibleEnlargedList_kernel(
 			d_entriesVisibleType[gidx] = 0;
 	}
 
-	if (hashVisibleType > 0 && d_swapStates[gidx].state != 2)
-		d_swapStates[gidx].state = 1;
+	if (hashVisibleType > 0 && d_swapStates[gidx] != 2)
+		d_swapStates[gidx] = 1;
 }
 
-__kernel void compactifyVisibleType_kernel(
-	__global	uchar*					d_entriesVisibleType,
-	__global	uint*					d_entriesVisibleTypePrefix,
-	__global	int*					d_visibleEntryIDs,
+__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
+void prefix_flag_scan1_kernel(
+    __global uchar8 *d_Src,
+    __global uint8 *d_Dst,
+    __local uint *l_Data,
+    uint size
 	)
 {
-	const int gidx = get_global_id(0);
+    //Load data
+    uint8 idata8;
+    uchar8 srcs = d_Src[get_global_id(0)];
+    idata8.s0 = convert_uint(srcs.s0 > 0);
+    idata8.s1 = convert_uint(srcs.s1 > 0);
+    idata8.s2 = convert_uint(srcs.s2 > 0);
+    idata8.s3 = convert_uint(srcs.s3 > 0);
+    idata8.s4 = convert_uint(srcs.s4 > 0);
+    idata8.s5 = convert_uint(srcs.s5 > 0);
+    idata8.s6 = convert_uint(srcs.s6 > 0);
+    idata8.s7 = convert_uint(srcs.s7 > 0);
 
-	if( d_entriesVisibleType[gidx] == 1 )
-	{
-		uint prefixIdx = d_entriesVisibleTypePrefix[gidx];
-		if(prefixIdx > 0)
-			prefixIdx --;
-		d_visibleEntryIDs[prefixIdx] = gidx;
-	}
+
+    scanExclusiveLocal1(idata8, d_Dst, l_Data, size);
+}
+
+__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
+void prefix_flag_scan2_kernel(
+    __global uchar *d_Src,
+    __global uint *d_Buf,
+    __global uint *d_Dst,
+    __local uint *l_Data,
+    uint size
+	)
+{
+    //Load top elements
+    uint indata = convert_uint(d_Src[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)] > 0);
+
+	scanExclusiveLocal2(indata, d_Buf, d_Dst, l_Data, size);
 }
 
 __kernel void reAllocateSwappedOutVoxelBlocks_kernel(
@@ -407,11 +437,11 @@ __kernel void reAllocateSwappedOutVoxelBlocks_kernel(
 			)
 {
 	const uint gidx = get_global_id(0);
-	struct NuiKinfuHashEntry& hashEntry = d_hashEntry[gidx];
+	struct NuiKinfuHashEntry hashEntry = d_hashEntry[gidx];
 
 	if (d_entriesVisibleType[gidx] > 0 && hashEntry.ptr == -1) //it is visible and has been previously allocated inside the hash, but deallocated from VBA
 	{
-		int vbaIdx = atomic_dec(d_lastFreeVoxelBlockId, 1);
+		int vbaIdx = atomic_dec(d_lastFreeVoxelBlockId);
 		if (vbaIdx >= 0)
 			hashEntry.ptr = d_allocationList[vbaIdx];
 	}
@@ -426,7 +456,7 @@ __kernel void integrateIntoScene_kernel(
 			__constant struct NuiCLCameraParams* cameraParams,
 			__global struct NuiCLRigidTransform* rigidTransform,
 			const		float					virtualVoxelSize,
-			const		float					truncation,
+			const		float					truncScale,
 			const		uchar					integrationWeightMax
         )
 {
@@ -434,7 +464,7 @@ __kernel void integrateIntoScene_kernel(
 	const int entryID = d_visibleEntryIDs[gidx / SDF_BLOCK_SIZE3];
 	if(entryID < 0)
 		return;
-	const struct NuiKinfuHashEntry& hashEntry = d_hashEntry[entryID];
+	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[entryID];
 	if (hashEntry.ptr < 0)
 		return;
 	
@@ -443,63 +473,63 @@ __kernel void integrateIntoScene_kernel(
 	const int lidz = get_local_id(2);
 	
 	const int locId = lidx + mul24(lidy, SDF_BLOCK_SIZE) + mul24(lidz, mul24(SDF_BLOCK_SIZE, SDF_BLOCK_SIZE));
-	struct NuiKinfuVoxel& localVoxelBlock = d_SDFBlocks[hashEntry.ptr * SDF_BLOCK_SIZE3 + locId];
-	if(integrationWeightMax == localVoxelBlock.weight)
+	const int blockId = hashEntry.ptr * SDF_BLOCK_SIZE3 + locId;
+	if(integrationWeightMax == d_SDFBlocks[blockId].weight)
 		return;
 
 	int3 globalPose = (int3)(hashEntry.pos[0], hashEntry.pos[1], hashEntry.pos[2]) * SDF_BLOCK_SIZE;
 	float3 pt_model = (float3)(convert_float(globalPose.x+lidx), convert_float(globalPose.y+lidy), convert_float(globalPose.z+lidz)) * virtualVoxelSize;
-	float3 pCamera = transformInverse( pt_model, rigidTransform );
+	float3 pt_camera = transformInverse( pt_model, rigidTransform );
 	if (pt_camera.z <= 0) return;
-	uint2 pt_image = convert_uint2(cameraToKinectScreen(pCamera, cameraParams) + (float2)(0.5f, 0.5f));
+	int2 pt_image = convert_int2(cameraToKinectScreen(pt_camera, cameraParams) + (float2)(0.5f, 0.5f));
 
 	struct NuiCLCameraParams camParams = *cameraParams;
 	if(pt_image.x < 0 || pt_image.x >= camParams.depthImageWidth || pt_image.y < 0 || pt_image.y >= camParams.depthImageHeight)
 		return;
 
-	const uint screenId = mul24(pt_image.y, camParams.depthImageWidth) + pt_image.x;
+	const int screenId = mul24(pt_image.y, convert_int(camParams.depthImageWidth)) + pt_image.x;
 	float depth = depths[screenId];
 	if(isnan(depth))
 		return;
 
 	// check whether voxel needs updating
 	float eta = depth - pt_camera.z;
-	float sdf = eta / truncation;
-	if (eta < -truncation)
+	float sdf = eta / truncScale;
+	if (eta < -truncScale)
 		return;
 	
-	float oldF = convert_float(localVoxelBlock.sdf) / 32767.0f;
-	float oldW = convert_float(localVoxelBlock.weight);
+	float oldF = convert_float(d_SDFBlocks[blockId].sdf) / 32767.0f;
+	float oldW = convert_float(d_SDFBlocks[blockId].weight);
 
 	float newF = min(1.0f, sdf);
 	float newW = 1.0f;
 	float combinedW = oldW + newW;
 
 	// Update color voxel
-	if (colors && (eta < truncation) && (fabs(sdf) < 0.25f))
+	if (colors && (eta < truncScale) && (fabs(sdf) < 0.25f))
 	{
 		uchar4 color = colors[screenId];
 		if(255 == color.w)
 		{
-			float oldColorR = convert_short(localVoxelBlock.color[0]);
-			float oldColorG = convert_short(localVoxelBlock.color[1]);
-			float oldColorB = convert_short(localVoxelBlock.color[2]);
+			float oldColorR = convert_short(d_SDFBlocks[blockId].color[0]);
+			float oldColorG = convert_short(d_SDFBlocks[blockId].color[1]);
+			float oldColorB = convert_short(d_SDFBlocks[blockId].color[2]);
 
-			float newColorR = (oldW * oldColorR + newW * convert_short(color.r)) / combinedW;
-			float newColorG = (oldW * oldColorG + newW * convert_short(color.g)) / combinedW;
-			float newColorB = (oldW * oldColorB + newW * convert_short(color.b)) / combinedW;
+			float newColorR = (oldW * oldColorR + newW * convert_short(color.s0)) / combinedW;
+			float newColorG = (oldW * oldColorG + newW * convert_short(color.s1)) / combinedW;
+			float newColorB = (oldW * oldColorB + newW * convert_short(color.s2)) / combinedW;
 
-			localVoxelBlock.color[0] = convert_uchar( clamp(newColorR, 0.0f, 255.f) );
-			localVoxelBlock.color[1] = convert_uchar( clamp(newColorG, 0.0f, 255.f) );
-			localVoxelBlock.color[2] = convert_uchar( clamp(newColorB, 0.0f, 255.f) );
+			d_SDFBlocks[blockId].color[0] = convert_uchar( clamp(newColorR, 0.0f, 255.f) );
+			d_SDFBlocks[blockId].color[1] = convert_uchar( clamp(newColorG, 0.0f, 255.f) );
+			d_SDFBlocks[blockId].color[2] = convert_uchar( clamp(newColorB, 0.0f, 255.f) );
 		}
 	}
 
 	newF = oldW * oldF + newW * newF;
 	newF /= combinedW;
 
-	localVoxelBlock.sdf = convert_short(newF * 32767.0f);
-	localVoxelBlock.weight = min(convert_uchar(combinedW), integrationWeightMax);
+	d_SDFBlocks[blockId].sdf = convert_short(newF * 32767.0f);
+	d_SDFBlocks[blockId].weight = min(convert_uchar(combinedW), integrationWeightMax);
 }
 
 
@@ -511,13 +541,13 @@ __kernel void fetchHashScene_kernel(
 			__global struct NuiKinfuHashEntry*	d_hashEntry,
 			__global struct NuiKinfuVoxel*		d_SDFBlocks,
 			const		float					virtualVoxelSize,
-			const		float					truncation)
+			const		float					truncScale)
 {
 	const uint gidx = get_global_id(0);
 	const int entryID = d_visibleEntryIDs[gidx];
 	if(entryID < 0)
 		return;
-	const struct NuiKinfuHashEntry& hashEntry = d_hashEntry[entryID];
+	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[entryID];
 	if (hashEntry.ptr < 0)
 		return;
 
@@ -525,15 +555,15 @@ __kernel void fetchHashScene_kernel(
 	{
 		const struct NuiKinfuVoxel localVoxelBlock = d_SDFBlocks[hashEntry.ptr * SDF_BLOCK_SIZE3 + i];
 		float sdfValue = convert_float(localVoxelBlock.sdf) / 32767.0f;
-		if (sdfValue <=50 * truncation && sdfValue >=-50 * truncation){ //mu=0.02
+		if (sdfValue <=50 * truncScale && sdfValue >=-50 * truncScale){ //mu=0.02
 			float voxelSize = 0.125f;
 			float3 pt;
-			pt.z = (hashEntry.pos.z + (i / (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE) + 0.5f) * voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
-			pt.y = (hashEntry.pos.y + ((j % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
-			pt.x = (hashEntry.pos.x + ((j % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) % SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
+			pt.z = (hashEntry.pos[2] + (i / (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE) + 0.5f) * voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
+			pt.y = (hashEntry.pos[1] + ((i % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
+			pt.x = (hashEntry.pos[0] + ((i % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) % SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
 
-			float4 color_value(0.0f, 0.0f, 0.0f, 1.0f);
-			if(color_volume)
+			float4 color_value = (float4)(0.0f, 0.0f, 0.0f, 1.0f);
+			if(d_cmap)
 			{
 				color_value.x = convert_float(localVoxelBlock.color[0]) /255.f;
 				color_value.y = convert_float(localVoxelBlock.color[1]) /255.f;

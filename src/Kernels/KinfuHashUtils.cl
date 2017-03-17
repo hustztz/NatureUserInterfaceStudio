@@ -3,7 +3,7 @@
 
 inline static short3 worldToVoxelPos(float3 pos)
 {
-	return convert_int3(pos + convert_float3(sign(pos))*0.5f);
+	return convert_short3(pos + convert_float3(sign(pos))*0.5f);
 }
 
 inline static uint computeHashIndex(short3 virtualVoxelPos)

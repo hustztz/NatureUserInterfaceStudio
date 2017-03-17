@@ -1,7 +1,7 @@
 #pragma once
 
 #include "OpenCL/NuiKinfuOpenCLFrame.h"
-#include "OpenCL/NuiKinfuOpenCLFeedbackFrame.h"
+#include "OpenCL/NuiKinfuOpenCLAcceleratedFeedbackFrame.h"
 #include "OpenCL/NuiKinfuOpenCLDepthTracker.h"
 #include "OpenCL/NuiKinfuOpenCLColorTracker.h"
 #include "OpenCL/NuiKinfuOpenCLCameraState.h"
@@ -36,7 +36,7 @@ namespace NuiKinfuEngine
 			// OpenCL
 			{
 				*pFrame = new NuiKinfuOpenCLFrame(trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
-				*pFeedbackFrame = new NuiKinfuOpenCLFeedbackFrame(nWidth, nHeight);
+				*pFeedbackFrame = new NuiKinfuOpenCLAcceleratedFeedbackFrame(nWidth, nHeight);
 				*pTracker = new NuiKinfuOpenCLDepthTracker(trackerConfig, nWidth, nHeight);
 				*pCameraState = new NuiKinfuOpenCLCameraState();
 			}

@@ -6,14 +6,19 @@ class NuiOpenCLPrefixSum
 {
 public:
 
-	NuiOpenCLPrefixSum();
+	NuiOpenCLPrefixSum(unsigned int numElements);
 	~NuiOpenCLPrefixSum();
 
-	unsigned int prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag = false);
+	unsigned int prefixSum(cl_mem d_input, cl_mem d_output);
+	unsigned int prefixSum(cl_kernel scan1Kernel, cl_kernel scan2Kernel, cl_mem d_input, cl_mem d_output);
 protected:
-	void		scanExclusiveLocal1(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag);
-	void		scanExclusiveLocal2(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag);
-	void		uniformUpdate(unsigned int numElements, cl_mem d_output);
+	void		scanExclusiveLocal1(cl_mem d_input, cl_kernel scanKernel= NULL);
+	void		scanExclusiveLocal2(unsigned int batchSize, cl_mem d_input, cl_kernel scanKernel = NULL);
+	void		uniformUpdate(unsigned int batchSize);
+	void		generateValidIDs(cl_mem d_output);
+	unsigned int getValidCount();
 private:
-	cl_mem		m_buffer;
+	unsigned int	m_numElements;
+	cl_mem			m_buffer;
+	cl_mem			m_outPrefixCL;
 };

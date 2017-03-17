@@ -25,7 +25,6 @@ public:
 
 	virtual bool	integrateVolume(
 		NuiKinfuFrame*			pFrame,
-		NuiKinfuFeedbackFrame*	pFeedbackFrame,
 		NuiKinfuCameraState*	pCameraState
 		) override;
 

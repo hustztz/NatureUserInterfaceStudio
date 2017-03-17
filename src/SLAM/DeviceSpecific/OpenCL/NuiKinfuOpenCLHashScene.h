@@ -2,12 +2,13 @@
 
 #include "../NuiKinfuScene.h"
 #include "NuiKinfuVoxelBlockHash.h"
-#include "NuiOpenCLPrefixSum.h"
 
 #include "../../NuiHashingSDFConfig.h"
 
 // Forwards
 class NuiKinfuOpenCLHashGlobalCache;
+class NuiOpenCLPrefixSum;
+struct NuiHashingChunkGridConfig;
 
 class NuiKinfuOpenCLHashScene : public NuiKinfuScene
 {
@@ -67,7 +68,7 @@ private:
 		cl_mem cameraParamsCL,
 		cl_mem transformCL);
 	void			AllocateVoxelBlocksList();
-	void			BuildVisibleList(cl_mem cameraParamsCL, cl_mem transformCL);
+	UINT			BuildVisibleList(cl_mem cameraParamsCL, cl_mem transformCL);
 	void			ReAllocateSwappedOutVoxelBlocks();
 
 	void			CreateExpectedDepths(cl_mem expectedRangeCL, cl_mem cameraParamsCL, cl_mem transformCL);
@@ -85,7 +86,7 @@ private:
 	NuiKinfuVoxelBlockHash			m_hashingVoxelData;
 	NuiKinfuOpenCLHashGlobalCache*	m_pGlobalCache;
 
-	NuiOpenCLPrefixSum				m_scan;
+	NuiOpenCLPrefixSum*				m_pScan;
 	
 	NuiHashingSDFConfig				m_config;
 	// Reconstruction
@@ -102,7 +103,6 @@ private:
 			and tracker.
 	*/
 	cl_mem		m_entriesVisibleTypeCL;
-	cl_mem		m_entriesVisibleTypePrefixCL;
 	UINT		m_numVisibleEntries;
 
 	// Fetch scene

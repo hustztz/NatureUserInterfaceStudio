@@ -28,7 +28,6 @@ public:
 	virtual void	reset() = 0;
 	virtual bool	integrateVolume(
 		NuiKinfuFrame*			pFrame,
-		NuiKinfuFeedbackFrame*	pFeedbackFrame,
 		NuiKinfuCameraState*	pCameraState
 		) = 0;
 	virtual void	raycastRender(

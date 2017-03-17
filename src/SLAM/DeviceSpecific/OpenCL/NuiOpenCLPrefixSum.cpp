@@ -12,12 +12,45 @@
 #define		WORKGROUP_SIZE		1024
 #define		MAX_BATCH_ELEMENTS	8*WORKGROUP_SIZE*WORKGROUP_SIZE
 
-NuiOpenCLPrefixSum::NuiOpenCLPrefixSum()
+
+unsigned int iFactorRadix2Up(unsigned int num)
 {
+	unsigned int L = num;
+	unsigned int log2L = 0;
+	for(; L > 1; L >>= 1)
+	{
+		log2L ++;
+	}
+	if(L == 0)
+	{
+		return num;
+	}
+	L = 1;
+	for (unsigned int i = 0; i < log2L; i ++)
+	{
+		L <<= 1;
+	}
+	return L;
+}
+
+
+NuiOpenCLPrefixSum::NuiOpenCLPrefixSum(unsigned int numElements)
+	: m_numElements(numElements)
+{
+	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
+	m_numElements = iFactorRadix2Up(numElements / 8) * 8;
+
+	if(numElements < cArrayLength)
+		m_numElements = cArrayLength;
+	else if(numElements > MAX_BATCH_ELEMENTS)
+		m_numElements = MAX_BATCH_ELEMENTS;
+
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
 
-	m_buffer = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (MAX_BATCH_ELEMENTS / (8 * WORKGROUP_SIZE)) * sizeof(cl_uint), NULL, &err);
+	m_buffer = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, (m_numElements / (8 * WORKGROUP_SIZE)) * sizeof(cl_uint), NULL, &err);
+	NUI_CHECK_CL_ERR(err);
+	m_outPrefixCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_numElements * sizeof(cl_uint), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
 }
 
@@ -28,21 +61,29 @@ NuiOpenCLPrefixSum::~NuiOpenCLPrefixSum()
 		NUI_CHECK_CL_ERR(err);
 		m_buffer = NULL;
 	}
+	if (m_outPrefixCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_outPrefixCL);
+		NUI_CHECK_CL_ERR(err);
+		m_outPrefixCL = NULL;
+	}
 }
 
 unsigned int iSnapUp(unsigned int dividend, unsigned int divisor){
 	return ((dividend % divisor) == 0) ? dividend : (dividend - dividend % divisor + divisor);
 }
 
-void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag)
+void NuiOpenCLPrefixSum::scanExclusiveLocal1(cl_mem d_input, cl_kernel scanKernel /*= NULL*/)
 {
 	// Get the kernel
-	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(bSrcFlag ? E_PREFIX_FLAG_SUM_EXCLUSIVE1 : E_PREFIX_SUM_EXCLUSIVE1);
-	assert(scanKernel);
 	if (!scanKernel)
 	{
-		NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE1' failed!\n");
-		return;
+		scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE1);
+		assert(scanKernel);
+		if (!scanKernel)
+		{
+			NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE1' failed!\n");
+			return;
+		}
 	}
 
 	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
@@ -54,7 +95,7 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_
 	cl_uint idx = 0;
 	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &d_input);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &d_output);
+	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &m_outPrefixCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(scanKernel, idx++, 2 * WORKGROUP_SIZE * sizeof(cl_uint), NULL);
 	NUI_CHECK_CL_ERR(err);
@@ -62,7 +103,7 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate 
-	size_t kernelGlobalSize[1] = { numElements / 8 };
+	size_t kernelGlobalSize[1] = { m_numElements / 8 };
 	size_t local_ws[1] = { WORKGROUP_SIZE };
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -78,15 +119,18 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal1(unsigned int numElements, cl_mem d_
 	NUI_CHECK_CL_ERR(err);
 }
 
-void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag)
+void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int batchSize, cl_mem d_input, cl_kernel scanKernel /*= NULL*/)
 {
 	// Get the kernel
-	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(bSrcFlag ? E_PREFIX_FLAG_SUM_EXCLUSIVE2 : E_PREFIX_SUM_EXCLUSIVE2);
-	assert(scanKernel);
 	if (!scanKernel)
 	{
-		NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE2' failed!\n");
-		return;
+		scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE2);
+		assert(scanKernel);
+		if (!scanKernel)
+		{
+			NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE2' failed!\n");
+			return;
+		}
 	}
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -98,16 +142,16 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &m_buffer);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &d_output);
+	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &m_outPrefixCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(scanKernel, idx++, 2 * WORKGROUP_SIZE * sizeof(cl_uint), NULL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_uint), &numElements);
+	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_uint), &batchSize);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate 
 	// iSnapUp
-	size_t kernelGlobalSize[1] = { iSnapUp(numElements, WORKGROUP_SIZE) };
+	size_t kernelGlobalSize[1] = { iSnapUp(batchSize, WORKGROUP_SIZE) };
 	size_t local_ws[1] = { WORKGROUP_SIZE };
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -144,7 +188,7 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int numElements, cl_mem d_
 	//delete[] pBuffer;
 }
 
-void NuiOpenCLPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output)
+void NuiOpenCLPrefixSum::uniformUpdate(unsigned int batchSize)
 {
 	// Get the kernel
 	cl_kernel scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_UNIFORM_UPDATE);
@@ -163,11 +207,11 @@ void NuiOpenCLPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output
 	cl_uint idx = 0;
 	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &m_buffer);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &d_output);
+	err = clSetKernelArg(scanKernel, idx++, sizeof(cl_mem), &m_outPrefixCL);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
-	size_t kernelGlobalSize[1] = { numElements * WORKGROUP_SIZE };
+	size_t kernelGlobalSize[1] = { batchSize * WORKGROUP_SIZE };
 	size_t local_ws[1] = { WORKGROUP_SIZE };
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -183,39 +227,46 @@ void NuiOpenCLPrefixSum::uniformUpdate(unsigned int numElements, cl_mem d_output
 	NUI_CHECK_CL_ERR(err);
 }
 
-unsigned int iFactorRadix2Up(unsigned int num)
+void NuiOpenCLPrefixSum::generateValidIDs(cl_mem d_output)
 {
-	unsigned int L = num;
-	unsigned int log2L = 0;
-	for(; L > 1; L >>= 1)
+	// Get the kernel
+	cl_kernel compacityKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_COMPACTIFY_VALID_SUM);
+	assert(compacityKernel);
+	if (!compacityKernel)
 	{
-		log2L ++;
+		NUI_ERROR("Get kernel 'E_PREFIX_COMPACTIFY_VALID_SUM' failed!\n");
+		return;
 	}
-	if(L == 0)
-	{
-		return num;
-	}
-	L = 1;
-	for (unsigned int i = 0; i < log2L; i ++)
-	{
-		L <<= 1;
-	}
-	return L;
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(compacityKernel, idx++, sizeof(cl_mem), &m_outPrefixCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(compacityKernel, idx++, sizeof(cl_mem), &d_output);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t kernelGlobalSize[1] = { m_numElements };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		compacityKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
 }
 
-unsigned int NuiOpenCLPrefixSum::prefixSum(unsigned int numElements, cl_mem d_input, cl_mem d_output, bool bSrcFlag /*= false*/)
+unsigned int NuiOpenCLPrefixSum::getValidCount()
 {
-	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
-	numElements = iFactorRadix2Up(numElements / 8) * 8;
-
-	assert(numElements >= cArrayLength && numElements <= MAX_BATCH_ELEMENTS);
-	if(numElements < cArrayLength || numElements > MAX_BATCH_ELEMENTS)
-		return 0;
-
-	scanExclusiveLocal1(numElements, d_input, d_output, bSrcFlag);
-	unsigned int batchSize = numElements / cArrayLength;
-	scanExclusiveLocal2(batchSize, d_input, d_output, bSrcFlag);
-	uniformUpdate(batchSize, d_output);
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -224,9 +275,9 @@ unsigned int NuiOpenCLPrefixSum::prefixSum(unsigned int numElements, cl_mem d_in
 	unsigned int sum = 0;
 	err = clEnqueueReadBuffer(
 		queue,
-		d_output,
+		m_outPrefixCL,
 		CL_TRUE,//blocking
-		(numElements-1) * sizeof(cl_uint), //offset
+		(m_numElements-1) * sizeof(cl_uint), //offset
 		sizeof(cl_uint),
 		&sum,
 		0,
@@ -234,6 +285,27 @@ unsigned int NuiOpenCLPrefixSum::prefixSum(unsigned int numElements, cl_mem d_in
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
-
 	return sum;
+}
+
+unsigned int NuiOpenCLPrefixSum::prefixSum(cl_mem d_input, cl_mem d_output)
+{
+	scanExclusiveLocal1(d_input);
+	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
+	unsigned int batchSize = m_numElements / cArrayLength;
+	scanExclusiveLocal2(batchSize, d_input);
+	uniformUpdate(batchSize);
+	generateValidIDs(d_output);
+	return getValidCount();
+}
+
+unsigned int NuiOpenCLPrefixSum::prefixSum(cl_kernel scan1Kernel, cl_kernel scan2Kernel, cl_mem d_input, cl_mem d_output)
+{
+	scanExclusiveLocal1(d_input, scan1Kernel);
+	const unsigned int cArrayLength = WORKGROUP_SIZE * 8;
+	unsigned int batchSize = m_numElements / cArrayLength;
+	scanExclusiveLocal2(batchSize, d_input, scan2Kernel);
+	uniformUpdate(batchSize);
+	generateValidIDs(d_output);
+	return getValidCount();
 }

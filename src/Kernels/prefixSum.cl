@@ -86,114 +86,28 @@ inline uint8 scan8Exclusive(uint8 data8, __local uint *l_Data, uint size)
     return scan8Inclusive(data8, l_Data, size) - data8;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Scan kernels
-////////////////////////////////////////////////////////////////////////////////
-__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
-void scanExclusiveLocal1(
-    __global uint8 *d_Src,
+inline void scanExclusiveLocal1(
+     uint8 idata8,
     __global uint8 *d_Dst,
     __local uint *l_Data,
     uint size
 	)
 {
-    //Load data
-    uint8 idata8 = d_Src[get_global_id(0)];
-
-    //Calculate exclusive scan
+   //Calculate exclusive scan
     uint8 odata8  = scan8Exclusive(idata8, l_Data, size);
 
     //Write back
     d_Dst[get_global_id(0)] = odata8;
 }
 
-//Exclusive scan of top elements of bottom-level scans (4 * THREADBLOCK_SIZE)
-__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
-void scanExclusiveLocal2(
-    __global uint *d_Src,
+inline void scanExclusiveLocal2(
+    uint indata,
     __global uint *d_Buf,
     __global uint *d_Dst,
     __local uint *l_Data,
     uint size
 	)
 {
-    //Load top elements
-    //Convert results of bottom-level scan back to inclusive
-    //Skip loads and stores for inactive work-items of the work-group with highest index(pos >= N)
-    uint data = 0;
-    if(get_global_id(0) < size)
-    data =
-        d_Dst[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)] + 
-        d_Src[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)];
-
-    //Compute
-    uint odata = scan1Exclusive(data, l_Data, size);
-
-    //Avoid out-of-bound access
-    if(get_global_id(0) < size)
-        d_Buf[get_global_id(0)] = odata;
-}
-
-//Final step of large-array scan: combine basic inclusive scan with exclusive scan of top elements of input arrays
-__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
-void uniformUpdate(
-    __global uint *d_Buf,
-    __global uint8 *d_Data
-	)
-{
-    __local uint buf[1];
-
-    uint8 data8 = d_Data[get_global_id(0)];
-
-    if(get_local_id(0) == 0)
-        buf[0] = d_Buf[get_group_id(0)];
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-    data8 += (uint8)buf[0];
-    d_Data[get_global_id(0)] = data8;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Scan kernels
-////////////////////////////////////////////////////////////////////////////////
-__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
-void scanFlagExclusiveLocal1(
-    __global uchar8 *d_Src,
-    __global uint8 *d_Dst,
-    __local uint *l_Data,
-    uint size
-	)
-{
-    //Load data
-    uint8 idata8;
-	uchar8 srcs = d_Src[get_global_id(0)];
-	idata8[0] = convert_uint(srcs[0] > 0);
-	idata8[1] = convert_uint(srcs[1] > 0);
-	idata8[2] = convert_uint(srcs[2] > 0);
-	idata8[3] = convert_uint(srcs[3] > 0);
-	idata8[4] = convert_uint(srcs[4] > 0);
-	idata8[5] = convert_uint(srcs[5] > 0);
-	idata8[6] = convert_uint(srcs[6] > 0);
-	idata8[7] = convert_uint(srcs[7] > 0);
-
-    //Calculate exclusive scan
-    uint8 odata8  = scan8Exclusive(idata8, l_Data, size);
-
-    //Write back
-    d_Dst[get_global_id(0)] = odata8;
-}
-
-//Exclusive scan of top elements of bottom-level scans (4 * THREADBLOCK_SIZE)
-__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
-void scanFlagExclusiveLocal2(
-    __global uchar *d_Src,
-    __global uint *d_Buf,
-    __global uint *d_Dst,
-    __local uint *l_Data,
-    uint size
-	)
-{
-	uint indata = convert_uint(d_Src[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)] > 0)
     //Load top elements
     //Convert results of bottom-level scan back to inclusive
     //Skip loads and stores for inactive work-items of the work-group with highest index(pos >= N)
@@ -210,3 +124,70 @@ void scanFlagExclusiveLocal2(
     if(get_global_id(0) < size)
         d_Buf[get_global_id(0)] = odata;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Scan kernels
+////////////////////////////////////////////////////////////////////////////////
+__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
+void scanExclusiveLocal1_kernel(
+    __global uint8 *d_Src,
+    __global uint8 *d_Dst,
+    __local uint *l_Data,
+    uint size
+	)
+{
+    //Load data
+    uint8 idata8 = d_Src[get_global_id(0)];
+
+    scanExclusiveLocal1(idata8, d_Dst, l_Data, size);
+}
+
+//Exclusive scan of top elements of bottom-level scans (4 * THREADBLOCK_SIZE)
+__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
+void scanExclusiveLocal2_kernel(
+    __global uint *d_Src,
+    __global uint *d_Buf,
+    __global uint *d_Dst,
+    __local uint *l_Data,
+    uint size
+	)
+{
+    //Load top elements
+    //Convert results of bottom-level scan back to inclusive
+    //Skip loads and stores for inactive work-items of the work-group with highest index(pos >= N)
+    uint indata = d_Src[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)];
+   scanExclusiveLocal2(indata, d_Buf, d_Dst, l_Data, size);
+}
+
+//Final step of large-array scan: combine basic inclusive scan with exclusive scan of top elements of input arrays
+__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
+void uniformUpdate_kernel(
+    __global uint *d_Buf,
+    __global uint8 *d_Data
+	)
+{
+    __local uint buf[1];
+
+    uint8 data8 = d_Data[get_global_id(0)];
+
+    if(get_local_id(0) == 0)
+        buf[0] = d_Buf[get_group_id(0)];
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    data8 += (uint8)buf[0];
+    d_Data[get_global_id(0)] = data8;
+}
+
+
+__kernel void compactifyValidPrefixSum_kernel(
+	__global	uint*		d_DataPrefix,
+	__global	int*		d_validIDs
+	)
+{
+	const uint gidx = get_global_id(0);
+	uint prefixIdx = d_DataPrefix[gidx];
+	if(prefixIdx > 0)
+		prefixIdx --;
+	d_validIDs[prefixIdx] = gidx;
+}
+

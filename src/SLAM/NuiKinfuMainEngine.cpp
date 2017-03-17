@@ -1,6 +1,7 @@
 #include "NuiKinfuMainEngine.h"
 
 #include "DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.h"
+#include "DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
 
@@ -24,16 +25,17 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 {
 	SafeDelete(m_pScene);
 
-	/*if(bHashingSDF)
+	bHashingSDF = true;
+	if(bHashingSDF)
 	{
 		NuiHashingSDFConfig sdfConfig;
 		sdfConfig.m_virtualVoxelSize = voxelSize;
-		sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
-		sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
-		NuiHashingRaycastConfig raycastConfig;
-		m_pScene = new NuiHashingVolume(sdfConfig, raycastConfig);
+		//sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
+		//sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
+		//NuiHashingRaycastConfig raycastConfig;
+		m_pScene = new NuiKinfuOpenCLHashScene(sdfConfig);
 	}
-	else*/
+	else
 	{
 		NuiKinfuVolumeConfig volumeConfig;
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
