@@ -29,7 +29,9 @@ protected:
 
 public:
 	pangolin::Var<bool> a_deviceOn;
-	pangolin::Var<bool> a_reset;
+	pangolin::Var<bool> a_start;
+	pangolin::Var<bool> a_stepIn;
+	pangolin::Var<bool> a_stop;
 
 	pangolin::Var<bool> a_fileToFrame;
 	pangolin::Var<bool> a_frameToFile;
@@ -50,11 +52,11 @@ public:
 	pangolin::Var<bool> a_drawMesh;
 
 	pangolin::Var<std::string> a_grabberSpeed;
+	pangolin::Var<std::string> a_trackerFrameID;
 	pangolin::Var<std::string> a_trackerSpeed;
 	pangolin::Var<std::string> a_trackerLagFrames;
 	pangolin::Var<std::string> a_saverLagFrames;
 	pangolin::Var<std::string> a_totalPoints;
-	pangolin::Var<std::string> a_keyPoints;
 
 	pangolin::Var<float> a_confidenceThreshold;
 	pangolin::Var<float> a_icpWeight;
@@ -77,7 +79,6 @@ private:
 	pangolin::Var<bool> a_drawColorImage;
 	pangolin::Var<bool> a_drawNormals;
 	pangolin::Var<bool> a_drawGraph;
-	pangolin::Var<bool> a_drawKeyPoints;
 
 	pangolin::Var<int> a_gpuMem;
 

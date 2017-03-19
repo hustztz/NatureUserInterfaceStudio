@@ -11,8 +11,9 @@ __kernel void project_minmax_depths_kernel(
         )
 {
 	const uint gidx = get_global_id(0);
+
 	const int entryID = d_visibleEntryIDs[gidx];
-	if(entryID < 0)
+	if(entryID < 0 && entryID >= (SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE))
 		return;
 	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[entryID];
 	if (hashEntry.ptr < 0)
@@ -164,10 +165,10 @@ __kernel void raycast_kernel(
 
 	float3 pt_block_s = kinectDepthToSkeleton(gidx, gidy, d_minmaxData[idx].x, cameraParams);
 	float totalLength = fast_length(pt_block_s) * oneOverVoxelSize;
-	pt_block_s = transformInverse( pt_block_s, rigidTransform ) * oneOverVoxelSize;
+	pt_block_s = transform( pt_block_s, rigidTransform ) * oneOverVoxelSize;
 	float3 pt_block_e = kinectDepthToSkeleton(gidx, gidy, d_minmaxData[idx].y, cameraParams);
 	float totalLengthMax = fast_length(pt_block_e) * oneOverVoxelSize;
-	pt_block_e = transformInverse( pt_block_e, rigidTransform ) * oneOverVoxelSize;
+	pt_block_e = transform( pt_block_e, rigidTransform ) * oneOverVoxelSize;
 
 	// Cache
 	short3 cachedBlockPos;

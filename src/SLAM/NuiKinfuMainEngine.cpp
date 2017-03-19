@@ -62,8 +62,8 @@ bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	// Color image
 	m_trackingEngine.BufferToMappableTexture(pCLData);
 
-	//bool returnStatus = m_trackingEngine.VerticesToMappablePosition(pCLData);
 	bool returnStatus = false;
+	//returnStatus = m_trackingEngine.VerticesToMappablePosition(pCLData);
 	if( m_pScene )
 	{
 		returnStatus = bIsMesh ? m_pScene->Volume2CLMesh(pCLData) : m_pScene->Volume2CLVertices(pCLData);

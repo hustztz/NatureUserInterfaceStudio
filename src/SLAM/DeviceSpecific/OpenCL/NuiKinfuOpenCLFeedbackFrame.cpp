@@ -211,6 +211,16 @@ bool NuiKinfuOpenCLFeedbackFrame::VerticesToMappablePosition(NuiCLMappableData* 
 	if(!m_verticesCL)
 		return false;
 
+	// Get the kernel
+	cl_kernel rgbaKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_RGBA_TO_COLOR);
+	assert(rgbaKernel);
+	if (!rgbaKernel)
+	{
+		NUI_ERROR("Get kernel 'E_RGBA_TO_COLOR' failed!\n");
+		return false;
+	}
+
 	const UINT nPointsNum = m_nWidth * m_nHeight;
 
 	pMappableData->SetBoundingBox(SgVec3f(-256.0f / 370.0f, -212.0f / 370.0f, 0.4f),
@@ -243,9 +253,11 @@ bool NuiKinfuOpenCLFeedbackFrame::VerticesToMappablePosition(NuiCLMappableData* 
 	NUI_CHECK_CL_ERR(err);
 
 	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pMappableData->PositionStream());
+	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pMappableData->ColorStream());
 	// Acquire OpenGL objects before use
 	cl_mem glObjs[] = {
-		positionsGL
+		positionsGL,
+		colorsGL
 	};
 
 	openclutil::enqueueAcquireHWObjects(
@@ -258,6 +270,27 @@ bool NuiKinfuOpenCLFeedbackFrame::VerticesToMappablePosition(NuiCLMappableData* 
 		0,
 		0,
 		nPointsNum * 3 * sizeof(float),
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	cl_uint idx = 0;
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &colorsGL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(rgbaKernel, idx++, sizeof(cl_mem), &m_colorsCL);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t kernelGlobalSize[1] = { nPointsNum };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		rgbaKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
 		0,
 		NULL,
 		NULL

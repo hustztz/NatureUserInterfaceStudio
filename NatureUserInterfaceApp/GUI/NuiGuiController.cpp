@@ -135,13 +135,10 @@ void NuiGuiController::handleGuiChanged()
 			m_pKinfu->m_engine.setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
 			m_pKinfu->m_engine.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
 			m_pKinfu->m_engine.setVolume(m_gui->a_volumeVoxelSize, m_gui->a_hashingVolume);
-
-			m_pKinfu->startThread();
 		}
 		else
 		{
-			if(m_pKinfu)
-				m_pKinfu->stopThread();
+			SafeDelete(m_pKinfu);
 		}
 	}
 	if(m_gui->a_integrationThreshold.GuiChanged())
@@ -157,10 +154,26 @@ void NuiGuiController::handleGuiChanged()
 			NuiMeshingUtil::NormalEstimationCL(geomPtr);
 	}*/
 
-	if(pangolin::Pushed(m_gui->a_reset))
+	/*if(pangolin::Pushed(m_gui->a_reset))
 	{
 		resetCache();
-	}	
+	}*/
+
+	if(pangolin::Pushed(m_gui->a_start))
+	{
+		if(m_pKinfu)
+			m_pKinfu->startThread();
+	}
+	else if(pangolin::Pushed(m_gui->a_stepIn))
+	{
+		if(m_pKinfu)
+			m_pKinfu->stepIn();
+	}
+	else if(pangolin::Pushed(m_gui->a_stop))
+	{
+		if(m_pKinfu)
+			m_pKinfu->stopThread();
+	}
 }
 
 void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
@@ -180,6 +193,13 @@ void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 	std::stringstream strsf;
 	strsf << pCompositeFrame->m_depthFrame.GetFPS() << "Hz";
 	m_gui->a_grabberSpeed = strsf.str();
+
+	strsf.str("");
+	if(m_pKinfu)
+		strsf << m_pKinfu->m_engine.getFrameID();
+	else
+		strsf << 0;
+	m_gui->a_trackerFrameID = strsf.str();
 
 	strsf.str("");
 	if(m_pKinfu)

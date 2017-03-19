@@ -23,8 +23,10 @@ protected:
 		return false;
 	}
 
+protected:
+	bool								m_threadPause;
+
 private:
 	boost::shared_ptr<boost::thread>	m_Thread;
 	bool								m_threadOn;
-	bool								m_threadPause;
 };

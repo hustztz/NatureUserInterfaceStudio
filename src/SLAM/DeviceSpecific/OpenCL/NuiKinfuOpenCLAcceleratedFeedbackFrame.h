@@ -8,6 +8,8 @@ public:
 	NuiKinfuOpenCLAcceleratedFeedbackFrame(UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuOpenCLAcceleratedFeedbackFrame();
 
+	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData, TrackerBufferType bufferType) override;
+
 	void	resetExpectedRange();
 
 	cl_mem	getExpectedRangeCL() const { return m_rangeImageCL; }

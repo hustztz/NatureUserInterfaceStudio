@@ -58,7 +58,7 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 			__global	struct	NuiCLRigidTransform* rigidTransform,
 			__constant	struct	NuiCLCameraParams* cameraParams,
 			const		float	truncScale,
-			const		float	oneOverVoxelSize
+			const		float	oneOverVoxelBlockSize
         )
 {
     const uint gidx = get_global_id(0);
@@ -73,8 +73,8 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 	float3 pt_camera = kinectDepthToSkeleton(gidx, gidy, Dp, cameraParams);
 	const float norm = truncScale / fast_length(pt_camera);
 
-	float3 rayMin = transform( (pt_camera * (1.0f - norm)), rigidTransform) * oneOverVoxelSize;
-	float3 rayMax = transform( (pt_camera * (1.0f + norm)), rigidTransform) * oneOverVoxelSize;
+	float3 rayMin = transform( (pt_camera * (1.0f - norm)), rigidTransform) * oneOverVoxelBlockSize;
+	float3 rayMax = transform( (pt_camera * (1.0f + norm)), rigidTransform) * oneOverVoxelBlockSize;
 	float3 rayDir = rayMax - rayMin;
 	const float rayNorm = fast_length(rayDir);
 	const int numSteps = ceil(2.0f*rayNorm);
@@ -84,7 +84,7 @@ __kernel void buildHashAllocAndVisibleType_kernel(
 	for (int i = 0; i < numSteps; i++)
 	{
 		short3 blockPos = (short3)(floor(rayMin.x), floor(rayMin.y), floor(rayMin.z));
-		uint hashIdx = computeHashIndex(blockPos) % SDF_BUCKET_NUM;
+		uint hashIdx = computeHashIndex(blockPos);
 
 		//check if hash table contains entry
 		bool isFound = false;
@@ -454,25 +454,25 @@ __kernel void integrateIntoScene_kernel(
 			const		uchar					integrationWeightMax
         )
 {
-	const uint gidx = get_global_id(0);
-	const int entryID = d_visibleEntryIDs[gidx / SDF_BLOCK_SIZE3];
+	const uint gid = get_global_id(0);
+	const int lid = get_local_id(0);
+	
+	const int entryID = d_visibleEntryIDs[gid / SDF_BLOCK_SIZE3];
 	if(entryID < 0)
 		return;
 	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[entryID];
 	if (hashEntry.ptr < 0)
 		return;
 	
-	const int lidx = get_local_id(0);
-	const int lidy = get_local_id(1);
-	const int lidz = get_local_id(2);
-	
-	const int locId = lidx + mul24(lidy, SDF_BLOCK_SIZE) + mul24(lidz, mul24(SDF_BLOCK_SIZE, SDF_BLOCK_SIZE));
-	const int blockId = hashEntry.ptr * SDF_BLOCK_SIZE3 + locId;
+	const int blockId = mul24(hashEntry.ptr, SDF_BLOCK_SIZE3) + lid;
 	if(integrationWeightMax == d_SDFBlocks[blockId].weight)
 		return;
 
 	int3 globalPose = (int3)(hashEntry.pos[0], hashEntry.pos[1], hashEntry.pos[2]) * SDF_BLOCK_SIZE;
-	float3 pt_model = (float3)(convert_float(globalPose.x+lidx), convert_float(globalPose.y+lidy), convert_float(globalPose.z+lidz)) * virtualVoxelSize;
+	const int locIdx = (lid % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) % SDF_BLOCK_SIZE;
+	const int locIdy = (lid % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE;
+	const int locIdz = lid / (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE);
+	float3 pt_model = (float3)(convert_float(globalPose.x+locIdx), convert_float(globalPose.y+locIdy), convert_float(globalPose.z+locIdz)) * virtualVoxelSize;
 	float3 pt_camera = transformInverse( pt_model, rigidTransform );
 	if (pt_camera.z <= 0) return;
 	int2 pt_image = convert_int2(cameraToKinectScreen(pt_camera, cameraParams) + (float2)(0.5f, 0.5f));
@@ -505,13 +505,13 @@ __kernel void integrateIntoScene_kernel(
 		uchar4 color = colors[screenId];
 		if(255 == color.w)
 		{
-			float oldColorR = convert_short(d_SDFBlocks[blockId].color[0]);
-			float oldColorG = convert_short(d_SDFBlocks[blockId].color[1]);
-			float oldColorB = convert_short(d_SDFBlocks[blockId].color[2]);
+			float oldColorR = convert_float(d_SDFBlocks[blockId].color[0]);
+			float oldColorG = convert_float(d_SDFBlocks[blockId].color[1]);
+			float oldColorB = convert_float(d_SDFBlocks[blockId].color[2]);
 
-			float newColorR = (oldW * oldColorR + newW * convert_short(color.s0)) / combinedW;
-			float newColorG = (oldW * oldColorG + newW * convert_short(color.s1)) / combinedW;
-			float newColorB = (oldW * oldColorB + newW * convert_short(color.s2)) / combinedW;
+			float newColorR = (oldW * oldColorR + newW * convert_float(color.s0)) / combinedW;
+			float newColorG = (oldW * oldColorG + newW * convert_float(color.s1)) / combinedW;
+			float newColorB = (oldW * oldColorB + newW * convert_float(color.s2)) / combinedW;
 
 			d_SDFBlocks[blockId].color[0] = convert_uchar( clamp(newColorR, 0.0f, 255.f) );
 			d_SDFBlocks[blockId].color[1] = convert_uchar( clamp(newColorG, 0.0f, 255.f) );
@@ -547,14 +547,13 @@ __kernel void fetchHashScene_kernel(
 
 	for (int i = 0; i < SDF_BLOCK_SIZE3; i++)
 	{
-		const struct NuiKinfuVoxel localVoxelBlock = d_SDFBlocks[hashEntry.ptr * SDF_BLOCK_SIZE3 + i];
-		float sdfValue = convert_float(localVoxelBlock.sdf) / 32767.0f;
-		if (sdfValue <=50 * truncScale && sdfValue >=-50 * truncScale){ //mu=0.02
-			float voxelSize = 0.125f;
+		const int blockId = mul24(hashEntry.ptr, SDF_BLOCK_SIZE3) + i;
+		const struct NuiKinfuVoxel localVoxelBlock = d_SDFBlocks[blockId];
+		if ( localVoxelBlock.weight > 0 && abs(localVoxelBlock.sdf) < 32767 * truncScale ){ //mu=0.02
 			float3 pt;
-			pt.z = (hashEntry.pos[2] + (i / (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE) + 0.5f) * voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
-			pt.y = (hashEntry.pos[1] + ((i % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
-			pt.x = (hashEntry.pos[0] + ((i % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) % SDF_BLOCK_SIZE + 0.5f)*voxelSize) * SDF_BLOCK_SIZE *virtualVoxelSize;
+			pt.z = (hashEntry.pos[2] * SDF_BLOCK_SIZE + (i / (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE) + 0.5f)) *virtualVoxelSize;
+			pt.y = (hashEntry.pos[1] * SDF_BLOCK_SIZE + ((i % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) / SDF_BLOCK_SIZE + 0.5f)) *virtualVoxelSize;
+			pt.x = (hashEntry.pos[0] * SDF_BLOCK_SIZE + ((i % (SDF_BLOCK_SIZE*SDF_BLOCK_SIZE)) % SDF_BLOCK_SIZE + 0.5f)) *virtualVoxelSize;
 
 			float4 color_value = (float4)(0.0f, 0.0f, 0.0f, 1.0f);
 			if(d_cmap)
@@ -568,8 +567,8 @@ __kernel void fetchHashScene_kernel(
 			int current_id = atomic_inc(vertex_id);
 			if(current_id < MAX_OUTPUT_VERTEX_SIZE)
 			{
-				d_vmap[gidx] = pt;
-				d_cmap[gidx] = color_value;
+				d_vmap[current_id] = pt;
+				d_cmap[current_id] = color_value;
 			}
 		}
 	}

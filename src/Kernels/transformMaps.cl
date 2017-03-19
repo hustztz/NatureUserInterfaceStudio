@@ -318,6 +318,20 @@ __kernel void float3_to_texture_kernel(
 	write_imagef(tex, (int2)(gidx, gidy), (float4)(color, 1.0f));
 }
 
+__kernel void float2_to_texture_kernel(
+					__global float2* floatColors,
+					write_only image2d_t tex
+						)
+{
+	const int gidx = get_global_id(0);
+	const int gidy = get_global_id(1);
+    const int gsizex = get_global_size(0);
+	const int idx = mul24(gidy, gsizex)+gidx;
+
+	float2 color = floatColors[idx];
+	write_imagef(tex, (int2)(gidx, gidy), (float4)(color.xy, color.y, 1.0f));
+}
+
 __kernel void intensity_to_float4_kernel(
 					__global float* intensities,
 					__global float* floatColors
@@ -347,6 +361,25 @@ __kernel void bgra_to_intensity_kernel(
 	if(color.w > 0)
 		intensity = 0.299f*(convert_float(color.z)/255.0f) + 0.587f*(convert_float(color.y)/255.0f) + 0.114f*(convert_float(color.x)/255.0f);
 	vstore(intensity, idx, intensities);
+}
+
+__kernel void bgra_to_color_kernel(
+					__global float4* d_colors,
+					__global uchar4* d_rgbas
+						)
+{
+	const uint idx = get_global_id(0);
+
+	uchar4 rgba = d_rgbas[idx];
+	float4 color = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+	if(rgba.w == 255)
+	{
+		color.x = convert_float(rgba.x) / 255.0f;
+		color.y = convert_float(rgba.y) / 255.0f;
+		color.z = convert_float(rgba.z) / 255.0f;
+		color.w = 1.0f;
+	}
+	d_colors[idx] = color;
 }
 
 __kernel void half_sample_bgra_kernel(

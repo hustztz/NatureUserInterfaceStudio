@@ -26,6 +26,7 @@ namespace NuiKinfuEngine
 
 		float	getTrackerError() const { return m_trackingEngine.getTrackerError(); }
 		int		getTrackerCount() const { return m_trackingEngine.getTrackerCount(); }
+		int		getFrameID() const { return m_trackingEngine.getFrameID(); }
 
 		void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
 		void	setIntegrationMetricThreshold(float threshold);

@@ -169,7 +169,7 @@ void	NuiKinfuOpenCLHashScene::BuildHashAllocAndVisibleType(UINT nWidth, UINT nHe
 	}
 
 	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
-	float oneOverVoxelSize = 1.0f / (m_config.m_virtualVoxelSize * SDF_BLOCK_SIZE);
+	float oneOverVoxelBlockSize = 1.0f / (m_config.m_virtualVoxelSize * SDF_BLOCK_SIZE);
 
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
@@ -193,7 +193,7 @@ void	NuiKinfuOpenCLHashScene::BuildHashAllocAndVisibleType(UINT nWidth, UINT nHe
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(buildHashKernel, idx++, sizeof(cl_float), &m_config.m_truncScale);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(buildHashKernel, idx++, sizeof(cl_float), &oneOverVoxelSize);
+	err = clSetKernelArg(buildHashKernel, idx++, sizeof(cl_float), &oneOverVoxelBlockSize);
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
@@ -508,6 +508,48 @@ void	NuiKinfuOpenCLHashScene::IntegrateIntoScene(
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+#ifdef _DEBUG
+	NuiKinfuVoxel* blocks = new NuiKinfuVoxel[SDF_LOCAL_BLOCK_NUM * SDF_BLOCK_SIZE3];
+	err = clEnqueueReadBuffer(
+		queue,
+		voxelBlocksCL,
+		CL_TRUE,//blocking
+		0, //offset
+		SDF_LOCAL_BLOCK_NUM * SDF_BLOCK_SIZE3 * sizeof(NuiKinfuVoxel),
+		blocks,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+	UINT count = 0;
+	for (UINT i = 0; i < SDF_LOCAL_BLOCK_NUM * SDF_BLOCK_SIZE3; ++i)
+	{
+		if( blocks[i].weight > 0 && abs(blocks[i].sdf) < 100)
+		{
+			count ++;
+		}
+	}
+	std::cout << count  << std::endl;
+	SafeDeleteArray(blocks);
+
+	cl_mem lastFreeBlockIdCL = m_hashingVoxelData.getLastFreeBlockIdCL();
+	cl_int lastFreeBlockId = 0;
+	err = clEnqueueReadBuffer(
+		queue,
+		lastFreeBlockIdCL,
+		CL_TRUE,//blocking
+		0, //offset
+		sizeof(cl_int),
+		&lastFreeBlockId,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+	std::cout << lastFreeBlockId  << std::endl;
+#endif
 }
 
 bool	NuiKinfuOpenCLHashScene::integrateVolume(
@@ -622,6 +664,11 @@ void	NuiKinfuOpenCLHashScene::CreateExpectedDepths(
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 }
 
 void	NuiKinfuOpenCLHashScene::raycast(
@@ -696,6 +743,11 @@ void	NuiKinfuOpenCLHashScene::raycast(
 		NULL
 		);
 	NUI_CHECK_CL_ERR(err);
+
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 }
 
 void NuiKinfuOpenCLHashScene::raycastRender(
