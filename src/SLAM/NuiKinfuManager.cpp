@@ -3,7 +3,6 @@
 
 NuiKinfuManager::NuiKinfuManager()
 	: m_bAutoReset(false)
-	, m_bIsStepIn(false)
 {
 }
 
@@ -68,9 +67,5 @@ bool	NuiKinfuManager::process ()
 			return false;
 		}
 	}
-
-	if(m_bIsStepIn)
-		m_threadPause = true;
-
 	return true;
 }

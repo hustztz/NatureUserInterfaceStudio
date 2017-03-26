@@ -81,6 +81,15 @@ private:
 		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
 		);
+	void			forwardRender(
+		cl_mem renderVerticesCL,
+		cl_mem renderNormalsCL,
+		cl_mem renderColorsCL,
+		cl_mem expectedRangeCL,
+		cl_mem cameraParamsCL,
+		cl_mem transformCL,
+		UINT nWidth, UINT nHeight
+		);
 
 private:
 	NuiKinfuVoxelBlockHash			m_hashingVoxelData;

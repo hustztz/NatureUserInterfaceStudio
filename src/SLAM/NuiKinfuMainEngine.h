@@ -19,7 +19,6 @@ namespace NuiKinfuEngine
 		void	resetTracker();
 		void	resetVolume();
 		void	setVolume(float voxelSize, bool bHashingSDF);
-		void	offlineRender();
 		bool	getCLData(NuiCLMappableData* pCLData, bool bIsMesh);
 		bool	getMesh(NuiMeshShape* pMesh);
 		bool	getCameraPose (NuiCameraPos* cam) const;

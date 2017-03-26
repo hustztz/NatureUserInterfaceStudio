@@ -315,6 +315,10 @@ bool	NuiKinfuOpenCLFeedbackFrame::BufferToMappableTexture(NuiCLMappableData* pMa
 	if(!pMappableData)
 		return false;
 
+	if(!m_dirty)
+		return false;
+	m_dirty = false;
+
 	cl_mem bufferCL = m_verticesCL;
 	switch (bufferType)
 	{

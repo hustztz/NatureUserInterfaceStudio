@@ -10,14 +10,14 @@
 #define HASH_BUCKET_SIZE 8
 
 #define SDF_BLOCK_SIZE3 512				// SDF_BLOCK_SIZE3 = SDF_BLOCK_SIZE * SDF_BLOCK_SIZE * SDF_BLOCK_SIZE
-#define SDF_LOCAL_BLOCK_NUM 0x40000		// Number of locally stored blocks, currently 2^17
+#define SDF_LOCAL_BLOCK_NUM 0x100000		// Number of locally stored blocks, currently 2^17
 
-#define SDF_GLOBAL_BLOCK_NUM 0x120000	// Number of globally stored blocks: SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE
-#define SDF_TRANSFER_BLOCK_NUM 0x1000	// Maximum number of blocks transfered in one swap operation
+#define SDF_GLOBAL_BLOCK_NUM 0x240000	// Number of globally stored blocks: SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE
+#define SDF_TRANSFER_BLOCK_NUM 0x2000	// Maximum number of blocks transfered in one swap operation
 
-#define SDF_BUCKET_NUM 0x100000			// Number of Hash Bucket, should be 2^n and bigger than SDF_LOCAL_BLOCK_NUM, SDF_HASH_MASK = SDF_BUCKET_NUM - 1
-#define SDF_HASH_MASK 0xfffff			// Used for get hashing value of the bucket index,  SDF_HASH_MASK = SDF_BUCKET_NUM - 1
-#define SDF_EXCESS_LIST_SIZE 0x20000	// 0x20000 Size of excess list, used to handle collisions. Also max offset (unsigned short) value.
+#define SDF_BUCKET_NUM 0x200000			// Number of Hash Bucket, should be 2^n and bigger than SDF_LOCAL_BLOCK_NUM, SDF_HASH_MASK = SDF_BUCKET_NUM - 1
+#define SDF_HASH_MASK 0x1fffff			// Used for get hashing value of the bucket index,  SDF_HASH_MASK = SDF_BUCKET_NUM - 1
+#define SDF_EXCESS_LIST_SIZE 0x30000	// 0x20000 Size of excess list, used to handle collisions. Also max offset (unsigned short) value.
 
 
 #define FP_MINF -FLT_MAX
@@ -40,6 +40,10 @@ struct NuiCLVoxel
 	unsigned char	weight;		//accumulated sdf weight
 };
 #pragma pack()
+
+
+#define FAR_AWAY 999999.9f
+#define VERY_CLOSE 0.05f
 
 
 #pragma pack(16)

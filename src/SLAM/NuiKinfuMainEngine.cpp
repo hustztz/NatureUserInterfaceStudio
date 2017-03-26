@@ -96,12 +96,6 @@ void	NuiKinfuMainEngine::setIntegrationMetricThreshold(float threshold)
 	m_trackingEngine.setIntegrationMetricThreshold(threshold);
 }
 
-void	NuiKinfuMainEngine::offlineRender()
-{
-	if(m_pScene)
-		m_pScene->offlineRender();
-}
-
 void	NuiKinfuMainEngine::resetTracker()
 {
 	m_trackingEngine.reset(m_translateBasis);

@@ -83,6 +83,7 @@ static const char * const KernelNames[] =
 	"fetchHashScene_kernel",					  "KinfuHashScene.cl",
 	"project_minmax_depths_kernel",				  "KinfuHashRaycast.cl",
 	"raycast_kernel",							  "KinfuHashRaycast.cl",
+	"forwardProject_kernel",					  "KinfuHashRaycast.cl",
 	"reset_heap_kernel",						  "hashingReset.cl",
 	"reset_hash_kernel",						  "hashingReset.cl",
 	"reset_hash_bucket_mutex_kernel",			  "hashingReset.cl",

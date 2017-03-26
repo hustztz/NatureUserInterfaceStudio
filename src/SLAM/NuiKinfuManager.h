@@ -14,8 +14,6 @@ public:
 
 	bool	pushbackFrame(std::shared_ptr<NuiCompositeFrame> pFrame) { return m_buffer.pushbackCompositeFrame(pFrame); }
 	size_t	getLagFrames() { return m_buffer.size(); }
-	void	setAutoReset(bool autoReset) { m_bAutoReset = autoReset; }
-	void	stepIn() { m_bIsStepIn = true; startThread (); }
 
 	NuiKinfuEngine::NuiKinfuMainEngine	m_engine;
 private:
@@ -24,5 +22,4 @@ private:
 private:
 	NuiFrameCircleBuffer				m_buffer;
 	bool								m_bAutoReset;
-	bool								m_bIsStepIn;
 };

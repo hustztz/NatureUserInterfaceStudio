@@ -8,11 +8,9 @@
 
 #include "Foundation/NuiDebugMacro.h"
 #include "Shape/NuiCLMappableData.h"
+#include "Kernels/hashing_gpu_def.h"
 
 #include "assert.h"
-
-#define FAR_AWAY 999999.9f
-#define VERY_CLOSE 0.05f
 
 NuiKinfuOpenCLAcceleratedFeedbackFrame::NuiKinfuOpenCLAcceleratedFeedbackFrame(UINT nWidth, UINT nHeight)
 	: NuiKinfuOpenCLFeedbackFrame(nWidth, nHeight)
@@ -52,6 +50,9 @@ void	NuiKinfuOpenCLAcceleratedFeedbackFrame::resetExpectedRange()
 
 bool	NuiKinfuOpenCLAcceleratedFeedbackFrame::BufferToMappableTexture(NuiCLMappableData* pMappableData, TrackerBufferType bufferType)
 {
+	if(eTracker_Ranges != bufferType)
+		return NuiKinfuOpenCLFeedbackFrame::BufferToMappableTexture(pMappableData, bufferType);
+
 	assert(pMappableData);
 	if(!pMappableData)
 		return false;

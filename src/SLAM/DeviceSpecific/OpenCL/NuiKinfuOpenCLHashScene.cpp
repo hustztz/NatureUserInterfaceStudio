@@ -617,6 +617,8 @@ void	NuiKinfuOpenCLHashScene::CreateExpectedDepths(
 	cl_mem cameraParamsCL,
 	cl_mem transformCL)
 {
+	if(0 == m_numVisibleEntries)
+		return;
 	if(!expectedRangeCL || !cameraParamsCL || !transformCL)
 		return;
 
@@ -734,6 +736,71 @@ void	NuiKinfuOpenCLHashScene::raycast(
 	err = clEnqueueNDRangeKernel(
 		queue,
 		raycastKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
+}
+
+void	NuiKinfuOpenCLHashScene::forwardRender(
+	cl_mem renderVerticesCL,
+	cl_mem renderNormalsCL,
+	cl_mem renderColorsCL,
+	cl_mem expectedRangeCL,
+	cl_mem cameraParamsCL,
+	cl_mem transformCL,
+	UINT nWidth, UINT nHeight
+	)
+{
+	/*if(0 == m_numVisibleEntries)
+		return;*/
+
+	if(!renderVerticesCL || !renderNormalsCL || !cameraParamsCL || !transformCL)
+		return;
+
+	// Get the kernel
+	cl_kernel forwardKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_FORWARD_PROJECT_RENDER);
+	assert(forwardKernel);
+	if (!forwardKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_FORWARD_PROJECT_RENDER' failed!\n");
+		return;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(forwardKernel, idx++, sizeof(cl_mem), &renderVerticesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(forwardKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(forwardKernel, idx++, sizeof(cl_mem), &renderColorsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(forwardKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(forwardKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(forwardKernel, idx++, sizeof(cl_float), &m_config.m_virtualVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t kernelGlobalSize[2] = { nWidth, nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		forwardKernel,
 		2,
 		nullptr,
 		kernelGlobalSize,

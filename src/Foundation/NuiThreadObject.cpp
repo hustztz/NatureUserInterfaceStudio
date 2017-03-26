@@ -19,7 +19,6 @@ void	NuiThreadObject::startThread ()
 		reset();
 		m_Thread.reset (new boost::thread (boost::bind (&NuiThreadObject::runThread, this)));
 		m_threadOn = true;
-
 	}
 	m_threadPause = false;
 }
@@ -33,6 +32,11 @@ void	NuiThreadObject::stopThread()
 		//m_Thread->interrupt();
 		m_Thread->join();
 	}
+}
+
+void	NuiThreadObject::stepIn()
+{
+	process();
 }
 
 void	NuiThreadObject::waitThread()
@@ -57,7 +61,6 @@ void	NuiThreadObject::runThread ()
 			break;
 		if (m_threadPause)
 			continue;
-
 		if ( !process() )
 		{
 			break;

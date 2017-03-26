@@ -2,7 +2,7 @@
 #include "utils.cl"
 
 __kernel void project_minmax_depths_kernel(
-			__global	float2*					d_minmaxData,
+			__global	float*					d_minmaxData,
 			__global	int*					d_visibleEntryIDs,
 			__global struct NuiKinfuHashEntry*	d_hashEntry,
 			__constant struct NuiCLCameraParams* cameraParams,
@@ -18,9 +18,12 @@ __kernel void project_minmax_depths_kernel(
 	const struct NuiKinfuHashEntry hashEntry = d_hashEntry[entryID];
 	if (hashEntry.ptr < 0)
 		return;
+	
+	struct NuiCLCameraParams camParams = *cameraParams;
 
-	int2 upperLeft, lowerRight;
-	float2 zRange;
+	int2 upperLeft = (int2)(camParams.depthImageWidth, camParams.depthImageHeight);
+	int2 lowerRight = (int2)(0, 0);
+	float2 zRange = (float2)(FAR_AWAY, VERY_CLOSE);
 	for (short corner = 0; corner < 8; ++corner)
 	{
 		// project all 8 corners down to 2D image
@@ -32,37 +35,42 @@ __kernel void project_minmax_depths_kernel(
 		tmp.y += (corner & 2) ? 1 : 0;
 		tmp.z += (corner & 4) ? 1 : 0;
 
-		float3 pt3d = convert_float3(convert_int3(tmp)*SDF_BLOCK_SIZE)*virtualVoxelSize;
+		float3 pt3d = convert_float3(tmp)*SDF_BLOCK_SIZE*virtualVoxelSize;
 		pt3d = transformInverse( pt3d, rigidTransform );
-		if (pt3d.z < 1e-6) continue;
+		if (_isnan3(pt3d) || pt3d.z < 1e-6) continue;
 
 		float2 pt2d = cameraToKinectScreen(pt3d, cameraParams);
 		// remember bounding box, zmin and zmax
-		if (upperLeft.x > floor(pt2d.x))	upperLeft.x = floor(pt2d.x);
-		if (lowerRight.x < ceil(pt2d.x))	lowerRight.x = ceil(pt2d.x);
-		if (upperLeft.y > floor(pt2d.y))	upperLeft.y = floor(pt2d.y);
-		if (lowerRight.y < ceil(pt2d.y))	lowerRight.y = ceil(pt2d.y);
-		if (zRange.x > pt3d.z)		zRange.x = pt3d.z;
-		if (zRange.y < pt3d.z)		zRange.y = pt3d.z;
+		upperLeft.x = min(upperLeft.x, convert_int(floor(pt2d.x)));
+		lowerRight.x = max(lowerRight.x, convert_int(ceil(pt2d.x)));
+		upperLeft.y = min(upperLeft.y, convert_int(floor(pt2d.y)));
+		lowerRight.y = max(lowerRight.y, convert_int(ceil(pt2d.y)));
+		zRange.x = fmin(zRange.x, pt3d.z);
+		zRange.y = fmax(zRange.x, pt3d.z);
 	}
 
-	struct NuiCLCameraParams camParams = *cameraParams;
 	// do some sanity checks and respect image bounds
 	if (upperLeft.x < 0) upperLeft.x = 0;
 	if (upperLeft.y < 0) upperLeft.y = 0;
 	if (lowerRight.x >= camParams.depthImageWidth) lowerRight.x = camParams.depthImageWidth - 1;
 	if (lowerRight.y >= camParams.depthImageHeight) lowerRight.y = camParams.depthImageHeight - 1;
 	//if (zRange.y <= VERY_CLOSE) return false; never seems to happen
-	if (zRange.x < camParams.sensorDepthWorldMin) zRange.x = camParams.sensorDepthWorldMin;
-	if (zRange.y < camParams.sensorDepthWorldMin) return;
+	if(zRange.x < VERY_CLOSE) zRange.x = VERY_CLOSE;
+	//zRange.x = fmax(zRange.x, 0.01f);
+	/*zRange.x = fmin(zRange.x, FAR_AWAY);
+	zRange.y = fmax(zRange.y, VERY_CLOSE);
+	zRange.y = fmin(zRange.y, FAR_AWAY);*/
+	//if (zRange.y < camParams.sensorDepthWorldMin) return;
+	/*if(lowerRight.y < upperLeft.y || lowerRight.x < upperLeft.x)
+		return;*/
 
 	for(int by = upperLeft.y; by <= lowerRight.y; by ++)
 	{
 		for(int bx = upperLeft.x; bx <= lowerRight.x; bx ++)
 		{
-			int locId = mul24(by, convert_int(camParams.depthImageWidth)) + bx;
-			if (d_minmaxData[locId].x > zRange.x) d_minmaxData[locId].x = zRange.x;
-			if (d_minmaxData[locId].y < zRange.y) d_minmaxData[locId].y = zRange.y;
+			const int locId = mul24(by, convert_int(camParams.depthImageWidth)) + bx;
+			float2 minmax = vload2(locId, d_minmaxData);
+			vstore2((float2)(fmin(minmax.x, zRange.x), fmax(minmax.y, zRange.y)), locId, d_minmaxData);
 		}
 	}
 }
@@ -145,10 +153,10 @@ inline static float readInterpolatedVoxelSDF(
 }
 
 __kernel void raycast_kernel(
-			__global	float3*		d_vmap,
-			__global	float3*		d_nmap,
-			__global	uchar4*		d_cmap,
-			__global	float2*					d_minmaxData,
+			__global	float*		d_vmap,
+			__global	float*		d_nmap,
+			__global	uchar*		d_cmap,
+			__global	float*					d_minmaxData,
 			__global struct NuiKinfuHashEntry*	d_hashEntry,
 			__global struct NuiKinfuVoxel*		d_SDFBlocks,
             __constant struct NuiCLCameraParams* cameraParams,
@@ -163,10 +171,11 @@ __kernel void raycast_kernel(
 	const uint gsizex = get_global_size(0);
 	const int idx = mul24(gidy, gsizex) + gidx;
 
-	float3 pt_block_s = kinectDepthToSkeleton(gidx, gidy, d_minmaxData[idx].x, cameraParams);
+	float2 minmax = vload2(idx, d_minmaxData);
+	float3 pt_block_s = kinectDepthToSkeleton(gidx, gidy, minmax.x, cameraParams);
 	float totalLength = fast_length(pt_block_s) * oneOverVoxelSize;
 	pt_block_s = transform( pt_block_s, rigidTransform ) * oneOverVoxelSize;
-	float3 pt_block_e = kinectDepthToSkeleton(gidx, gidy, d_minmaxData[idx].y, cameraParams);
+	float3 pt_block_e = kinectDepthToSkeleton(gidx, gidy, minmax.y, cameraParams);
 	float totalLengthMax = fast_length(pt_block_e) * oneOverVoxelSize;
 	pt_block_e = transform( pt_block_e, rigidTransform ) * oneOverVoxelSize;
 
@@ -175,7 +184,7 @@ __kernel void raycast_kernel(
 	int cachedBlockPtr;
 
 	float stepLength;
-	float stepScale = truncScale * oneOverVoxelSize;
+	float stepScale = truncScale * oneOverVoxelSize * 0.6f;
 	float sdfValue = 1.0f;
 	float3 rayDirection = normalize(pt_block_e - pt_block_s);
 	float3 pt_result = pt_block_s;
@@ -329,7 +338,7 @@ __kernel void raycast_kernel(
 		
 		stepLength = sdfValue * stepScale;
 		pt_result += stepLength * rayDirection;
-		d_vmap[idx] = pt_result * virtualVoxelSize;
+		vstore3(pt_result * virtualVoxelSize, idx , d_vmap);
 
 		if (d_nmap)
 		{
@@ -342,10 +351,10 @@ __kernel void raycast_kernel(
 				 back.x  * ncoeff.y *  coeff.z +
 				 back.z  *  coeff.y *  coeff.z;
 
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(-1, 0, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(-1, 1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(-1, 0, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(-1, 1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.x = readVoxelSDF(virtualPos + (int3)(-1, 0, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = readVoxelSDF(virtualPos + (int3)(-1, 1, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = readVoxelSDF(virtualPos + (int3)(-1, 0, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = readVoxelSDF(virtualPos + (int3)(-1, 1, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.y * ncoeff.z +
 				 tmp.y *  coeff.y * ncoeff.z +
 				 tmp.z * ncoeff.y *  coeff.z +
@@ -356,10 +365,10 @@ __kernel void raycast_kernel(
 				 front.w *  coeff.y * ncoeff.z +
 				 back.y  * ncoeff.y *  coeff.z +
 				 back.w  *  coeff.y *  coeff.z;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(2, 0, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(2, 1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(2, 0, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(2, 1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.x = readVoxelSDF(virtualPos + (int3)(2, 0, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = readVoxelSDF(virtualPos + (int3)(2, 1, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = readVoxelSDF(virtualPos + (int3)(2, 0, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = readVoxelSDF(virtualPos + (int3)(2, 1, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.y * ncoeff.z +
 				 tmp.y *  coeff.y * ncoeff.z +
 				 tmp.z * ncoeff.y *  coeff.z +
@@ -372,10 +381,10 @@ __kernel void raycast_kernel(
 				 front.y *  coeff.x * ncoeff.z +
 				 back.x  * ncoeff.x *  coeff.z +
 				 back.y  *  coeff.x *  coeff.z;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, -1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, -1, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, -1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, -1, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.x = readVoxelSDF(virtualPos + (int3)(0, -1, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = readVoxelSDF(virtualPos + (int3)(1, -1, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = readVoxelSDF(virtualPos + (int3)(0, -1, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = readVoxelSDF(virtualPos + (int3)(1, -1, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.z +
 				 tmp.y *  coeff.x * ncoeff.z +
 				 tmp.z * ncoeff.x *  coeff.z +
@@ -386,10 +395,10 @@ __kernel void raycast_kernel(
 				 front.w *  coeff.x * ncoeff.z +
 				 back.z  * ncoeff.x *  coeff.z +
 				 back.w  *  coeff.x *  coeff.z;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 2, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 2, 0), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 2, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 2, 1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.x = readVoxelSDF(virtualPos + (int3)(0, 2, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = readVoxelSDF(virtualPos + (int3)(1, 2, 0), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = readVoxelSDF(virtualPos + (int3)(0, 2, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = readVoxelSDF(virtualPos + (int3)(1, 2, 1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.z +
 				 tmp.y *  coeff.x * ncoeff.z +
 				 tmp.z * ncoeff.x *  coeff.z +
@@ -402,10 +411,10 @@ __kernel void raycast_kernel(
 				 front.y *  coeff.x * ncoeff.y +
 				 front.z * ncoeff.x *  coeff.y +
 				 front.w *  coeff.x *  coeff.y;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 0, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 0, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 1, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 1, -1), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.x = readVoxelSDF(virtualPos + (int3)(0, 0, -1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = readVoxelSDF(virtualPos + (int3)(1, 0, -1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = readVoxelSDF(virtualPos + (int3)(0, 1, -1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = readVoxelSDF(virtualPos + (int3)(1, 1, -1), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.y +
 				 tmp.y *  coeff.x * ncoeff.y +
 				 tmp.z * ncoeff.x *  coeff.y +
@@ -416,26 +425,62 @@ __kernel void raycast_kernel(
 				 back.y *  coeff.x * ncoeff.y +
 				 back.z * ncoeff.x *  coeff.y +
 				 back.w *  coeff.x *  coeff.y;
-			tmp.x = findVoxelBlockIndex(virtualPos + (int3)(0, 0, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.y = findVoxelBlockIndex(virtualPos + (int3)(1, 0, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.z = findVoxelBlockIndex(virtualPos + (int3)(0, 1, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
-			tmp.w = findVoxelBlockIndex(virtualPos + (int3)(1, 1, 2), d_hashEntry, &cachedBlockPos, &cachedBlockPtr);
+			tmp.x = readVoxelSDF(virtualPos + (int3)(0, 0, 2), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.y = readVoxelSDF(virtualPos + (int3)(1, 0, 2), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.z = readVoxelSDF(virtualPos + (int3)(0, 1, 2), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
+			tmp.w = readVoxelSDF(virtualPos + (int3)(1, 1, 2), d_hashEntry, d_SDFBlocks, &cachedBlockPos, &cachedBlockPtr);
 			p2 = tmp.x * ncoeff.x * ncoeff.y +
 				 tmp.y *  coeff.x * ncoeff.y +
 				 tmp.z * ncoeff.x *  coeff.y +
 				 tmp.w *  coeff.x *  coeff.y;
 
 			ret.z = p1 * ncoeff.z + p2 * coeff.z - v1;
-			d_nmap[idx] = ret;
+			ret = normalize(ret);
+			vstore3(ret, idx , d_nmap);
 		}
 
 		if(d_cmap)
-			d_cmap[idx] = resultColor;
+			vstore4(resultColor, idx , d_cmap);
 	}
 	else
 	{
-		d_vmap[idx] = (float3)(NAN, NAN, NAN);
-		d_nmap[idx] = (float3)(NAN, NAN, NAN);
-		d_cmap[idx] = (uchar4)(0, 0, 0, 0);
+		vstore3((float3)(NAN, NAN, NAN), idx , d_vmap);
+		vstore3((float3)(NAN, NAN, NAN), idx , d_nmap);
+		vstore4((uchar4)(0, 0, 0, 0), idx , d_cmap);
+	}
+}
+
+__kernel void forwardProject_kernel(
+			__global	float*		d_vmap,
+			__global	float*		d_nmap,
+			__global	uchar*		d_cmap,
+            __constant struct NuiCLCameraParams* cameraParams,
+			__global struct NuiCLRigidTransform* rigidTransform,
+			const float				virtualVoxelSize
+        )
+{
+	const uint gidx = get_global_id(0);
+	const uint gidy = get_global_id(1);
+	const uint gsizex = get_global_size(0);
+	const int idx = mul24(gidy, gsizex) + gidx;
+
+	float3 pixel = vload3(idx, d_vmap);
+	if(_isnan3(pixel))
+		return;
+	float3 pt3d = transform( pixel, rigidTransform ) * virtualVoxelSize;
+
+	uint2 screenPos = convert_uint2(cameraToKinectScreen(pt3d, cameraParams) + (float2)(0.5f, 0.5f));
+
+	struct NuiCLCameraParams camParams = *cameraParams;
+	if(screenPos.x < camParams.depthImageWidth && screenPos.y < camParams.depthImageHeight)
+	{
+		const uint screenId = mul24(screenPos.y, camParams.depthImageWidth) + screenPos.x;
+		vstore3(pixel, screenId, d_vmap);
+
+		float3 norm = vload3(idx, d_nmap);
+		vstore3(norm, screenId, d_nmap);
+
+		uchar4 clr = vload4(idx, d_cmap);
+		vstore4(clr, screenId, d_cmap);
 	}
 }

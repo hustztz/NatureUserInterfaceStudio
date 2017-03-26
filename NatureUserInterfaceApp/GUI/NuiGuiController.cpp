@@ -264,7 +264,7 @@ void NuiGuiController::launch()
 					{
 						m_pFrameToFile->pushbackFrame(pFrame);
 					}
-					if(m_pKinfu && m_pKinfu->isThreadOn())
+					if(m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
 					{
 						m_pKinfu->pushbackFrame(pFrame);
 					}
@@ -277,9 +277,6 @@ void NuiGuiController::launch()
 				}
 			} while (1);
 		}
-
-		if(m_pKinfu)
-			m_pKinfu->m_engine.offlineRender();
 
 		std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
 		if(m_gui->a_drawGlobalModel && m_pKinfu /*&& m_pKinfu->isThreadOn()*/)

@@ -12,6 +12,7 @@ public:
 	void								startThread ();
 	void								stopThread();
 	void								pauseThread();
+	void								stepIn();
 	void								waitThread();
 	bool								isThreadOn() const { return m_threadOn; }
 

@@ -509,9 +509,9 @@ __kernel void integrateIntoScene_kernel(
 			float oldColorG = convert_float(d_SDFBlocks[blockId].color[1]);
 			float oldColorB = convert_float(d_SDFBlocks[blockId].color[2]);
 
-			float newColorR = (oldW * oldColorR + newW * convert_float(color.s0)) / combinedW;
+			float newColorR = (oldW * oldColorR + newW * convert_float(color.s2)) / combinedW;
 			float newColorG = (oldW * oldColorG + newW * convert_float(color.s1)) / combinedW;
-			float newColorB = (oldW * oldColorB + newW * convert_float(color.s2)) / combinedW;
+			float newColorB = (oldW * oldColorB + newW * convert_float(color.s0)) / combinedW;
 
 			d_SDFBlocks[blockId].color[0] = convert_uchar( clamp(newColorR, 0.0f, 255.f) );
 			d_SDFBlocks[blockId].color[1] = convert_uchar( clamp(newColorG, 0.0f, 255.f) );
@@ -528,8 +528,8 @@ __kernel void integrateIntoScene_kernel(
 
 
 __kernel void fetchHashScene_kernel(
-            __global float3*					d_vmap,
-			__global float4*					d_cmap,
+            __global float*					d_vmap,
+			__global float*					d_cmap,
 			__global volatile int*				vertex_id,
 			__global	int*					d_visibleEntryIDs,
 			__global struct NuiKinfuHashEntry*	d_hashEntry,
@@ -567,8 +567,10 @@ __kernel void fetchHashScene_kernel(
 			int current_id = atomic_inc(vertex_id);
 			if(current_id < MAX_OUTPUT_VERTEX_SIZE)
 			{
-				d_vmap[current_id] = pt;
-				d_cmap[current_id] = color_value;
+				vstore3(pt, current_id, d_vmap);
+				vstore4(color_value, current_id, d_cmap);
+				//d_vmap[current_id] = pt;
+				//d_cmap[current_id] = color_value;
 			}
 		}
 	}

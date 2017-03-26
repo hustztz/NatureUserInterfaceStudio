@@ -91,6 +91,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 	if (m_poses.size() == 0) //frameTime
 	{
 		m_pFeedbackFrame->UpdateBuffers(m_pFrame, m_pCameraState);
+		m_pFeedbackFrame->setDirty();
 		if( pScene )
 		{
 			if( !pScene->integrateVolume(m_pFrame, m_pCameraState) )
@@ -123,6 +124,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 				m_lastIntegrationPos = cameraPos;
 			}
 			pScene->raycastRender(m_pFeedbackFrame, m_pCameraState);
+			m_pFeedbackFrame->setDirty();
 		}
 		else
 		{
@@ -170,6 +172,6 @@ bool NuiKinfuTrackingEngine::VerticesToMappablePosition(NuiCLMappableData* pMapp
 
 bool	NuiKinfuTrackingEngine::BufferToMappableTexture(NuiCLMappableData* pMappableData)
 {
-	NuiKinfuFeedbackFrame::TrackerBufferType bufferType = NuiKinfuFeedbackFrame::eTracker_Vertices;
+	NuiKinfuFeedbackFrame::TrackerBufferType bufferType = NuiKinfuFeedbackFrame::eTracker_Ranges;
 	return m_pFeedbackFrame ? m_pFeedbackFrame->BufferToMappableTexture(pMappableData, bufferType) : NULL;
 }

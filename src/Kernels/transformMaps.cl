@@ -329,7 +329,8 @@ __kernel void float2_to_texture_kernel(
 	const int idx = mul24(gidy, gsizex)+gidx;
 
 	float2 color = floatColors[idx];
-	write_imagef(tex, (int2)(gidx, gidy), (float4)(color.xy, color.y, 1.0f));
+	color.y = color.y / 5.f;
+	write_imagef(tex, (int2)(gidx, gidy), (float4)(color.xy, 0.0f, 1.0f));
 }
 
 __kernel void intensity_to_float4_kernel(
