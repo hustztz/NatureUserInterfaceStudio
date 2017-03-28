@@ -9,5 +9,6 @@ NuiHashingSDFConfig::NuiHashingSDFConfig()
 	, m_truncation(0.06f)
 	, m_integrationWeightSample(3)
 	, m_integrationWeightMax(255)
+	, m_bUseSwapping(false)
 {
 }

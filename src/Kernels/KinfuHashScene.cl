@@ -140,7 +140,7 @@ __kernel void allocateVoxelBlocksList_kernel(
 			__global struct NuiKinfuHashEntry*	d_hashEntry,
 			__global	int*			d_excessAllocation,
 			__global volatile int*		d_lastFreeExcessListId,
-			__global	int*			d_allocationList,
+			__global	int*			d_voxelAllocationList,
 			__global volatile int*		d_lastFreeVoxelBlockId,
 			__global	short3*			d_blockCoords,
 			__global	uchar*			d_entriesVisibleType
@@ -160,7 +160,7 @@ __kernel void allocateVoxelBlocksList_kernel(
 
 			struct NuiKinfuHashEntry hashEntry;
 			hashEntry.pos[0] = pt_block_all.x; hashEntry.pos[1] = pt_block_all.y; hashEntry.pos[2] = pt_block_all.z;
-			hashEntry.ptr = d_allocationList[vbaIdx];
+			hashEntry.ptr = d_voxelAllocationList[vbaIdx];
 			hashEntry.offset = 0;
 
 			d_hashEntry[gidx] = hashEntry;
@@ -177,7 +177,7 @@ __kernel void allocateVoxelBlocksList_kernel(
 
 			struct NuiKinfuHashEntry hashEntry;
 			hashEntry.pos[0] = pt_block_all.x; hashEntry.pos[1] = pt_block_all.y; hashEntry.pos[2] = pt_block_all.z;
-			hashEntry.ptr = d_allocationList[vbaIdx];
+			hashEntry.ptr = d_voxelAllocationList[vbaIdx];
 			hashEntry.offset = 0;
 
 			int exlOffset = d_excessAllocation[exlIdx];
@@ -382,63 +382,6 @@ __kernel void buildVisibleEnlargedList_kernel(
 
 	if (hashVisibleType > 0 && d_swapStates[gidx] != 2)
 		d_swapStates[gidx] = 1;
-}
-
-__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
-void prefix_flag_scan1_kernel(
-    __global uchar8 *d_Src,
-    __global uint8 *d_Dst,
-    __local uint *l_Data,
-    uint size
-	)
-{
-    //Load data
-    uint8 idata8;
-    uchar8 srcs = d_Src[get_global_id(0)];
-    idata8.s0 = convert_uint(srcs.s0 > 0);
-    idata8.s1 = convert_uint(srcs.s1 > 0);
-    idata8.s2 = convert_uint(srcs.s2 > 0);
-    idata8.s3 = convert_uint(srcs.s3 > 0);
-    idata8.s4 = convert_uint(srcs.s4 > 0);
-    idata8.s5 = convert_uint(srcs.s5 > 0);
-    idata8.s6 = convert_uint(srcs.s6 > 0);
-    idata8.s7 = convert_uint(srcs.s7 > 0);
-
-
-    scanExclusiveLocal1(idata8, d_Dst, l_Data, size);
-}
-
-__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
-void prefix_flag_scan2_kernel(
-    __global uchar *d_Src,
-    __global uint *d_Buf,
-    __global uint *d_Dst,
-    __local uint *l_Data,
-    uint size
-	)
-{
-    //Load top elements
-    uint indata = convert_uint(d_Src[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)] > 0);
-
-	scanExclusiveLocal2(indata, d_Buf, d_Dst, l_Data, size);
-}
-
-__kernel void reAllocateSwappedOutVoxelBlocks_kernel(
-			__global	uchar*					d_entriesVisibleType,
-			__global struct NuiKinfuHashEntry*	d_hashEntry,
-			__global volatile int*				d_lastFreeVoxelBlockId,
-			__global	int*					d_allocationList
-			)
-{
-	const uint gidx = get_global_id(0);
-	struct NuiKinfuHashEntry hashEntry = d_hashEntry[gidx];
-
-	if (d_entriesVisibleType[gidx] > 0 && hashEntry.ptr == -1) //it is visible and has been previously allocated inside the hash, but deallocated from VBA
-	{
-		int vbaIdx = atomic_dec(d_lastFreeVoxelBlockId);
-		if (vbaIdx >= 0)
-			hashEntry.ptr = d_allocationList[vbaIdx];
-	}
 }
 
 __kernel void integrateIntoScene_kernel(

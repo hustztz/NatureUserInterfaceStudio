@@ -77,11 +77,11 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal1(cl_mem d_input, cl_kernel scanKerne
 	// Get the kernel
 	if (!scanKernel)
 	{
-		scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE1);
+		scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_FLAG_SUM_EXCLUSIVE1);
 		assert(scanKernel);
 		if (!scanKernel)
 		{
-			NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE1' failed!\n");
+			NUI_ERROR("Get kernel 'E_PREFIX_FLAG_SUM_EXCLUSIVE1' failed!\n");
 			return;
 		}
 	}
@@ -124,11 +124,11 @@ void NuiOpenCLPrefixSum::scanExclusiveLocal2(unsigned int batchSize, cl_mem d_in
 	// Get the kernel
 	if (!scanKernel)
 	{
-		scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_SUM_EXCLUSIVE2);
+		scanKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_PREFIX_FLAG_SUM_EXCLUSIVE2);
 		assert(scanKernel);
 		if (!scanKernel)
 		{
-			NUI_ERROR("Get kernel 'E_PREFIX_SUM_EXCLUSIVE2' failed!\n");
+			NUI_ERROR("Get kernel 'E_PREFIX_FLAG_SUM_EXCLUSIVE2' failed!\n");
 			return;
 		}
 	}

@@ -8,7 +8,6 @@
 // Forwards
 class NuiKinfuOpenCLHashGlobalCache;
 class NuiOpenCLPrefixSum;
-struct NuiHashingChunkGridConfig;
 
 class NuiKinfuOpenCLHashScene : public NuiKinfuScene
 {
@@ -31,9 +30,6 @@ public:
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
-
-public:
-	void			updateGlobalCacheConfig(const NuiHashingChunkGridConfig& chunkGridConfig);
 
 protected:
 	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL);
@@ -58,6 +54,8 @@ protected:
 		cl_mem transformCL);
 
 private:
+	void			updateGlobalCache(bool bEnable);
+
 	void			AcquireBuffers();
 	void			ReleaseBuffers();
 	void			ResetVisibleEntrys();
@@ -69,7 +67,6 @@ private:
 		cl_mem transformCL);
 	void			AllocateVoxelBlocksList();
 	UINT			BuildVisibleList(cl_mem cameraParamsCL, cl_mem transformCL);
-	void			ReAllocateSwappedOutVoxelBlocks();
 
 	void			CreateExpectedDepths(cl_mem expectedRangeCL, cl_mem cameraParamsCL, cl_mem transformCL);
 	void			raycast(

@@ -3,6 +3,8 @@
 struct NuiHashingSDFConfig {
 	NuiHashingSDFConfig();
 
+	bool			m_bUseSwapping;
+
 	unsigned int	m_hashNumBuckets; //smaller voxels require more space
 	unsigned int	m_numSDFBlocks; //smaller voxels require more space
 	unsigned int	m_hashMaxCollisionLinkedListSize;

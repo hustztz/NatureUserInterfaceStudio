@@ -13,10 +13,10 @@
 #define SDF_LOCAL_BLOCK_NUM 0x100000		// Number of locally stored blocks, currently 2^17
 
 #define SDF_GLOBAL_BLOCK_NUM 0x240000	// Number of globally stored blocks: SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE
-#define SDF_TRANSFER_BLOCK_NUM 0x2000	// Maximum number of blocks transfered in one swap operation
+#define SDF_TRANSFER_BLOCK_NUM 0x1000	// Maximum number of blocks transfered in one swap operation
 
-#define SDF_BUCKET_NUM 0x200000			// Number of Hash Bucket, should be 2^n and bigger than SDF_LOCAL_BLOCK_NUM, SDF_HASH_MASK = SDF_BUCKET_NUM - 1
-#define SDF_HASH_MASK 0x1fffff			// Used for get hashing value of the bucket index,  SDF_HASH_MASK = SDF_BUCKET_NUM - 1
+#define SDF_BUCKET_NUM 0x150000			// Number of Hash Bucket, should be 2^n and bigger than SDF_LOCAL_BLOCK_NUM, SDF_HASH_MASK = SDF_BUCKET_NUM - 1
+#define SDF_HASH_MASK 0x14ffff			// Used for get hashing value of the bucket index,  SDF_HASH_MASK = SDF_BUCKET_NUM - 1
 #define SDF_EXCESS_LIST_SIZE 0x30000	// 0x20000 Size of excess list, used to handle collisions. Also max offset (unsigned short) value.
 
 
@@ -68,6 +68,13 @@ struct NuiKinfuVoxel
 	short			sdf;		//signed distance function
 	unsigned char	color[3];	//color
 	unsigned char	weight;		//accumulated sdf weight
+
+	NuiKinfuVoxel()
+	{
+		sdf = 0;
+		weight = 0;
+		color[0] = color[1] = color[2] = 0;
+	}
 };
 #pragma pack()
 

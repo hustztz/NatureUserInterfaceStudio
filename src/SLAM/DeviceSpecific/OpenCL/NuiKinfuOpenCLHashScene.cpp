@@ -6,8 +6,6 @@
 #include "NuiKinfuOpenCLCameraState.h"
 #include "NuiOpenCLPrefixSum.h"
 
-#include "../../NuiHashingChunkGridConfig.h"
-
 #include "Kernels/hashing_gpu_def.h"
 #include "Kernels/gpu_def.h"
 #include "Foundation/NuiDebugMacro.h"
@@ -103,6 +101,8 @@ void	NuiKinfuOpenCLHashScene::reset()
 	if(m_pGlobalCache)
 		m_pGlobalCache->reset();
 	m_numVisibleEntries = 0;
+
+	updateGlobalCache(m_config.m_bUseSwapping);
 
 	setDirty();
 }
@@ -362,68 +362,7 @@ UINT	NuiKinfuOpenCLHashScene::BuildVisibleList(cl_mem cameraParamsCL, cl_mem tra
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	cl_kernel prefixScan1Kernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_PREFIX_FLAG_SCAN1);
-	assert(prefixScan1Kernel);
-	if (!prefixScan1Kernel)
-	{
-		NUI_ERROR("Get kernel 'E_HASHING_PREFIX_FLAG_SCAN1' failed!\n");
-		return 0;
-	}
-	cl_kernel prefixScan2Kernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_PREFIX_FLAG_SCAN2);
-	assert(prefixScan2Kernel);
-	if (!prefixScan2Kernel)
-	{
-		NUI_ERROR("Get kernel 'E_HASHING_PREFIX_FLAG_SCAN2' failed!\n");
-		return 0;
-	}
-	return m_pScan->prefixSum(prefixScan1Kernel, prefixScan2Kernel, m_entriesVisibleTypeCL, m_visibleEntryIDsCL);
-}
-
-void	NuiKinfuOpenCLHashScene::ReAllocateSwappedOutVoxelBlocks()
-{
-	// Get the kernel
-	cl_kernel reallocKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_REALLOC_SWAPPEDOUT_VOXEL);
-	assert(reallocKernel);
-	if (!reallocKernel)
-	{
-		NUI_ERROR("Get kernel 'E_HASHING_BUILD_HASH_ALLOC' failed!\n");
-		return;
-	}
-
-	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
-	cl_mem voxelAllocationListCL = m_hashingVoxelData.getVoxelAllocationListCL();
-	cl_mem lastFreeBlockIdCL = m_hashingVoxelData.getLastFreeBlockIdCL();
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	// Set kernel arguments
-	cl_uint idx = 0;
-	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &m_entriesVisibleTypeCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &hashEntriesCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &lastFreeBlockIdCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(reallocKernel, idx++, sizeof(cl_mem), &voxelAllocationListCL);
-	NUI_CHECK_CL_ERR(err);
-
-	// Run kernel to calculate
-	const UINT nTotalEntries = SDF_BUCKET_NUM + SDF_EXCESS_LIST_SIZE;
-	size_t kernelGlobalSize[1] = { nTotalEntries };
-	err = clEnqueueNDRangeKernel(
-		queue,
-		reallocKernel,
-		1,
-		nullptr,
-		kernelGlobalSize,
-		nullptr,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
+	return m_pScan->prefixSum(m_entriesVisibleTypeCL, m_visibleEntryIDsCL);
 }
 
 void	NuiKinfuOpenCLHashScene::AllocateSceneFromDepth(
@@ -442,7 +381,10 @@ void	NuiKinfuOpenCLHashScene::AllocateSceneFromDepth(
 		transformCL);
 	AllocateVoxelBlocksList();
 	m_numVisibleEntries = BuildVisibleList(cameraParamsCL, transformCL);
-	ReAllocateSwappedOutVoxelBlocks();
+	if(m_pGlobalCache)
+	{
+		m_pGlobalCache->reAllocateSwappedOutVoxelBlocks(&m_hashingVoxelData, m_entriesVisibleTypeCL);
+	}
 }
 
 void	NuiKinfuOpenCLHashScene::IntegrateIntoScene(
@@ -595,16 +537,21 @@ bool	NuiKinfuOpenCLHashScene::integrateVolume(
 		setDirty();
 	}
 
+	if(m_pGlobalCache)
+	{
+		m_pGlobalCache->integrateGlobalIntoLocal(&m_hashingVoxelData, m_config.m_integrationWeightMax);
+		m_pGlobalCache->saveToGlobalMemory(&m_hashingVoxelData, m_entriesVisibleTypeCL);
+	}
+
 	return true;
 }
 
-void	NuiKinfuOpenCLHashScene::updateGlobalCacheConfig(const NuiHashingChunkGridConfig& chunkGridConfig)
+void	NuiKinfuOpenCLHashScene::updateGlobalCache(bool bEnable)
 {
-	if(chunkGridConfig.m_enable)
+	if(bEnable)
 	{
 		if(!m_pGlobalCache)
 			m_pGlobalCache = new NuiKinfuOpenCLHashGlobalCache();
-		//m_pGlobalCache->updateConfig(chunkGridConfig);
 	}
 	else
 	{

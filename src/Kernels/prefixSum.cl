@@ -159,6 +159,46 @@ void scanExclusiveLocal2_kernel(
    scanExclusiveLocal2(indata, d_Buf, d_Dst, l_Data, size);
 }
 
+
+__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
+void exclusiveScanFlag1_kernel(
+    __global uchar8 *d_Src,
+    __global uint8 *d_Dst,
+    __local uint *l_Data,
+    uint size
+	)
+{
+    //Load data
+    uint8 idata8;
+    uchar8 srcs = d_Src[get_global_id(0)];
+    idata8.s0 = convert_uint(srcs.s0 > 0);
+    idata8.s1 = convert_uint(srcs.s1 > 0);
+    idata8.s2 = convert_uint(srcs.s2 > 0);
+    idata8.s3 = convert_uint(srcs.s3 > 0);
+    idata8.s4 = convert_uint(srcs.s4 > 0);
+    idata8.s5 = convert_uint(srcs.s5 > 0);
+    idata8.s6 = convert_uint(srcs.s6 > 0);
+    idata8.s7 = convert_uint(srcs.s7 > 0);
+
+
+    scanExclusiveLocal1(idata8, d_Dst, l_Data, size);
+}
+
+__kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
+void exclusiveScanFlag2_kernel(
+    __global uchar *d_Src,
+    __global uint *d_Buf,
+    __global uint *d_Dst,
+    __local uint *l_Data,
+    uint size
+	)
+{
+    //Load top elements
+    uint indata = convert_uint(d_Src[(8 * WORKGROUP_SIZE - 1) + (8 * WORKGROUP_SIZE) * get_global_id(0)] > 0);
+
+	scanExclusiveLocal2(indata, d_Buf, d_Dst, l_Data, size);
+}
+
 //Final step of large-array scan: combine basic inclusive scan with exclusive scan of top elements of input arrays
 __kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
 void uniformUpdate_kernel(
