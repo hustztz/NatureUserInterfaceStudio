@@ -113,4 +113,9 @@ private:
 
 	// Fetch scene
 	cl_mem		m_outputIdxCL;
+
+	// Matching Cube
+	cl_mem				m_MB_numVertsTableCL;
+	cl_mem				m_MB_triTableCL;
+
 };

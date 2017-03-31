@@ -68,13 +68,6 @@ struct NuiKinfuVoxel
 	short			sdf;		//signed distance function
 	unsigned char	color[3];	//color
 	unsigned char	weight;		//accumulated sdf weight
-
-	NuiKinfuVoxel()
-	{
-		sdf = 0;
-		weight = 0;
-		color[0] = color[1] = color[2] = 0;
-	}
 };
 #pragma pack()
 

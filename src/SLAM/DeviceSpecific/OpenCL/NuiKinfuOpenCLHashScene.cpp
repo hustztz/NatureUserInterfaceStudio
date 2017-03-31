@@ -5,6 +5,7 @@
 #include "NuiKinfuOpenCLAcceleratedFeedbackFrame.h"
 #include "NuiKinfuOpenCLCameraState.h"
 #include "NuiOpenCLPrefixSum.h"
+#include "NuiMarchingCubeTable.h"
 
 #include "Kernels/hashing_gpu_def.h"
 #include "Kernels/gpu_def.h"
@@ -26,6 +27,8 @@ NuiKinfuOpenCLHashScene::NuiKinfuOpenCLHashScene(const NuiHashingSDFConfig& sdfC
 	, m_entriesVisibleTypeCL(NULL)
 	, m_numVisibleEntries(0)
 	, m_outputIdxCL(NULL)
+	, m_MB_numVertsTableCL(NULL)
+	, m_MB_triTableCL(NULL)
 	, m_pScan(NULL)
 {
 	reset();
@@ -56,6 +59,11 @@ void NuiKinfuOpenCLHashScene::AcquireBuffers()
 	NUI_CHECK_CL_ERR(err);
 
 	m_pScan = new NuiOpenCLPrefixSum(nTotalEntries);
+
+	m_MB_numVertsTableCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 256 * sizeof(int), sEdgeTable, &err);
+	NUI_CHECK_CL_ERR(err);
+	m_MB_triTableCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 256 * 16 * sizeof(int), sTriTable, &err);
+	NUI_CHECK_CL_ERR(err);
 }
 
 
@@ -88,6 +96,17 @@ void NuiKinfuOpenCLHashScene::ReleaseBuffers()
 	}
 
 	SafeDelete(m_pScan);
+
+	if (m_MB_numVertsTableCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_MB_numVertsTableCL);
+		NUI_CHECK_CL_ERR(err);
+		m_MB_numVertsTableCL = NULL;
+	}
+	if (m_MB_triTableCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_MB_triTableCL);
+		NUI_CHECK_CL_ERR(err);
+		m_MB_triTableCL = NULL;
+	}
 }
 
 bool NuiKinfuOpenCLHashScene::log(const std::string& fileName) const
@@ -978,6 +997,174 @@ bool NuiKinfuOpenCLHashScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 	assert(pCLData);
 	if(!pCLData)
 		return false;
+
+	if(0 == m_numVisibleEntries || !m_outputIdxCL)
+		return false;
+
+	if(!m_dirty)
+		return true;
+	clearDirty();
+
+	cl_kernel marchingCubeKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_MARCHING_CUBE);
+	assert(marchingCubeKernel);
+	if (!marchingCubeKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_MARCHING_CUBE' failed!\n");
+		return false;
+	}
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	cl_int vertex_id = 0;
+	err = clEnqueueWriteBuffer(
+		queue,
+		m_outputIdxCL,
+		CL_FALSE,//blocking
+		0,
+		sizeof(cl_int),
+		&vertex_id,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+	// 
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->PositionStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
+	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->ColorStream().size() )
+	{
+		NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
+	}
+
+	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
+	cl_mem voxelBlocksCL = m_hashingVoxelData.getVoxelBlocksCL();
+
+	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
+	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		positionsGL,
+		colorsGL
+	};
+
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &positionsGL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &colorsGL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_outputIdxCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_visibleEntryIDsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &hashEntriesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &voxelBlocksCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_numVertsTableCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_triTableCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_float), &m_config.m_virtualVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+	
+
+#ifdef _GPU_PROFILER
+	cl_event timing_event;
+	cl_ulong time_start, time_end;
+#endif
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[1] = { m_numVisibleEntries };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		marchingCubeKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+#ifdef _GPU_PROFILER
+		&timing_event
+#else
+		NULL
+#endif
+		);
+	NUI_CHECK_CL_ERR(err);
+
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	err = clEnqueueReadBuffer(
+		queue,
+		m_outputIdxCL,
+		CL_TRUE,//blocking
+		0,
+		sizeof(cl_int),
+		&vertex_id,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _GPU_PROFILER
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+	std::cout << "marching cube:" << (time_end - time_start) << std::endl;
+	clReleaseEvent(timing_event);
+#endif
+
+	if(vertex_id <= 0 || vertex_id > MAX_OUTPUT_VERTEX_SIZE)
+		return false;
+
+	NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data().clear();
+
+	if(pCLData->TriangleIndices().size() != MAX_OUTPUT_VERTEX_SIZE)
+	{
+		std::vector<unsigned int>& clTriangleIndices =
+			NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data();
+		std::vector<unsigned int>& clWireframeIndices =
+			NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data();
+
+		clTriangleIndices.resize(MAX_OUTPUT_VERTEX_SIZE);
+		clWireframeIndices.resize(MAX_OUTPUT_VERTEX_SIZE*2);
+		for (int i = 0; i < MAX_OUTPUT_VERTEX_SIZE; ++i)
+		{
+			clTriangleIndices[i] = i;
+			if(i % 3 == 2)
+			{
+				clWireframeIndices[2*i  ] = i;
+				clWireframeIndices[2*i+1] = i - 2;
+			}
+			else
+			{
+				clWireframeIndices[2*i  ] = i;
+				clWireframeIndices[2*i+1] = i + 1;
+			}
+		}
+		pCLData->SetIndexingDirty(true);
+	}
+
+	// Set bounding box
+	//pCLData->SetBoundingBox(SgVec3f(-m_config.dimensions[0]/2, -m_config.dimensions[1]/2, -m_config.dimensions[2]/2), SgVec3f(m_config.dimensions[0]/2, m_config.dimensions[1]/2, m_config.dimensions[2]/2));
+
+	pCLData->SetStreamDirty(true);
 
 	return true;
 }

@@ -241,6 +241,8 @@ __kernel void marchingCubeKernel(
 			int v1 = vload(table_index    , triTable);
 			int v2 = vload(table_index + 1, triTable);
 			int v3 = vload(table_index + 2, triTable);
+			if(v1 < 0 || v1 >= 12)
+				break;
 
 			vstore3(vertlist[v1], current_id + i   , vmap);
 			vstore3(vertlist[v2], current_id + i + 1, vmap);
