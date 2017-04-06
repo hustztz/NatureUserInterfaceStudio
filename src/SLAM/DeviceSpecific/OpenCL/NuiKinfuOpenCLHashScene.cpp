@@ -27,7 +27,7 @@ NuiKinfuOpenCLHashScene::NuiKinfuOpenCLHashScene(const NuiHashingSDFConfig& sdfC
 	, m_entriesVisibleTypeCL(NULL)
 	, m_numVisibleEntries(0)
 	, m_outputIdxCL(NULL)
-	, m_MB_numVertsTableCL(NULL)
+	, m_MB_edgeTableCL(NULL)
 	, m_MB_triTableCL(NULL)
 	, m_pScan(NULL)
 {
@@ -60,7 +60,7 @@ void NuiKinfuOpenCLHashScene::AcquireBuffers()
 
 	m_pScan = new NuiOpenCLPrefixSum(nTotalEntries);
 
-	m_MB_numVertsTableCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 256 * sizeof(int), sEdgeTable, &err);
+	m_MB_edgeTableCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 256 * sizeof(int), sEdgeTable, &err);
 	NUI_CHECK_CL_ERR(err);
 	m_MB_triTableCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 256 * 16 * sizeof(int), sTriTable, &err);
 	NUI_CHECK_CL_ERR(err);
@@ -97,10 +97,10 @@ void NuiKinfuOpenCLHashScene::ReleaseBuffers()
 
 	SafeDelete(m_pScan);
 
-	if (m_MB_numVertsTableCL) {
-		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_MB_numVertsTableCL);
+	if (m_MB_edgeTableCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_MB_edgeTableCL);
 		NUI_CHECK_CL_ERR(err);
-		m_MB_numVertsTableCL = NULL;
+		m_MB_edgeTableCL = NULL;
 	}
 	if (m_MB_triTableCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_MB_triTableCL);
@@ -1072,7 +1072,7 @@ bool NuiKinfuOpenCLHashScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &voxelBlocksCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_numVertsTableCL);
+	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_edgeTableCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(marchingCubeKernel, idx++, sizeof(cl_mem), &m_MB_triTableCL);
 	NUI_CHECK_CL_ERR(err);
@@ -1084,7 +1084,7 @@ bool NuiKinfuOpenCLHashScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 	cl_event timing_event;
 	cl_ulong time_start, time_end;
 #endif
-	// Run kernel to calculate 
+	// Run kernel to calculate
 	size_t kernelGlobalSize[1] = { m_numVisibleEntries };
 	err = clEnqueueNDRangeKernel(
 		queue,
@@ -1130,7 +1130,7 @@ bool NuiKinfuOpenCLHashScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 	clReleaseEvent(timing_event);
 #endif
 
-	if(vertex_id <= 0 || vertex_id > MAX_OUTPUT_VERTEX_SIZE)
+	if(vertex_id <= 0)
 		return false;
 
 	NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data().clear();

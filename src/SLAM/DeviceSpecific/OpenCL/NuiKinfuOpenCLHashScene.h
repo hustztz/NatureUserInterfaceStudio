@@ -115,7 +115,7 @@ private:
 	cl_mem		m_outputIdxCL;
 
 	// Matching Cube
-	cl_mem				m_MB_numVertsTableCL;
+	cl_mem				m_MB_edgeTableCL;
 	cl_mem				m_MB_triTableCL;
 
 };

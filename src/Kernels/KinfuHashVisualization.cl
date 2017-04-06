@@ -244,7 +244,7 @@ __kernel void meshHashScene_kernel(
 			colorList[11] = sdfInterp(colors[3], colors[7], sdfVals[3], sdfVals[7]);
 		}
 
-		for (int i = 0; i < 6 ; i += 3)
+		for (int i = 0; i < 16 ; i += 3)
         {
 			int table_index = mul24(cubeIndex, 16) + i;
 			int v1 = vload(table_index    , c_triTable);
@@ -259,13 +259,13 @@ __kernel void meshHashScene_kernel(
 				break;
 			}
 
-			vstore3(vertList[v1] * virtualVoxelSize, current_id + i   , d_vmap);
-			vstore3(vertList[v2] * virtualVoxelSize, current_id + i + 1, d_vmap);
-			vstore3(vertList[v3] * virtualVoxelSize, current_id + i + 2, d_vmap);
+			vstore3(vertList[v1] * virtualVoxelSize, current_id   , d_vmap);
+			vstore3(vertList[v2] * virtualVoxelSize, current_id + 1, d_vmap);
+			vstore3(vertList[v3] * virtualVoxelSize, current_id + 2, d_vmap);
 
-			vstore4((float4)(colorList[v1], 1.0f), current_id + i   , d_cmap);
-			vstore4((float4)(colorList[v2], 1.0f), current_id + i + 1, d_cmap);
-			vstore4((float4)(colorList[v3], 1.0f), current_id + i + 2, d_cmap);
+			vstore4((float4)(colorList[v1], 1.0f), current_id   , d_cmap);
+			vstore4((float4)(colorList[v2], 1.0f), current_id + 1, d_cmap);
+			vstore4((float4)(colorList[v3], 1.0f), current_id + 2, d_cmap);
 		}
 	}
 }
