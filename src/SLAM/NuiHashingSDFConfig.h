@@ -4,6 +4,7 @@ struct NuiHashingSDFConfig {
 	NuiHashingSDFConfig();
 
 	bool			m_bUseSwapping;
+	bool			m_bUseForwardRender;
 
 	unsigned int	m_hashNumBuckets; //smaller voxels require more space
 	unsigned int	m_numSDFBlocks; //smaller voxels require more space

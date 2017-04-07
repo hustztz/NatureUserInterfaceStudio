@@ -29,6 +29,8 @@ NuiKinfuOpenCLHashScene::NuiKinfuOpenCLHashScene(const NuiHashingSDFConfig& sdfC
 	, m_outputIdxCL(NULL)
 	, m_MB_edgeTableCL(NULL)
 	, m_MB_triTableCL(NULL)
+	, m_projMissingFlagsCL(NULL)
+	, m_projMissingIDsCL(NULL)
 	, m_pScan(NULL)
 {
 	reset();
@@ -106,6 +108,16 @@ void NuiKinfuOpenCLHashScene::ReleaseBuffers()
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_MB_triTableCL);
 		NUI_CHECK_CL_ERR(err);
 		m_MB_triTableCL = NULL;
+	}
+	if (m_projMissingFlagsCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_projMissingFlagsCL);
+		NUI_CHECK_CL_ERR(err);
+		m_projMissingFlagsCL = NULL;
+	}
+	if (m_projMissingIDsCL) {
+		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_projMissingIDsCL);
+		NUI_CHECK_CL_ERR(err);
+		m_projMissingIDsCL = NULL;
 	}
 }
 
@@ -639,7 +651,7 @@ void	NuiKinfuOpenCLHashScene::CreateExpectedDepths(
 #endif
 }
 
-void	NuiKinfuOpenCLHashScene::raycast(
+void	NuiKinfuOpenCLHashScene::Raycast(
 	cl_mem renderVerticesCL,
 	cl_mem renderNormalsCL,
 	cl_mem renderColorsCL,
@@ -718,19 +730,15 @@ void	NuiKinfuOpenCLHashScene::raycast(
 #endif
 }
 
-void	NuiKinfuOpenCLHashScene::forwardRender(
+void	NuiKinfuOpenCLHashScene::ForwardProject(
 	cl_mem renderVerticesCL,
 	cl_mem renderNormalsCL,
 	cl_mem renderColorsCL,
-	cl_mem expectedRangeCL,
 	cl_mem cameraParamsCL,
 	cl_mem transformCL,
 	UINT nWidth, UINT nHeight
 	)
 {
-	/*if(0 == m_numVisibleEntries)
-		return;*/
-
 	if(!renderVerticesCL || !renderNormalsCL || !cameraParamsCL || !transformCL)
 		return;
 
@@ -783,6 +791,221 @@ void	NuiKinfuOpenCLHashScene::forwardRender(
 #endif
 }
 
+UINT	NuiKinfuOpenCLHashScene::FindMissingPoints(
+	cl_mem renderVerticesCL,
+	cl_mem renderNormalsCL,
+	cl_mem expectedRangeCL,
+	UINT nWidth, UINT nHeight
+	)
+{
+	if(!renderVerticesCL || !renderNormalsCL || !expectedRangeCL)
+		return 0;
+
+	cl_int           err = CL_SUCCESS;
+	cl_context       context = NuiOpenCLGlobal::instance().clContext();
+	if(!m_projMissingFlagsCL)
+	{
+		m_projMissingFlagsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nWidth * nHeight * sizeof(cl_uchar), NULL, &err);
+		NUI_CHECK_CL_ERR(err);
+		m_projMissingIDsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, nWidth * nHeight * sizeof(cl_int), NULL, &err);
+		NUI_CHECK_CL_ERR(err);
+	}
+
+	// Get the kernel
+	cl_kernel findMissingKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_FINDING_MISSING_POINTS);
+	assert(findMissingKernel);
+	if (!findMissingKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_FINDING_MISSING_POINTS' failed!\n");
+		return 0;
+	}
+
+	// OpenCL command queue and device
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(findMissingKernel, idx++, sizeof(cl_mem), &m_projMissingFlagsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(findMissingKernel, idx++, sizeof(cl_mem), &renderVerticesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(findMissingKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(findMissingKernel, idx++, sizeof(cl_mem), &expectedRangeCL);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t kernelGlobalSize[2] = { nWidth, nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		findMissingKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
+
+	return m_pScan->prefixSum(m_projMissingFlagsCL, m_projMissingIDsCL);
+}
+
+void	NuiKinfuOpenCLHashScene::RaycastMissingPoints(
+	UINT nNeededPoints,
+	cl_mem renderVerticesCL,
+	cl_mem renderColorsCL,
+	cl_mem expectedRangeCL,
+	cl_mem cameraParamsCL,
+	cl_mem transformCL
+	)
+{
+	if(!m_projMissingIDsCL)
+		return;
+
+	if(!renderVerticesCL || !cameraParamsCL || !transformCL)
+		return;
+
+	// Get the kernel
+	cl_kernel raycastKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_HASHING_RAYCAST_MISSING_POINTS);
+	assert(raycastKernel);
+	if (!raycastKernel)
+	{
+		NUI_ERROR("Get kernel 'E_HASHING_RAYCAST_MISSING_POINTS' failed!\n");
+		return;
+	}
+
+	cl_mem hashEntriesCL = m_hashingVoxelData.getHashEntriesCL();
+	cl_mem voxelBlocksCL = m_hashingVoxelData.getVoxelBlocksCL();
+	const float oneOverVoxelSize = 1.0f / m_config.m_virtualVoxelSize;
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &m_projMissingIDsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderVerticesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &renderColorsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &expectedRangeCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &hashEntriesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &voxelBlocksCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_mem), &transformCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &m_config.m_virtualVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &oneOverVoxelSize);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(raycastKernel, idx++, sizeof(cl_float), &m_config.m_truncation);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate
+	size_t kernelGlobalSize[1] = { nNeededPoints };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		raycastKernel,
+		1,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
+}
+
+void NuiKinfuOpenCLHashScene::Vertex2Normal(cl_mem renderVerticesCL,
+											cl_mem renderNormalsCL,
+											UINT nWidth, UINT nHeight)
+{
+	if(!renderVerticesCL || !renderNormalsCL)
+		return;
+
+	// Get the kernel
+	cl_kernel normalEstKernel =
+		NuiOpenCLKernelManager::instance().acquireKernel(E_ESTIMATE_NORMALS_SIMPLE);
+	assert(normalEstKernel);
+	if (!normalEstKernel)
+	{
+		NUI_ERROR("Get kernel 'E_ESTIMATE_NORMALS_SIMPLE' failed!\n");
+		return;
+	}
+
+	const float depth_threshold = 0.3f; //meters
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	// Set kernel arguments
+	cl_uint idx = 0;
+	err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &renderVerticesCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(normalEstKernel, idx++, sizeof(cl_mem), &renderNormalsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(normalEstKernel, idx++, sizeof(float), &depth_threshold);
+	NUI_CHECK_CL_ERR(err);
+
+	// Run kernel to calculate 
+	size_t kernelGlobalSize[2] = { nWidth, nHeight };
+	err = clEnqueueNDRangeKernel(
+		queue,
+		normalEstKernel,
+		2,
+		nullptr,
+		kernelGlobalSize,
+		nullptr,
+		0,
+		NULL,
+		NULL
+		);
+	NUI_CHECK_CL_ERR(err);
+}
+
+void	NuiKinfuOpenCLHashScene::ForwardRender(
+	cl_mem renderVerticesCL,
+	cl_mem renderNormalsCL,
+	cl_mem renderColorsCL,
+	cl_mem expectedRangeCL,
+	cl_mem cameraParamsCL,
+	cl_mem transformCL,
+	UINT nWidth, UINT nHeight
+	)
+{
+	/*if(0 == m_numVisibleEntries)
+		return;*/
+
+	NuiOpenCLFoundationUtils::invalidFloat3Buffer(renderNormalsCL, nWidth * nHeight);
+	ForwardProject(renderVerticesCL, renderNormalsCL, renderColorsCL, cameraParamsCL, transformCL, nWidth, nHeight);
+	UINT nMssingPoints = FindMissingPoints(renderVerticesCL, renderNormalsCL, expectedRangeCL, nWidth, nHeight);
+	if(nMssingPoints > 0)
+	{
+		RaycastMissingPoints(nMssingPoints, renderVerticesCL, renderColorsCL, expectedRangeCL, cameraParamsCL, transformCL);
+	}
+	Vertex2Normal(renderVerticesCL, renderNormalsCL, nWidth, nHeight);
+}
+
 void NuiKinfuOpenCLHashScene::raycastRender(
 	NuiKinfuFeedbackFrame*	pFeedbackFrame,
 	NuiKinfuCameraState*	pCameraState
@@ -811,14 +1034,28 @@ void NuiKinfuOpenCLHashScene::raycastRender(
 		CreateExpectedDepths(pCLAcceleratedFeedbackFrame->getExpectedRangeCL(), cameraParamsCL, transformCL);
 	}
 
-	raycast(
-		pCLFeedbackFrame->GetVertexBuffer(),
-		pCLFeedbackFrame->GetNormalBuffer(),
-		pCLFeedbackFrame->GetColorBuffer(),
-		pCLAcceleratedFeedbackFrame ? pCLAcceleratedFeedbackFrame->getExpectedRangeCL() : NULL,
-		cameraParamsCL, transformCL,
-		pCLFeedbackFrame->GetWidth(), pCLFeedbackFrame->GetHeight()
-		);
+	if(m_config.m_bUseForwardRender)
+	{
+		ForwardRender(
+			pCLFeedbackFrame->GetVertexBuffer(),
+			pCLFeedbackFrame->GetNormalBuffer(),
+			pCLFeedbackFrame->GetColorBuffer(),
+			pCLAcceleratedFeedbackFrame ? pCLAcceleratedFeedbackFrame->getExpectedRangeCL() : NULL,
+			cameraParamsCL, transformCL,
+			pCLFeedbackFrame->GetWidth(), pCLFeedbackFrame->GetHeight()
+			);
+	}
+	else
+	{
+		Raycast(
+			pCLFeedbackFrame->GetVertexBuffer(),
+			pCLFeedbackFrame->GetNormalBuffer(),
+			pCLFeedbackFrame->GetColorBuffer(),
+			pCLAcceleratedFeedbackFrame ? pCLAcceleratedFeedbackFrame->getExpectedRangeCL() : NULL,
+			cameraParamsCL, transformCL,
+			pCLFeedbackFrame->GetWidth(), pCLFeedbackFrame->GetHeight()
+			);
+	}
 }
 
 bool NuiKinfuOpenCLHashScene::Volume2CLVertices(NuiCLMappableData* pCLData)

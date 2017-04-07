@@ -10,5 +10,6 @@ NuiHashingSDFConfig::NuiHashingSDFConfig()
 	, m_integrationWeightSample(3)
 	, m_integrationWeightMax(255)
 	, m_bUseSwapping(false)
+	, m_bUseForwardRender(false)
 {
 }

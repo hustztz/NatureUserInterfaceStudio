@@ -113,4 +113,39 @@ namespace NuiOpenCLFoundationUtils
 			);
 		NUI_CHECK_CL_ERR(err);
 	}
+
+	void invalidFloat3Buffer(cl_mem buffer, UINT num)
+	{
+		// Get the kernel
+		cl_kernel setKernel = NuiOpenCLKernelManager::instance().acquireKernel(E_INVALID_FLOAT3_BUFFER);
+		if (!setKernel)
+		{
+			NUI_ERROR("Get kernel 'E_SET_FLOAT2_BUFFER' failed!\n");
+			return;
+		}
+
+		// OpenCL command queue and device
+		cl_int           err = CL_SUCCESS;
+		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+		// Set kernel arguments
+		cl_uint idx = 0;
+		err = clSetKernelArg(setKernel, idx++, sizeof(cl_mem), &buffer);
+		NUI_CHECK_CL_ERR(err);
+
+		// Run kernel to calculate
+		size_t kernelGlobalSize[1] = { num };
+		err = clEnqueueNDRangeKernel(
+			queue,
+			setKernel,
+			1,
+			nullptr,
+			kernelGlobalSize,
+			nullptr,
+			0,
+			NULL,
+			NULL
+			);
+		NUI_CHECK_CL_ERR(err);
+	}
 }

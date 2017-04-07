@@ -23,3 +23,11 @@ __kernel void set_float2_kernel(
     const uint gidx = get_global_id(0);
 	d_out[gidx] = (float2)(first, second);
 }
+
+__kernel void invalid_float3_kernel(
+			__global float3*	d_out
+        )
+{
+    const uint gidx = get_global_id(0);
+	d_out[gidx] = (float3)(NAN, NAN, NAN);
+}

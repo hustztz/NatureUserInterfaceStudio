@@ -32,11 +32,20 @@ public:
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
 protected:
-	void			rayIntervalSplatting(cl_mem cameraParamsCL, cl_mem transformCL);
-	void			raycast(
+	void			Raycast(
 		cl_mem renderVerticesCL,
 		cl_mem renderNormalsCL,
-		cl_mem renderIntensitiesCL,
+		cl_mem renderColorsCL,
+		cl_mem expectedRangeCL,
+		cl_mem cameraParamsCL,
+		cl_mem transformCL,
+		UINT nWidth, UINT nHeight
+		);
+	void			ForwardRender(
+		cl_mem renderVerticesCL,
+		cl_mem renderNormalsCL,
+		cl_mem renderColorsCL,
+		cl_mem expectedRangeCL,
 		cl_mem cameraParamsCL,
 		cl_mem transformCL,
 		UINT nWidth, UINT nHeight
@@ -69,24 +78,29 @@ private:
 	UINT			BuildVisibleList(cl_mem cameraParamsCL, cl_mem transformCL);
 
 	void			CreateExpectedDepths(cl_mem expectedRangeCL, cl_mem cameraParamsCL, cl_mem transformCL);
-	void			raycast(
+	void			ForwardProject(
 		cl_mem renderVerticesCL,
 		cl_mem renderNormalsCL,
 		cl_mem renderColorsCL,
-		cl_mem expectedRangeCL,
 		cl_mem cameraParamsCL,
 		cl_mem transformCL,
-		UINT nWidth, UINT nHeight
-		);
-	void			forwardRender(
+		UINT nWidth, UINT nHeight);
+	UINT			FindMissingPoints(
 		cl_mem renderVerticesCL,
 		cl_mem renderNormalsCL,
+		cl_mem expectedRangeCL,
+		UINT nWidth, UINT nHeight);
+	void			RaycastMissingPoints(
+		UINT nNeededPoints,
+		cl_mem renderVerticesCL,
 		cl_mem renderColorsCL,
 		cl_mem expectedRangeCL,
 		cl_mem cameraParamsCL,
-		cl_mem transformCL,
-		UINT nWidth, UINT nHeight
-		);
+		cl_mem transformCL);
+	void			Vertex2Normal(
+		cl_mem renderVerticesCL,
+		cl_mem renderNormalsCL,
+		UINT nWidth, UINT nHeight);
 
 private:
 	NuiKinfuVoxelBlockHash			m_hashingVoxelData;
@@ -118,4 +132,7 @@ private:
 	cl_mem				m_MB_edgeTableCL;
 	cl_mem				m_MB_triTableCL;
 
+	// Forward rendering: TOBE_DELETED
+	cl_mem		m_projMissingFlagsCL;
+	cl_mem		m_projMissingIDsCL;
 };

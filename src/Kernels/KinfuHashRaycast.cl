@@ -152,7 +152,10 @@ inline static float readInterpolatedVoxelSDF(
 	return ((1.0f - coeff.z) * res1 + coeff.z * res2);
 }
 
-__kernel void raycast_kernel(
+inline static void castRay(
+			const		uint		idx,
+			const		uint		idy,
+			const		uint		sizex,
 			__global	float*		d_vmap,
 			__global	float*		d_nmap,
 			__global	uchar*		d_cmap,
@@ -164,18 +167,14 @@ __kernel void raycast_kernel(
 			const float				virtualVoxelSize,
 			const float				oneOverVoxelSize,
 			const	float			truncScale
-        )
+			)
 {
-	const uint gidx = get_global_id(0);
-	const uint gidy = get_global_id(1);
-	const uint gsizex = get_global_size(0);
-	const int idx = mul24(gidy, gsizex) + gidx;
-
-	float2 minmax = vload2(idx, d_minmaxData);
-	float3 pt_block_s = kinectDepthToSkeleton(gidx, gidy, minmax.x, cameraParams);
+	const uint pid = mul24(idy, sizex) + idx;
+	float2 minmax = vload2(pid, d_minmaxData);
+	float3 pt_block_s = kinectDepthToSkeleton(idx, idy, minmax.x, cameraParams);
 	float totalLength = fast_length(pt_block_s) * oneOverVoxelSize;
 	pt_block_s = transform( pt_block_s, rigidTransform ) * oneOverVoxelSize;
-	float3 pt_block_e = kinectDepthToSkeleton(gidx, gidy, minmax.y, cameraParams);
+	float3 pt_block_e = kinectDepthToSkeleton(idx, idy, minmax.y, cameraParams);
 	float totalLengthMax = fast_length(pt_block_e) * oneOverVoxelSize;
 	pt_block_e = transform( pt_block_e, rigidTransform ) * oneOverVoxelSize;
 
@@ -338,7 +337,7 @@ __kernel void raycast_kernel(
 		
 		stepLength = sdfValue * stepScale;
 		pt_result += stepLength * rayDirection;
-		vstore3(pt_result * virtualVoxelSize, idx , d_vmap);
+		vstore3(pt_result * virtualVoxelSize, pid , d_vmap);
 
 		if (d_nmap)
 		{
@@ -436,18 +435,39 @@ __kernel void raycast_kernel(
 
 			ret.z = p1 * ncoeff.z + p2 * coeff.z - v1;
 			ret = normalize(ret);
-			vstore3(ret, idx , d_nmap);
+			vstore3(ret, pid , d_nmap);
 		}
 
 		if(d_cmap)
-			vstore4(resultColor, idx , d_cmap);
+			vstore4(resultColor, pid , d_cmap);
 	}
 	else
 	{
-		vstore3((float3)(NAN, NAN, NAN), idx , d_vmap);
-		vstore3((float3)(NAN, NAN, NAN), idx , d_nmap);
-		vstore4((uchar4)(0, 0, 0, 0), idx , d_cmap);
+		vstore3((float3)(NAN, NAN, NAN), pid , d_vmap);
+		if(d_nmap)	vstore3((float3)(NAN, NAN, NAN), pid , d_nmap);
+		if(d_cmap)	vstore4((uchar4)(0, 0, 0, 0), pid , d_cmap);
 	}
+}
+
+__kernel void raycast_kernel(
+			__global	float*		d_vmap,
+			__global	float*		d_nmap,
+			__global	uchar*		d_cmap,
+			__global	float*					d_minmaxData,
+			__global struct NuiKinfuHashEntry*	d_hashEntry,
+			__global struct NuiKinfuVoxel*		d_SDFBlocks,
+            __constant struct NuiCLCameraParams* cameraParams,
+			__global struct NuiCLRigidTransform* rigidTransform,
+			const float				virtualVoxelSize,
+			const float				oneOverVoxelSize,
+			const	float			truncScale
+        )
+{
+	const uint gidx = get_global_id(0);
+	const uint gidy = get_global_id(1);
+	const uint gsizex = get_global_size(0);
+	
+	castRay(gidx, gidy, gsizex, d_vmap, d_nmap, d_cmap, d_minmaxData, d_hashEntry, d_SDFBlocks, cameraParams, rigidTransform, virtualVoxelSize, oneOverVoxelSize, truncScale);
 }
 
 __kernel void forwardProject_kernel(
@@ -475,12 +495,65 @@ __kernel void forwardProject_kernel(
 	if(screenPos.x < camParams.depthImageWidth && screenPos.y < camParams.depthImageHeight)
 	{
 		const uint screenId = mul24(screenPos.y, camParams.depthImageWidth) + screenPos.x;
-		vstore3(pixel, screenId, d_vmap);
+		vstore3(pixel, screenId, d_nmap);
 
-		float3 norm = vload3(idx, d_nmap);
-		vstore3(norm, screenId, d_nmap);
+		/*float3 norm = vload3(idx, d_nmap);
+		vstore3(norm, screenId, d_nmap);*/
 
 		uchar4 clr = vload4(idx, d_cmap);
 		vstore4(clr, screenId, d_cmap);
 	}
+}
+
+__kernel void findMissingPoints_kernel(
+			__global	uchar*		d_flags,
+			__global	float*		d_vmap,
+			__global	float*		d_nmap,
+			__global	float*		d_minmaxData
+        )
+{
+	const uint gidx = get_global_id(0);
+	const uint gidy = get_global_id(1);
+	const uint gsizex = get_global_size(0);
+	const int idx = mul24(gidy, gsizex) + gidx;
+
+	float3 fwdPoint = vload3(idx, d_nmap);
+	float2 minmax = vload2(idx, d_minmaxData);
+
+	bool bNeeded = (_isnan3(fwdPoint) && (minmax.x < minmax.y));
+	d_flags[idx] = bNeeded;
+	if(!bNeeded)
+	{
+		vstore3(fwdPoint, idx, d_vmap);
+	}
+}
+
+__kernel void genericRaycastMissingPoints_kernel(
+			__global	int*		d_neededIDs,
+			__global	float*		d_vmap,
+			__global	uchar*		d_cmap,
+			__global	float*					d_minmaxData,
+			__global struct NuiKinfuHashEntry*	d_hashEntry,
+			__global struct NuiKinfuVoxel*		d_SDFBlocks,
+            __constant struct NuiCLCameraParams* cameraParams,
+			__global struct NuiCLRigidTransform* rigidTransform,
+			const float				virtualVoxelSize,
+			const float				oneOverVoxelSize,
+			const	float			truncScale
+        )
+{
+	const uint gid = get_global_id(0);
+	const int eid = d_neededIDs[gid];
+	if(eid < 0)
+		return;
+
+	struct NuiCLCameraParams camParams = *cameraParams;
+	const uint sizex = camParams.depthImageWidth;
+	const uint idy = eid / sizex;
+	const uint idx = eid - mul24(idy, sizex);
+
+	if(idy >= camParams.depthImageHeight)
+		return;
+
+	castRay(idx, idy, sizex, d_vmap, NULL, d_cmap, d_minmaxData, d_hashEntry, d_SDFBlocks, cameraParams, rigidTransform, virtualVoxelSize, oneOverVoxelSize, truncScale);
 }
