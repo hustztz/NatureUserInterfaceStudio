@@ -9,6 +9,7 @@
 #include "OpenCLUtilities/NuiOpenCLKernelManager.h"
 
 #include <assert.h>
+#include <algorithm>
 
 NuiKinfuOpenCLHashGlobalCache::NuiKinfuOpenCLHashGlobalCache()
 	: m_swapStates_deviceCL(NULL)

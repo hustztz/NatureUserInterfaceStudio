@@ -1,0 +1,91 @@
+cmake_minimum_required(VERSION 2.6.0)
+project(libSLAM)
+
+set(SLAM_HEADERS
+NuiHashingChunkGridConfig.h
+NuiHashingRaycastConfig.h
+NuiHashingSDFConfig.h
+NuiKinfuMainEngine.h
+NuiKinfuManager.h
+NuiKinfuPointCloud.h
+NuiKinfuTrackingEngine.h
+NuiKinfuVolumeConfig.h
+NuiMeshingUtil.h
+NuiTrackerConfig.h
+DeviceSpecific/NuiKinfuCameraState.h
+DeviceSpecific/NuiKinfuFeedbackFrame.h
+DeviceSpecific/NuiKinfuFrame.h
+DeviceSpecific/NuiKinfuScene.h
+DeviceSpecific/NuiKinfuTracker.h
+DeviceSpecific/NuiKinfuTrackingFactory.h
+DeviceSpecific/CPU/NuiKinfuCPUDepthTracker.h
+DeviceSpecific/CPU/NuiKinfuCPUFeedbackFrame.h
+DeviceSpecific/CPU/NuiKinfuCPUFrame.h
+DeviceSpecific/CPU/NuiKinfuCPUUtilities.h
+DeviceSpecific/OpenCL/NuiHashingOpenCLChunkGrid
+DeviceSpecific/OpenCL/NuiHashingOpenCLScene
+DeviceSpecific/OpenCL/NuiHashingOpenCLSDF
+DeviceSpecific/OpenCL/NuiKinfuOpenCLAcceleratedFeedbackFrame
+DeviceSpecific/OpenCL/NuiKinfuOpenCLCameraState
+DeviceSpecific/OpenCL/NuiKinfuOpenCLColorTracker
+DeviceSpecific/OpenCL/NuiKinfuOpenCLDepthTracker.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLFeedbackFrame.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLFrame.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLHashGlobalCache.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.h
+DeviceSpecific/OpenCL/NuiKinfuVoxelBlockHash.h
+DeviceSpecific/OpenCL/NuiMarchingCubeTable.h
+DeviceSpecific/OpenCL/NuiOpenCLPrefixSum.h
+)
+
+set(SLAM_SOURCES
+NuiHashingChunkGridConfig.cpp
+NuiHashingRaycastConfig.cpp
+NuiHashingSDFConfig.cpp
+NuiKinfuMainEngine.cpp
+NuiKinfuManager.cpp
+NuiKinfuTrackingEngine.cpp
+NuiKinfuVolumeConfig.cpp
+NuiMeshingUtil.cpp
+NuiTrackerConfig.cpp
+DeviceSpecific/CPU/NuiKinfuCPUDepthTracker.cpp
+DeviceSpecific/CPU/NuiKinfuCPUFeedbackFrame.cpp
+DeviceSpecific/CPU/NuiKinfuCPUFrame.cpp
+DeviceSpecific/OpenCL/NuiHashingOpenCLChunkGrid
+DeviceSpecific/OpenCL/NuiHashingOpenCLScene
+DeviceSpecific/OpenCL/NuiHashingOpenCLSDF
+DeviceSpecific/OpenCL/NuiKinfuOpenCLAcceleratedFeedbackFrame.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLCameraState.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLColorTracker.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLDepthTracker.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLFeedbackFrame.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLFrame.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLHashGlobalCache.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.cpp
+DeviceSpecific/OpenCL/NuiKinfuVoxelBlockHash.cpp
+DeviceSpecific/OpenCL/NuiOpenCLPrefixSum.cpp
+)
+
+add_definitions(-DNOMINMAX)
+
+include_directories($ENV{NUI_LOCATION})
+include_directories(${Boost_INCLUDE_DIR})
+include_directories($ENV{EIGEN_ROOT})
+include_directories($ENV{MAYA_RELEASE_BUILD}/include)
+
+add_library(libSLAM
+			${SLAM_HEADERS}
+			${SLAM_SOURCES}
+)
+target_link_libraries(libSLAM
+			${Boost_LIBRARIES}
+)
+
+target_link_libraries(libSLAM
+					libFoundation
+					libShape
+					libOpenCLUtilities
+					libFrame
+)

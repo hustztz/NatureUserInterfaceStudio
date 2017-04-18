@@ -45,3 +45,5 @@ Maya.env
 NatureUserInterfaceToMaya/
 *.log
 NatureUserInterfaceStudio.VC.db
+msvc12/
+msvc14/

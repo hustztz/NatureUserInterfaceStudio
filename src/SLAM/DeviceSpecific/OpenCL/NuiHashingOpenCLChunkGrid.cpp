@@ -7,6 +7,7 @@
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 
 #include <assert.h>
+#include <algorithm>
 
 NuiHashingOpenCLChunkGrid::NuiHashingOpenCLChunkGrid(NuiHashingOpenCLSDF* pSDF)
 	: m_pHashingSDF(pSDF)
