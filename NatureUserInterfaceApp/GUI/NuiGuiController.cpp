@@ -13,7 +13,7 @@
 
 #include "NuiPangoVis.h"
 
-#include "SLAM/NuiKinfuManager.h"
+#include "SLAM/VisualOdometry/NuiKinfuManager.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
 #include "Frame/NuiFrameSaveManager.h"
 #include "Shape/NuiCLMappableData.h"
@@ -186,8 +186,8 @@ void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 	{
 		float trackerErrThresh = 5e-05f;
 		m_gui->a_resLog.Log(m_pKinfu->m_engine.getTrackerError(), trackerErrThresh);
-		float trackerCountThresh = 30000.f;
-		m_gui->a_inLog.Log((float)m_pKinfu->m_engine.getTrackerCount(), trackerCountThresh);
+		/*float trackerCountThresh = 30000.f;
+		m_gui->a_inLog.Log((float)m_pKinfu->m_engine.getTrackerCount(), trackerCountThresh);*/
 	}
 
 	std::stringstream strsf;

@@ -30,6 +30,7 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 	{
 		NuiHashingSDFConfig sdfConfig;
 		sdfConfig.m_bUseSwapping = false;
+		sdfConfig.m_bUseForwardRender = true;
 		sdfConfig.m_virtualVoxelSize = voxelSize;
 		//sdfConfig.m_truncation = 5.0f * sdfConfig.m_virtualVoxelSize;
 		//sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;

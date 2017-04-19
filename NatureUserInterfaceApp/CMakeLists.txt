@@ -28,6 +28,8 @@ GUI/NuiPangoTexturedMeshShader.cpp
 GUI/NuiPangoVis.cpp
 )
 
+SOURCE_GROUP(GUI FILES ${GUI_HEADERS} ${GUI_SOURCES})
+
 find_package(Pangolin 0.1 REQUIRED)
 
 add_definitions(-DNOMINMAX)
@@ -45,7 +47,7 @@ include_directories($ENV{MAYA_RELEASE_BUILD}/include)
 add_executable(NatureUserInterfaceDemo NatureUserInterfaceDemo.cpp ${GUI_HEADERS} ${GUI_SOURCES})
 
 target_link_libraries(NatureUserInterfaceDemo
-                      libSLAM
+                      libVisualOdometry
 					  libFrame
 					  libDeviceManager
 					  ${Boost_LIBRARIES}

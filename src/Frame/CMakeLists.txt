@@ -1,7 +1,23 @@
 cmake_minimum_required(VERSION 2.6.0)
 project(libFrame)
 
-set(FRAME_HEADERS
+set(FRAME_BUFFER_HEADS
+Buffer/NuiDataPtrCache.h
+Buffer/NuiDataPtrCircleBuffer.h
+Buffer/NuiDataSharedPtrCache.h
+Buffer/NuiDataSharedPtrCircleBuffer.h
+Buffer/NuiFrameBuffer.h
+Buffer/NuiFrameCache.h
+Buffer/NuiFrameCacheImpl.h
+Buffer/NuiFrameCircleBuffer.h
+)
+
+set(FRAME_BUFFER_SOURCES
+Buffer/NuiFrameBuffer.cpp
+Buffer/NuiFrameCache.cpp
+)
+
+set(FRAME_HEADS
 NuiCompositeFrame.h
 NuiCompoundImageFrame.h
 NuiCompressedDepthFrame.h
@@ -16,14 +32,6 @@ NuiGrabberFrame.h
 NuiImageFrame.h
 NuiPointCloudFrame.h
 NuiSkeletonFrame.h
-Buffer/NuiDataPtrCache.h
-Buffer/NuiDataPtrCircleBuffer.h
-Buffer/NuiDataSharedPtrCache.h
-Buffer/NuiDataSharedPtrCircleBuffer.h
-Buffer/NuiFrameBuffer.h
-Buffer/NuiFrameCache.h
-Buffer/NuiFrameCacheImpl.h
-Buffer/NuiFrameCircleBuffer.h
 )
 
 set(FRAME_SOURCES
@@ -39,9 +47,10 @@ NuiFusionImageFrame.cpp
 NuiGestureFrame.cpp
 NuiPointCloudFrame.cpp
 NuiSkeletonFrame.cpp
-Buffer/NuiFrameBuffer.cpp
-Buffer/NuiFrameCache.cpp
 )
+
+SOURCE_GROUP("" FILES ${FRAME_HEADS} ${FRAME_SOURCES})
+SOURCE_GROUP(BUFFER FILES ${FRAME_BUFFER_HEADS} ${FRAME_BUFFER_SOURCES})
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
@@ -51,7 +60,9 @@ include_directories($ENV{MAYA_RELEASE_BUILD}/include)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 add_library(libFrame
-			${FRAME_HEADERS}
+			${FRAME_BUFFER_HEADS}
+			${FRAME_BUFFER_SOURCES}
+			${FRAME_HEADS}
 			${FRAME_SOURCES}
 )
 target_link_libraries(libFrame ${Boost_LIBRARIES} ${OpenCV_LIBS})

@@ -32,8 +32,7 @@ public:
 
 		if(width != _rgbImg.w || height != _rgbImg.h)
 		{
-			pangolin::FreeImage(_rgbImg);
-			_rgbImg.Alloc(width, height, pangolin::VideoFormatFromString("RGBA"));
+			_rgbImg.Reinitialise(width, height, pangolin::VideoFormatFromString("RGBA32"));
 		}
 
 		if(_rgbImg.ptr && buffer && width*height > 0)
@@ -106,7 +105,6 @@ public:
 
 		// Realize to system memory
 		_rgbTex.Delete();
-		pangolin::FreeImage(_rgbImg);
 		//});
 	}
 private:
@@ -158,8 +156,7 @@ public:
 
 		if(width != _rgbImg.w || height != _rgbImg.h)
 		{
-			pangolin::FreeImage(_rgbImg);
-			_rgbImg.Alloc(width, height, pangolin::VideoFormatFromString("RGBA"));
+			_rgbImg.Reinitialise(width, height, pangolin::VideoFormatFromString("RGBA32"));
 		}
 
 		if(_rgbImg.ptr && buffer && width*height > 0)
@@ -237,7 +234,7 @@ public:
 
 		// Realize to system memory
 		_rgbTex.Delete();
-		pangolin::FreeImage(_rgbImg);
+		//pangolin::FreeImage(_rgbImg);
 		//});
 	}
 private:
@@ -286,8 +283,7 @@ public:
 	{
 		if(width != _rgbImg.w || height != _rgbImg.h)
 		{
-			pangolin::FreeImage(_rgbImg);
-			_rgbImg.Alloc(width, height, pangolin::VideoFormatFromString("RGBA"));
+			_rgbImg.Reinitialise(width, height, pangolin::VideoFormatFromString("RGBA32"));
 		}
 		if(_rgbImg.ptr && buffer && width*height > 0)
 		{
@@ -351,7 +347,7 @@ public:
 		glDeleteRenderbuffers(1, _rbo);
 		//});
 
-		pangolin::FreeImage(_rgbImg);
+		//pangolin::FreeImage(_rgbImg);
 	}
 
 private:

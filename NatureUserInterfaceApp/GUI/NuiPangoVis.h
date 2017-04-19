@@ -82,7 +82,7 @@ private:
 
 	pangolin::Var<int> a_gpuMem;
 
-	pangolin::Plotter *a_resPlot,	*a_inPlot;
+	pangolin::Plotter *a_trackErrorPlot;
 
 	pangolin::OpenGlRenderState s_cam;
 };

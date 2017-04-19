@@ -42,7 +42,7 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	, a_kinFuPause("ui.KinFu Pause", false, false)
 	, a_trackColors("ui.Track Colors", false, true)
 	, a_hashingVolume("ui.Hashing Volume", false, true)
-	, a_volumeVoxelSize("ui.Volume Voxel Size", 0.002f, 0.0005f, 0.01f)
+	, a_volumeVoxelSize("ui.Volume Voxel Size", 0.005f, 0.0005f, 0.01f)
 	, a_translateBasisX("ui.Tracker Basis X", 0.f, -10.0f, 10.0f)
 	, a_translateBasisZ("ui.Tracker Basis Z", 0.f, -10.0f, 10.0f)
 	, a_integrationThreshold("ui.Volume Threshold", 0.15f, 0.05f, 1.0f)
@@ -73,18 +73,24 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
 	pangolin::SetFullscreen(m_showcaseMode);
-
+	
+	// 3D Mouse handler requires depth testing to be enabled
 	glEnable(GL_DEPTH_TEST);
 	glDepthMask(GL_TRUE);
 	glDepthFunc(GL_LESS);
 
+	// Define Camera Render Object (for view / scene browsing)
 	s_cam = pangolin::OpenGlRenderState(pangolin::ProjectionMatrix(4, 4, 2, 2, 2, 2, 0.01, 100),
 		pangolin::ModelViewLookAt(0, 0, -1, 0, 0, 1, pangolin::AxisY));
 
-	pangolin::Display("cam").SetBounds(0, 1.0f, 0, 1.0f, -640 / 480.0)
+	// Add named OpenGL viewport to window and provide 3D Handler
+	pangolin::Display("cam").SetBounds(0, 1.0f, pangolin::Attach::Pix(panel), 1.0f, -640 / 480.0)
 		.SetHandler(new pangolin::Handler3D(s_cam));
 
 	pangolin::Display("GrabberImage")
+		.SetAspect(640.0f / 480.0f);
+
+	pangolin::Display("FusionImage")
 		.SetAspect(640.0f / 480.0f);
 
 	std::vector<std::string> labels;
@@ -92,16 +98,9 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	labels.push_back(std::string("threshold"));
 	a_resLog.SetLabels(labels);
 
-	a_resPlot = new pangolin::Plotter(&a_resLog, 0, 300, 0, 0.0005f, 30, 0.5f);
-	a_resPlot->Track("$i");
-
-	std::vector<std::string> labels2;
-	labels2.push_back(std::string("inliers"));
-	labels2.push_back(std::string("threshold"));
-	a_inLog.SetLabels(labels2);
-
-	a_inPlot = new pangolin::Plotter(&a_inLog, 0, 300, 0, 40000, 30, 0.5);
-	a_inPlot->Track("$i");
+	a_trackErrorPlot = new pangolin::Plotter(&a_resLog, 0, 300, 0, 0.0005f, 30, 0.5f);
+	a_trackErrorPlot->Track("$i");
+	a_trackErrorPlot->AddMarker(pangolin::Marker::Horizontal, 10, pangolin::Marker::GreaterThan, pangolin::Colour::Red().WithAlpha(0.2f));
 
 	if(!m_showcaseMode)
 	{
@@ -109,8 +108,8 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 		pangolin::Display("multi").SetBounds(pangolin::Attach::Pix(0), 1 / 4.0f, showcaseMode ? 0 : pangolin::Attach::Pix(180), 1.0)
 			.SetLayout(pangolin::LayoutEqualHorizontal)
 			.AddDisplay(pangolin::Display("GrabberImage"))
-			.AddDisplay(*a_resPlot)
-			.AddDisplay(*a_inPlot);
+			.AddDisplay(pangolin::Display("FusionImage"))
+			.AddDisplay(*a_trackErrorPlot);
 	}
 
 	pangolin::RegisterKeyPressCallback(pangolin::PANGO_CTRL + 'r', pangolin::SetVarFunctor<bool>("ui.View Reset", true));
@@ -126,8 +125,7 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 
 NuiPangoVis::~NuiPangoVis()
 {
-	delete a_inPlot;
-	delete a_resPlot;
+	delete a_trackErrorPlot;
 	
 	SafeDelete(m_pCloudDraw);
 	SafeDelete(m_pTexturedCloudDraw);
@@ -154,7 +152,7 @@ void NuiPangoVis::postCall()
 
 	pangolin::FinishFrame();
 
-	glFinish();
+	//glFinish();
 }
 
 void NuiPangoVis::drawFrustum(NuiCLMappableData* pData)
