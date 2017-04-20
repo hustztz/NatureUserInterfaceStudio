@@ -39,7 +39,6 @@ include_directories($ENV{EIGEN_ROOT})
 add_library(libOpenCLUtilities
 			${OPENCL_UTILITIES_HEADERS}
 			${OPENCL_UTILITIES_SOURCES}
-			${OPENCL_KERNELS_HEADERS}
 )
 target_link_libraries(libOpenCLUtilities
 			libFoundation
