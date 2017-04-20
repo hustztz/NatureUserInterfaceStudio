@@ -28,6 +28,7 @@ public:
 
 public:
 	NuiDepthFrame			m_depthFrame;
+	NuiDepthDistortionFrame	m_depthDistortionFrame;
 	NuiColorFrame			m_colorFrame;
 	NuiBodyIndexFrame		m_bodyIndexFrame;
 	NuiColorMapFrame		m_colorMapFrame;

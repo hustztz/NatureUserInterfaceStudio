@@ -53,6 +53,7 @@ private:
 // Typedefs
 //
 typedef NuiImageBuffer<UINT16>                   NuiDepthImage;
+typedef NuiImageBuffer<UINT>					 NuiDepthDistortionImage;
 typedef NuiImageBuffer<BGRQUAD>                  NuiColorImage;
 typedef NuiImageBuffer<BYTE>                     NuiBodyIndexImage;
 typedef NuiImageBuffer<float>                    NuiFloatImage;

@@ -14,14 +14,14 @@
 
 using namespace NuiKinfuEngine;
 
-NuiKinfuTrackingEngine::NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+NuiKinfuTrackingEngine::NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight)
 	: m_pTracker(NULL)
 	, m_pFrame(NULL)
 	, m_pFeedbackFrame(NULL)
 	, m_pCameraState(NULL)
 	, m_integration_metric_threshold(0.15f)
 {
-	initialize(tracerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
+	initialize(tracerConfig, nWidth, nHeight);
 }
 
 NuiKinfuTrackingEngine::NuiKinfuTrackingEngine()
@@ -56,16 +56,17 @@ void NuiKinfuTrackingEngine::reset(const Vector3f& translateBasis)
 	m_lastIntegrationPos = m_pCameraState->GetCameraPos();
 }
 
-void NuiKinfuTrackingEngine::initialize(const NuiTrackerConfig& trackerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+void NuiKinfuTrackingEngine::initialize(const NuiTrackerConfig& trackerConfig, UINT nWidth, UINT nHeight)
 {
 	NuiKinfuTrackingFactory::Instance().BuildTrackingEngine(
-		&m_pTracker, &m_pFrame, &m_pFeedbackFrame, &m_pCameraState, trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
+		&m_pTracker, &m_pFrame, &m_pFeedbackFrame, &m_pCameraState, trackerConfig, nWidth, nHeight);
 
 	reset( Vector3f::Zero() );
 }
 
 bool	NuiKinfuTrackingEngine::RunTracking(
 	UINT16* pDepths,
+	UINT* pDepthDistortionLT,
 	ColorSpacePoint* pDepthToColor,
 	UINT nPointNum,
 	const NuiColorImage& colorImage,
@@ -80,11 +81,11 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 
 	// Build the frame buffers
 	m_pCameraState->UpdateCameraParams(cameraParams, m_pFrame->GetWidth(), m_pFrame->GetHeight());
-	m_pFrame->UpdateVertexBuffers(pDepths, nPointNum, m_pCameraState);
+	m_pFrame->UpdateVertexBuffers(pDepths, pDepthDistortionLT, nPointNum, m_pCameraState);
 	if( m_pTracker->hasColorData() ||
 		(pScene && pScene->hasColorData()))
 	{
-		m_pFrame->UpdateColorBuffers(pDepthToColor, nPointNum, colorImage);
+		m_pFrame->UpdateColorBuffers(pDepthToColor, pDepthDistortionLT, nPointNum, colorImage);
 	}
 	
 	// Tracking

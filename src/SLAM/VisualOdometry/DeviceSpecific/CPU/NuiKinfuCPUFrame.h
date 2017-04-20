@@ -12,8 +12,8 @@ public:
 	NuiKinfuCPUFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuCPUFrame();
 
-	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState) override;
-	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image) override;
+	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState) override;
+	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image) override;
 	virtual UINT	GetWidth() const override { return m_floatDepths.GetWidth(); }
 	virtual UINT	GetHeight() const override { return m_floatDepths.GetHeight(); }
 

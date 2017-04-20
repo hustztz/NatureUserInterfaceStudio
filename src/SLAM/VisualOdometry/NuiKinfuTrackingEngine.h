@@ -19,18 +19,19 @@ namespace NuiKinfuEngine
 	class NuiKinfuTrackingEngine
 	{
 	public:
-		NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight);
+		NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight);
 		NuiKinfuTrackingEngine();
 		~NuiKinfuTrackingEngine();
 
 		bool	isInit() const { return (m_pTracker ? true : false); }
-		void	initialize(const NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight);
+		void	initialize(const NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight);
 		bool	log(const std::string& fileName) const;
 
 		/** \brief Performs the tracker reset to initial  state. It's used if case of camera tracking fail.  */
 		void	reset(const Vector3f& translateBasis);
 
 		bool	RunTracking(UINT16* pDepths,
+			UINT* pDepthDistortionLT,
 			ColorSpacePoint* pDepthToColor,
 			UINT nPointNum,
 			const NuiColorImage& image,

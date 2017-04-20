@@ -26,8 +26,7 @@ namespace NuiKinfuEngine
 			NuiKinfuFeedbackFrame**	pFeedbackFrame,
 			NuiKinfuCameraState**	pCameraState,
 			const NuiTrackerConfig& trackerConfig,
-			unsigned int nWidth, unsigned int nHeight,
-			unsigned int nColorWidth, unsigned int nColorHeight)
+			unsigned int nWidth, unsigned int nHeight)
 		{
 			SafeDelete(*pFrame);
 			SafeDelete(*pTracker);
@@ -35,7 +34,7 @@ namespace NuiKinfuEngine
 
 			// OpenCL
 			{
-				*pFrame = new NuiKinfuOpenCLFrame(trackerConfig, nWidth, nHeight, nColorWidth, nColorHeight);
+				*pFrame = new NuiKinfuOpenCLFrame(trackerConfig, nWidth, nHeight);
 				*pFeedbackFrame = new NuiKinfuOpenCLAcceleratedFeedbackFrame(nWidth, nHeight);
 				*pTracker = new NuiKinfuOpenCLDepthTracker(trackerConfig, nWidth, nHeight);
 				*pCameraState = new NuiKinfuOpenCLCameraState();
