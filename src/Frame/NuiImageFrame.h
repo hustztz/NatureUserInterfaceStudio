@@ -129,6 +129,7 @@ private:
 // Typedefs
 //
 typedef NuiImageFrame<NuiColorImage, BGRQUAD>                  NuiColorFrame;
+typedef NuiImageFrame<NuiDepthDistortionImage, UINT>           NuiDepthDistortionFrame;
 typedef NuiImageFrame<NuiBodyIndexImage, BYTE>                 NuiBodyIndexFrame;
 typedef NuiImageFrame<NuiColorSpaceImage, ColorSpacePoint>     NuiColorMapFrame;
 typedef NuiImageFrame<NuiCameraSpaceImage, CameraSpacePoint>   NuiCameraMapFrame;

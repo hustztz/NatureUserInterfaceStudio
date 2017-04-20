@@ -10,7 +10,7 @@
 
 #include "assert.h"
 
-NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight)
 	: m_nWidth(0)
 	, m_nHeight(0) 
 	, m_rawDepthsCL(NULL)
@@ -18,16 +18,12 @@ NuiKinfuOpenCLFrame::NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nW
 	, m_gaussianCL(NULL)
 	, m_filteredDepthsCL(NULL)
 	, m_verticesCL(NULL)
-	, m_colorUVsCL(NULL)
-	, m_colorImageCL(NULL)
 	, m_colorsCL(NULL)
 	, m_filter_radius(config.filter_radius)
 	, m_sigma_depth2_inv_half(config.sigma_depth2_inv_half)
 	, m_depth_threshold(config.depth_threshold)
-	, m_nColorWidth(0)
-	, m_nColorHeight(0)
 {
-	AcquireBuffers(nWidth, nHeight, nColorWidth, nColorHeight);
+	AcquireBuffers(nWidth, nHeight);
 	GenerateGaussianBuffer(config.filter_radius, config.sigma_space2_inv_half);
 }
 
@@ -36,9 +32,9 @@ NuiKinfuOpenCLFrame::~NuiKinfuOpenCLFrame()
 	ReleaseBuffers();
 }
 
-void	NuiKinfuOpenCLFrame::AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight)
+void	NuiKinfuOpenCLFrame::AcquireBuffers(UINT nWidth, UINT nHeight)
 {
-	if(nWidth == m_nWidth && nHeight == m_nHeight && nColorWidth == m_nColorWidth && nColorHeight == m_nColorHeight)
+	if(nWidth == m_nWidth && nHeight == m_nHeight)
 	{
 		return;
 	}
@@ -47,8 +43,6 @@ void	NuiKinfuOpenCLFrame::AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorW
 
 	m_nWidth = nWidth;
 	m_nHeight = nHeight;
-	m_nColorWidth = nColorWidth;
-	m_nColorHeight = nColorHeight;
 
 	cl_int           err = CL_SUCCESS;
 	cl_context       context = NuiOpenCLGlobal::instance().clContext();
@@ -60,17 +54,17 @@ void	NuiKinfuOpenCLFrame::AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorW
 	NUI_CHECK_CL_ERR(err);
 	m_verticesCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*3*sizeof(cl_float), NULL, &err);
 	NUI_CHECK_CL_ERR(err);
-	if(m_nColorWidth * m_nColorHeight > 0)
+	//if(m_nColorWidth * m_nColorHeight > 0)
 	{
-		m_colorUVsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, m_nWidth*m_nHeight*sizeof(ColorSpacePoint), NULL, &err);
-		NUI_CHECK_CL_ERR(err);
+		/*m_colorUVsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, m_nWidth*m_nHeight*sizeof(ColorSpacePoint), NULL, &err);
+		NUI_CHECK_CL_ERR(err);*/
 		/*cl_image_format colorImgFormat;
 		colorImgFormat.image_channel_order = CL_BGRA;
 		colorImgFormat.image_channel_data_type = CL_UNSIGNED_INT8;
 		m_colorImageCL = NuiGPUMemManager::instance().CreateImage2DCL(context, CL_MEM_READ_ONLY, &colorImgFormat, m_nColorWidth, m_nColorHeight, 0, NULL, &err);
 		NUI_CHECK_CL_ERR(err);*/
-		m_colorImageCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, m_nColorWidth*m_nColorHeight*sizeof(BGRQUAD), NULL, &err);
-		NUI_CHECK_CL_ERR(err);
+		/*m_colorImageCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_ONLY, m_nColorWidth*m_nColorHeight*sizeof(BGRQUAD), NULL, &err);
+		NUI_CHECK_CL_ERR(err);*/
 		m_colorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, m_nWidth*m_nHeight*sizeof(BGRQUAD), NULL, &err);
 		NUI_CHECK_CL_ERR(err);
 	}
@@ -103,7 +97,7 @@ void	NuiKinfuOpenCLFrame::ReleaseBuffers()
 		NUI_CHECK_CL_ERR(err);
 		m_verticesCL = NULL;
 	}
-	if (m_colorUVsCL) {
+	/*if (m_colorUVsCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorUVsCL);
 		NUI_CHECK_CL_ERR(err);
 		m_colorUVsCL = NULL;
@@ -112,7 +106,7 @@ void	NuiKinfuOpenCLFrame::ReleaseBuffers()
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorImageCL);
 		NUI_CHECK_CL_ERR(err);
 		m_colorImageCL = NULL;
-	}
+	}*/
 	if (m_colorsCL) {
 		cl_int err = NuiGPUMemManager::instance().ReleaseMemObjectCL(m_colorsCL);
 		NUI_CHECK_CL_ERR(err);
@@ -315,7 +309,7 @@ void NuiKinfuOpenCLFrame::Depth2vertex(cl_mem cameraParamsCL)
 	NUI_CHECK_CL_ERR(err);
 }
 
-void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState)
+void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState)
 {
 	assert(m_nWidth*m_nHeight == nNum);
 	if(!pDepths|| !m_rawDepthsCL)
@@ -370,20 +364,43 @@ void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKin
 	}
 }
 
-void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image)
+void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image)
 {
 	assert(m_nWidth*m_nHeight == nNum);
-	if(!pDepthToColor || !image.GetBuffer() || !m_colorUVsCL || !m_colorImageCL)
+	if(!pDepthToColor || !image.GetBuffer() || !m_colorsCL)
 		return;
 
-	// Get the kernel
-	cl_kernel uv2colorKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_UV2COLOR);
-	assert(uv2colorKernel);
-	if (!uv2colorKernel)
+	BGRQUAD* pColors = new BGRQUAD[nNum];
+	BGRQUAD* pImgSrc = image.GetBuffer();
+#ifdef WITH_OPENMP
+#pragma omp parallel for
+#endif
+	for (UINT i = 0; i < nNum; ++i)
 	{
-		NUI_ERROR("Get kernel 'E_UV2COLOR' failed!\n");
-		return;
+		const UINT mappedIndex = pDepthDistortionLT ? pDepthDistortionLT[i] : i;
+		if (mappedIndex < nNum)
+		{
+			int colorX = (int)(pDepthToColor[mappedIndex].X + 0.5f);
+			int colorY = (int)(pDepthToColor[mappedIndex].Y + 0.5f);
+			if ((colorX >= 0 && colorX < (int)image.GetWidth()) && (colorY >= 0 && colorY < (int)image.GetHeight()))
+			{
+				pColors[i] = pImgSrc[i];
+			}
+			else
+			{
+				pColors[i].rgbRed = 0;
+				pColors[i].rgbGreen = 0;
+				pColors[i].rgbBlue = 0;
+				pColors[i].rgbReserved = 0;
+			}
+		}
+		else
+		{
+			pColors[i].rgbRed = 0;
+			pColors[i].rgbGreen = 0;
+			pColors[i].rgbBlue = 0;
+			pColors[i].rgbReserved = 0;
+		}
 	}
 
 	// OpenCL command queue and device
@@ -396,15 +413,15 @@ void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UIN
 #endif
 	clEnqueueWriteBuffer(
 		queue,
-		m_colorUVsCL,
+		m_colorsCL,
 #ifdef _GPU_PROFILER
 		CL_TRUE,
 #else
 		CL_FALSE,//blocking
 #endif
 		0,
-		nNum * sizeof(ColorSpacePoint),
-		pDepthToColor,
+		nNum * sizeof(BGRQUAD),
+		pColors,
 		0,
 		NULL,
 #ifdef _GPU_PROFILER
@@ -415,71 +432,119 @@ void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UIN
 		);
 	NUI_CHECK_CL_ERR(err);
 
-#ifdef _GPU_PROFILER
-	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
-	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
-	std::cout << "write color:" << (time_end - time_start) << std::endl;
-	clReleaseEvent(timing_event);
-#endif
-
-	//////////////////////////
-	// Write Color Image
-#ifdef _GPU_PROFILER
-	cl_event timing_event2;
-#endif
-	clEnqueueWriteBuffer(
-		queue,
-		m_colorImageCL,
-#ifdef _GPU_PROFILER
-		CL_TRUE,
-#else
-		CL_FALSE,//blocking
-#endif
-		0,
-		image.GetWidth() * image.GetHeight() * sizeof(BGRQUAD),
-		image.GetBuffer(),
-		0,
-		NULL,
-#ifdef _GPU_PROFILER
-		&timing_event2
-#else
-		NULL
-#endif
-		);
-	NUI_CHECK_CL_ERR(err);
-
-#ifdef _GPU_PROFILER
-	clGetEventProfilingInfo(timing_event2, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
-	clGetEventProfilingInfo(timing_event2, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
-	std::cout << "write color image:" << (time_end - time_start) << std::endl;
-	clReleaseEvent(timing_event2);
-#endif
-
-	// Set kernel arguments
-	cl_uint idx = 0;
-	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_mem), &m_colorUVsCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_mem), &m_colorImageCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_int), &m_nColorWidth);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_int), &m_nColorHeight);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_mem), &m_colorsCL);
-	NUI_CHECK_CL_ERR(err);
-
-	// Run kernel to calculate 
-	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
-	err = clEnqueueNDRangeKernel(
-		queue,
-		uv2colorKernel,
-		2,
-		nullptr,
-		kernelGlobalSize,
-		nullptr,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
+	SafeDeleteArray(pColors);
 }
+
+//void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image)
+//{
+//	assert(m_nWidth*m_nHeight == nNum);
+//	if(!pDepthToColor || !image.GetBuffer() || !m_colorUVsCL || !m_colorImageCL)
+//		return;
+//
+//	// Get the kernel
+//	cl_kernel uv2colorKernel =
+//		NuiOpenCLKernelManager::instance().acquireKernel(E_UV2COLOR);
+//	assert(uv2colorKernel);
+//	if (!uv2colorKernel)
+//	{
+//		NUI_ERROR("Get kernel 'E_UV2COLOR' failed!\n");
+//		return;
+//	}
+//
+//	// OpenCL command queue and device
+//	cl_int           err = CL_SUCCESS;
+//	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+//
+//#ifdef _GPU_PROFILER
+//	cl_event timing_event;
+//	cl_ulong time_start, time_end;
+//#endif
+//	clEnqueueWriteBuffer(
+//		queue,
+//		m_colorUVsCL,
+//#ifdef _GPU_PROFILER
+//		CL_TRUE,
+//#else
+//		CL_FALSE,//blocking
+//#endif
+//		0,
+//		nNum * sizeof(ColorSpacePoint),
+//		pDepthToColor,
+//		0,
+//		NULL,
+//#ifdef _GPU_PROFILER
+//		&timing_event
+//#else
+//		NULL
+//#endif
+//		);
+//	NUI_CHECK_CL_ERR(err);
+//
+//#ifdef _GPU_PROFILER
+//	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+//	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+//	std::cout << "write color:" << (time_end - time_start) << std::endl;
+//	clReleaseEvent(timing_event);
+//#endif
+//
+//	//////////////////////////
+//	// Write Color Image
+//#ifdef _GPU_PROFILER
+//	cl_event timing_event2;
+//#endif
+//	clEnqueueWriteBuffer(
+//		queue,
+//		m_colorImageCL,
+//#ifdef _GPU_PROFILER
+//		CL_TRUE,
+//#else
+//		CL_FALSE,//blocking
+//#endif
+//		0,
+//		image.GetWidth() * image.GetHeight() * sizeof(BGRQUAD),
+//		image.GetBuffer(),
+//		0,
+//		NULL,
+//#ifdef _GPU_PROFILER
+//		&timing_event2
+//#else
+//		NULL
+//#endif
+//		);
+//	NUI_CHECK_CL_ERR(err);
+//
+//#ifdef _GPU_PROFILER
+//	clGetEventProfilingInfo(timing_event2, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
+//	clGetEventProfilingInfo(timing_event2, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
+//	std::cout << "write color image:" << (time_end - time_start) << std::endl;
+//	clReleaseEvent(timing_event2);
+//#endif
+//
+//	// Set kernel arguments
+//	cl_uint idx = 0;
+//	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_mem), &m_colorUVsCL);
+//	NUI_CHECK_CL_ERR(err);
+//	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_mem), &m_colorImageCL);
+//	NUI_CHECK_CL_ERR(err);
+//	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_int), &m_nColorWidth);
+//	NUI_CHECK_CL_ERR(err);
+//	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_int), &m_nColorHeight);
+//	NUI_CHECK_CL_ERR(err);
+//	err = clSetKernelArg(uv2colorKernel, idx++, sizeof(cl_mem), &m_colorsCL);
+//	NUI_CHECK_CL_ERR(err);
+//
+//	// Run kernel to calculate 
+//	size_t kernelGlobalSize[2] = { m_nWidth, m_nHeight };
+//	err = clEnqueueNDRangeKernel(
+//		queue,
+//		uv2colorKernel,
+//		2,
+//		nullptr,
+//		kernelGlobalSize,
+//		nullptr,
+//		0,
+//		NULL,
+//		NULL
+//		);
+//	NUI_CHECK_CL_ERR(err);
+//}

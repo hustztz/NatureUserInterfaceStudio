@@ -8,11 +8,11 @@ struct NuiTrackerConfig;
 class NuiKinfuOpenCLFrame : public NuiKinfuFrame
 {
 public:
-	NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight);
+	NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuOpenCLFrame();
 
-	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState) override;
-	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image) override;
+	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState) override;
+	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image) override;
 	virtual UINT	GetWidth() const override { return m_nWidth; }
 	virtual UINT	GetHeight() const override { return m_nHeight; }
 
@@ -23,7 +23,7 @@ public:
 	float	GetDepthThreshold() const { return m_depth_threshold; }
 
 protected:
-	void	AcquireBuffers(UINT nWidth, UINT nHeight, UINT nColorWidth, UINT nColorHeight);
+	void	AcquireBuffers(UINT nWidth, UINT nHeight);
 	void	ReleaseBuffers();
 	void	PassingDepths(float nearPlane, float farPlane);
 	void	GenerateGaussianBuffer(UINT filter_radius, float sigma_space2_inv_half);
@@ -36,8 +36,8 @@ private:
 	cl_mem m_gaussianCL;
 	cl_mem m_filteredDepthsCL;
 	cl_mem m_verticesCL;
-	cl_mem m_colorUVsCL;
-	cl_mem m_colorImageCL;
+	//cl_mem m_colorUVsCL;
+	//cl_mem m_colorImageCL;
 	cl_mem m_colorsCL;
 
 	UINT	m_filter_radius;
@@ -45,5 +45,5 @@ private:
 	float	m_depth_threshold;
 
 	UINT m_nWidth, m_nHeight;
-	UINT m_nColorWidth, m_nColorHeight;
+	//UINT m_nColorWidth, m_nColorHeight;
 };

@@ -34,6 +34,7 @@ namespace NuiKinfuEngine
 
 		bool	processFrame(
 			UINT16* pDepthBuffer,
+			UINT* pDepthDistortionLT,
 			ColorSpacePoint* pDepthToColor,
 			UINT nWidth,
 			UINT nHeight,

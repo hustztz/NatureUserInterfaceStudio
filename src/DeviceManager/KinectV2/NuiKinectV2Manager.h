@@ -44,7 +44,6 @@ protected:
 	bool				DetectGestures(NuiCompositeFrame* pCompositeFrame);
 	bool				DetectFaces(NuiCompositeFrame* pCompositeFrame);
 	bool				DetectFacialModels(NuiCompositeFrame* pCompositeFrame);
-	bool				CacheCameraIntriscis(NuiCompositeFrame* pCompositeFrame);
 
 	bool				InitializeColorFrame();
 	bool				InitializeDepthFrame();
@@ -54,11 +53,7 @@ protected:
 	bool				InitializeFaceTracking();
 	bool				InitializeFacialModel();
 
-	/// <summary>
-	/// Handle Coordinate Mapping changed event.
-	/// Note, this happens after sensor connect, or when Kinect Studio connects
-	/// </summary>
-	HRESULT             OnCoordinateMappingChanged();
+	bool				OnCoordinateMappingChanged(NuiCompositeFrame* pCompositeFrame);
 
 private:
 	NuiKinectV2Manager (const NuiKinectV2Manager&); // Disabled copy constructor
@@ -76,7 +71,6 @@ private:
 	/// For depth distortion correction
 	/// </summary>
 	DepthSpacePoint*            m_pDepthDistortionMap;
-	UINT*                       m_pDepthDistortionLT;
 	WAITABLE_HANDLE             m_coordinateMappingChangedEvent;
 
 	HANDLE						m_hThNuiProcess;

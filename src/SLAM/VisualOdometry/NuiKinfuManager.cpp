@@ -32,6 +32,7 @@ bool	NuiKinfuManager::process ()
 	const UINT nHeight = pCompositeFrame->m_depthFrame.GetHeight();
 	const UINT nPointNum = nWidth * nHeight;
 	UINT16* pDepthBuffer = pCompositeFrame->m_depthFrame.GetBuffer();
+	UINT* pDepthDistortionLT = pCompositeFrame->m_depthDistortionFrame.GetBuffer();
 	
 	const UINT nColorMapWidth = pCompositeFrame->m_colorMapFrame.GetWidth();
 	const UINT nColorMapHeight = pCompositeFrame->m_colorMapFrame.GetHeight();
@@ -46,6 +47,7 @@ bool	NuiKinfuManager::process ()
 
 	bool bSucceed = m_engine.processFrame(
 		pDepthBuffer,
+		pDepthDistortionLT,
 		pDepthToColor,
 		nWidth,
 		nHeight,

@@ -25,6 +25,12 @@ NuiOpenCLUtil.cpp
 NuiOpenGLThread.cpp
 )
 
+include_directories(../Kernels)
+
+SOURCE_GROUP(Kernels FILES ${OPENCL_KERNELS_HEADERS} ${OPENCL_KERNELS_SOURCES})
+SOURCE_GROUP(Kernels/Hash FILES ${OPENCL_KERNELS_HASH_SOURCES})
+
+
 include_directories($ENV{NUI_LOCATION})
 # include_directories(${OPENCL_INCLUDE_DIRS})
 include_directories($ENV{MAYA_RELEASE_BUILD}/include)
@@ -33,6 +39,7 @@ include_directories($ENV{EIGEN_ROOT})
 add_library(libOpenCLUtilities
 			${OPENCL_UTILITIES_HEADERS}
 			${OPENCL_UTILITIES_SOURCES}
+			${OPENCL_KERNELS_HEADERS}
 )
 target_link_libraries(libOpenCLUtilities
 			libFoundation

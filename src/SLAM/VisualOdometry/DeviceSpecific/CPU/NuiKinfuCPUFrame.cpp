@@ -142,7 +142,7 @@ void NuiKinfuCPUFrame::Depth2vertex(NuiCameraIntrinsics cameraIntrics)
 	}
 }
 
-void	NuiKinfuCPUFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState)
+void	NuiKinfuCPUFrame::UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState)
 {
 	assert(m_floatDepths.GetWidth()*m_floatDepths.GetHeight() == nNum);
 	if(!pDepths || !pCameraState)
@@ -157,16 +157,24 @@ void	NuiKinfuCPUFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuC
 #endif
 	for (UINT i = 0; i < nNum; ++i)
 	{
-		pBuffers[i] = pDepths[i] * 0.001f;
-		if((pBuffers[i] < minDepth) || (pBuffers[i] > maxDepth))
+		const UINT mappedIndex = pDepthDistortionLT ? pDepthDistortionLT[i] : i;
+		if (mappedIndex < nNum)
+		{
+			pBuffers[i] = pDepths[mappedIndex] * 0.001f;
+			if ((pBuffers[i] < minDepth) || (pBuffers[i] > maxDepth))
+				pBuffers[i] = NAN_FLOAT;
+		}
+		else
+		{
 			pBuffers[i] = NAN_FLOAT;
+		}
 	}
 
 	SmoothDepths(m_filter_radius, m_sigma_depth2_inv_half, m_depth_threshold);
 	Depth2vertex(pCameraState->GetCameraPos().getIntrinsics());
 }
 
-void	NuiKinfuCPUFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image)
+void	NuiKinfuCPUFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image)
 {
 	assert(m_colors.GetWidth()*m_colors.GetHeight() == nNum);
 	if(!pDepthToColor || !image.GetBuffer())
@@ -179,11 +187,22 @@ void	NuiKinfuCPUFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT n
 #endif
 	for (UINT i = 0; i < nNum; ++i)
 	{
-		int colorX = (int)(pDepthToColor[i].X + 0.5f);
-		int colorY = (int)(pDepthToColor[i].Y + 0.5f);
-		if ((colorX >= 0 && colorX < (int)image.GetWidth()) && (colorY >= 0 && colorY < (int)image.GetHeight()))
+		const UINT mappedIndex = pDepthDistortionLT ? pDepthDistortionLT[i] : i;
+		if (mappedIndex < nNum)
 		{
-			pBuffers[i] = pSrc[i];
+			int colorX = (int)(pDepthToColor[mappedIndex].X + 0.5f);
+			int colorY = (int)(pDepthToColor[mappedIndex].Y + 0.5f);
+			if ((colorX >= 0 && colorX < (int)image.GetWidth()) && (colorY >= 0 && colorY < (int)image.GetHeight()))
+			{
+				pBuffers[i] = pSrc[i];
+			}
+			else
+			{
+				pBuffers[i].rgbRed = 0;
+				pBuffers[i].rgbGreen = 0;
+				pBuffers[i].rgbBlue = 0;
+				pBuffers[i].rgbReserved = 0;
+			}
 		}
 		else
 		{

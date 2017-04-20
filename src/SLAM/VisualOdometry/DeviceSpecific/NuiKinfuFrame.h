@@ -11,8 +11,8 @@ public:
 	NuiKinfuFrame(){}
 	virtual ~NuiKinfuFrame(){}
 
-	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState) = 0;
-	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT nNum, const NuiColorImage& image) = 0;
+	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState) = 0;
+	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image) = 0;
 
 	virtual UINT	GetWidth() const = 0;
 	virtual UINT	GetHeight() const = 0;

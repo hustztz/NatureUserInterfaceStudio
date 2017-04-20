@@ -111,6 +111,7 @@ void	NuiKinfuMainEngine::resetVolume()
 
 bool	NuiKinfuMainEngine::processFrame (
 	UINT16* pDepthBuffer,
+	UINT* pDepthDistortionLT,
 	ColorSpacePoint* pDepthToColor,
 	UINT nWidth,
 	UINT nHeight,
@@ -123,12 +124,13 @@ bool	NuiKinfuMainEngine::processFrame (
 
 	if( !m_trackingEngine.isInit() )
 	{
-		m_trackingEngine.initialize(m_trackingConfig, nWidth, nHeight, image.GetWidth(), image.GetHeight());
+		m_trackingEngine.initialize(m_trackingConfig, nWidth, nHeight);
 	}
 
 	NuiTimeLog::instance().tick(sTrackingName);
 	bool returnStatus = m_trackingEngine.RunTracking(
 		pDepthBuffer,
+		pDepthDistortionLT,
 		pDepthToColor,
 		nWidth * nHeight,
 		image,
