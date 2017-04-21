@@ -769,29 +769,17 @@ void NuiKinectV2Manager::ShutdownDevice()
 	m_compoundImage.Clear();
 }
 
-bool NuiKinectV2Manager::OnCoordinateMappingChanged(NuiCompositeFrame* pCompositeFrame)
+bool NuiKinectV2Manager::OnCoordinateMappingChanged()
 {
-	assert(pCompositeFrame);
-	if (!pCompositeFrame)
-		return false;
-
 	// Calculate the down sampled image sizes, which are used for the AlignPointClouds calculation frames
 	CameraIntrinsics intrinsics = {};
 
 	m_pCoordinateMapper->GetDepthCameraIntrinsics(&intrinsics);
 
-	NuiCameraPos cam = pCompositeFrame->GetCameraParams();
-	const NuiCameraIntrinsics& camIntri = cam.getIntrinsics();
-	if (camIntri.m_fx == intrinsics.FocalLengthX && camIntri.m_fy == intrinsics.FocalLengthY &&
-		camIntri.m_cx == intrinsics.PrincipalPointX && camIntri.m_cy == intrinsics.PrincipalPointY)
-		return true;
-
-	cam.setIntrinsics(NuiCameraIntrinsics(
-		intrinsics.FocalLengthX,
-		intrinsics.FocalLengthY,
-		intrinsics.PrincipalPointX,
-		intrinsics.PrincipalPointY));
-	pCompositeFrame->SetCameraParams(cam);
+	m_cameraIntri.m_fx = intrinsics.FocalLengthX;
+	m_cameraIntri.m_fy = intrinsics.FocalLengthY;
+	m_cameraIntri.m_cx = intrinsics.PrincipalPointX;
+	m_cameraIntri.m_cy = intrinsics.PrincipalPointY;
 
 	const UINT cDepthWidth = m_depthFrameBuffer.GetWidth();
 	const UINT cDepthHeight = m_depthFrameBuffer.GetHeight();
@@ -873,14 +861,13 @@ bool NuiKinectV2Manager::OnCoordinateMappingChanged(NuiCompositeFrame* pComposit
 			return false;
 		}
 
-		UINT* pDepthDistortionLT = pCompositeFrame->m_depthDistortionFrame.AllocateBuffer(cDepthWidth, cDepthHeight);
+		UINT* pDepthDistortionLT = m_depthDistortionFrameBuffer.AllocateBuffer(cDepthWidth, cDepthHeight);
 		if (!pDepthDistortionLT)
 		{
 			std::cerr << "Failed to initialize Kinect Fusion depth image distortion Lookup Table." << std::endl;
 			return false;
 		}
 
-		pCompositeFrame->m_depthDistortionFrame.WriteFrameLock();
 		for (UINT i = 0; i < cDepthImagePixels; i++, pDepthDistortionLT++)
 		{
 			//nearest neighbor depth lookup table 
@@ -889,7 +876,6 @@ bool NuiKinectV2Manager::OnCoordinateMappingChanged(NuiCompositeFrame* pComposit
 
 			*pDepthDistortionLT = (x < cDepthWidth && y < cDepthHeight) ? x + y * cDepthWidth : UINT_MAX;
 		}
-		pCompositeFrame->m_depthDistortionFrame.WriteFrameUnlock();
 		
 	}
 	return true;
@@ -922,14 +908,26 @@ DWORD WINAPI NuiKinectV2Manager::GrabThread (LPVOID pParam)
 
 		pthis->GrabFrame(pCompositeFrame.get());
 
-		if (((pthis->m_eDeviceFlags & EDevice_Depth_On) || (pthis->m_eDeviceFlags & EDevice_Camera_Intrisics))
-			&& pthis->m_coordinateMappingChangedEvent != NULL &&
-			WAIT_OBJECT_0 == WaitForSingleObject((HANDLE)pthis->m_coordinateMappingChangedEvent, 0))
+		if ((pthis->m_eDeviceFlags & EDevice_Camera_Intrisics)
+			&& pthis->m_coordinateMappingChangedEvent != NULL)
 		{
-			pthis->OnCoordinateMappingChanged(pCompositeFrame.get());
-			ResetEvent((HANDLE)pthis->m_coordinateMappingChangedEvent);
-		}
+			NuiCameraPos cam = pCompositeFrame->GetCameraParams();
+			cam.setIntrinsics(pthis->m_cameraIntri);
+			pCompositeFrame->SetCameraParams(cam);
 
+			if (pthis->m_eDeviceFlags & EDevice_Depth_On)
+			{
+				if (WAIT_OBJECT_0 == WaitForSingleObject((HANDLE)pthis->m_coordinateMappingChangedEvent, 0))
+				{
+					pthis->OnCoordinateMappingChanged();
+					ResetEvent((HANDLE)pthis->m_coordinateMappingChangedEvent);
+				}
+				pCompositeFrame->m_depthDistortionFrame.WriteFrameLock();
+				pCompositeFrame->m_depthDistortionFrame = pthis->m_depthDistortionFrameBuffer;
+				pCompositeFrame->m_depthDistortionFrame.WriteFrameUnlock();
+			}
+		}
+		
 		if(pthis->m_eDeviceFlags & EDevice_CameraMap_On)
 		{
 			if( !pthis->GrabDepthToCameraMap(pCompositeFrame.get()) )

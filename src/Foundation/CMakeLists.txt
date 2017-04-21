@@ -32,12 +32,17 @@ NuiTimeLog.cpp
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
+include_directories(${log4cplus_DIR}/include)
 include_directories($ENV{EIGEN_ROOT})
 
 add_library(libFoundation
 			${FOUNDATION_HEADERS}
 			${FOUNDATION_SOURCES}
 )
+
+set(D_SUFF	D)
+
 target_link_libraries(libFoundation
 			${Boost_LIBRARIES}
+			${log4cplus_DIR}/lib/log4cplusU${D_SUFF}.lib
 )

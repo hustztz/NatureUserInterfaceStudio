@@ -6,6 +6,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 find_package(OPENCL REQUIRED)
 find_package(OPENCV REQUIRED)
 find_package(OPENGL REQUIRED)
+find_package(log4cplus REQUIRED)
 # find_package(EIGEN REQUIRED)
 find_package(Boost COMPONENTS timer thread REQUIRED)
 

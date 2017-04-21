@@ -3,6 +3,7 @@
 #include "..\NuiRGBDDeviceManagerImpl.h"
 #include "Frame\NuiImageFrame.h"
 #include "Shape\NuiCompoundImage.h"
+#include "Shape\NuiCameraParams.h"
 
 #include <Kinect.h>
 #include <Kinect.VisualGestureBuilder.h>
@@ -53,7 +54,7 @@ protected:
 	bool				InitializeFaceTracking();
 	bool				InitializeFacialModel();
 
-	bool				OnCoordinateMappingChanged(NuiCompositeFrame* pCompositeFrame);
+	bool				OnCoordinateMappingChanged();
 
 private:
 	NuiKinectV2Manager (const NuiKinectV2Manager&); // Disabled copy constructor
@@ -61,7 +62,7 @@ private:
 
 private:
 	DWORD						m_eDeviceFlags;
-	NuiRGBDDeviceBufferImpl*		m_pBuffer;
+	NuiRGBDDeviceBufferImpl*	m_pBuffer;
 
 	IKinectSensor*				m_pNuiSensor;
 	IMultiSourceFrameReader*	m_pMultiSourceFrameReader;
@@ -71,6 +72,8 @@ private:
 	/// For depth distortion correction
 	/// </summary>
 	DepthSpacePoint*            m_pDepthDistortionMap;
+	NuiDepthDistortionFrame		m_depthDistortionFrameBuffer;
+	NuiCameraIntrinsics			m_cameraIntri;
 	WAITABLE_HANDLE             m_coordinateMappingChangedEvent;
 
 	HANDLE						m_hThNuiProcess;
