@@ -4,13 +4,13 @@ project(NatureUserInterfaceStudio)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 find_package(OPENCL REQUIRED)
-find_package(OPENCV REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(OPENGL REQUIRED)
 find_package(log4cplus REQUIRED)
-# find_package(EIGEN REQUIRED)
+find_package(EIGEN3 REQUIRED)
 find_package(Boost COMPONENTS timer thread REQUIRED)
 
-include_directories(${EIGEN_INCLUDE_DIRS})
+# include_directories(${EIGEN_INCLUDE_DIRS})
 # include_directories($ENV{MAYA_RELEASE_BUILD}\include)
 
 

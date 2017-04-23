@@ -54,7 +54,7 @@ SOURCE_GROUP(BUFFER FILES ${FRAME_BUFFER_HEADS} ${FRAME_BUFFER_SOURCES})
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
-include_directories($ENV{EIGEN_ROOT})
+include_directories(${EIGEN3_ROOT_DIR})
 # include_directories(${OPENCL_INCLUDE_DIRS})
 include_directories($ENV{MAYA_RELEASE_BUILD}/include)
 include_directories(${OpenCV_INCLUDE_DIRS})

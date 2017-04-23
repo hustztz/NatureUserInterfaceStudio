@@ -36,7 +36,7 @@ add_definitions(-DNOMINMAX)
 add_definitions(-D_UNICODE -DUNICODE)
 
 include_directories($ENV{NUI_LOCATION})
-include_directories($ENV{EIGEN_ROOT})
+include_directories(${EIGEN3_ROOT_DIR})
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${Pangolin_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})

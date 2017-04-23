@@ -34,7 +34,7 @@ SOURCE_GROUP(Kernels/Hash FILES ${OPENCL_KERNELS_HASH_SOURCES})
 include_directories($ENV{NUI_LOCATION})
 # include_directories(${OPENCL_INCLUDE_DIRS})
 include_directories($ENV{MAYA_RELEASE_BUILD}/include)
-include_directories($ENV{EIGEN_ROOT})
+include_directories(${EIGEN3_ROOT_DIR})
 
 add_library(libOpenCLUtilities
 			${OPENCL_UTILITIES_HEADERS}

@@ -38,7 +38,7 @@ SOURCE_GROUP(FileLoader FILES ${FILE_LOADER_HEADERS} ${FILE_LOADER_SOURCES})
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
-include_directories($ENV{EIGEN_ROOT})
+include_directories(${EIGEN3_ROOT_DIR})
 include_directories($ENV{KINECT_TOOLKIT_DIR}/inc)
 include_directories($ENV{KINECTSDK10_DIR}/inc)
 include_directories($ENV{KINECTSDK20_DIR}/inc)

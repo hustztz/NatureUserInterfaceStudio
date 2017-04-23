@@ -49,12 +49,12 @@ DeviceSpecific/CPU/NuiKinfuCPUFrame.cpp
 )
 
 set(VO_DEVICE_OPENCL_HEADERS
-DeviceSpecific/OpenCL/NuiHashingOpenCLChunkGrid
-DeviceSpecific/OpenCL/NuiHashingOpenCLScene
-DeviceSpecific/OpenCL/NuiHashingOpenCLSDF
-DeviceSpecific/OpenCL/NuiKinfuOpenCLAcceleratedFeedbackFrame
-DeviceSpecific/OpenCL/NuiKinfuOpenCLCameraState
-DeviceSpecific/OpenCL/NuiKinfuOpenCLColorTracker
+DeviceSpecific/OpenCL/NuiHashingOpenCLChunkGrid.h
+DeviceSpecific/OpenCL/NuiHashingOpenCLScene.h
+DeviceSpecific/OpenCL/NuiHashingOpenCLSDF.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLAcceleratedFeedbackFrame.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLCameraState.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLColorTracker.h
 DeviceSpecific/OpenCL/NuiKinfuOpenCLDepthTracker.h
 DeviceSpecific/OpenCL/NuiKinfuOpenCLFeedbackFrame.h
 DeviceSpecific/OpenCL/NuiKinfuOpenCLFrame.h
@@ -67,9 +67,9 @@ DeviceSpecific/OpenCL/NuiOpenCLPrefixSum.h
 )
 
 set(VO_DEVICE_OPENCL_SOURCES
-DeviceSpecific/OpenCL/NuiHashingOpenCLChunkGrid
-DeviceSpecific/OpenCL/NuiHashingOpenCLScene
-DeviceSpecific/OpenCL/NuiHashingOpenCLSDF
+DeviceSpecific/OpenCL/NuiHashingOpenCLChunkGrid.cpp
+DeviceSpecific/OpenCL/NuiHashingOpenCLScene.cpp
+DeviceSpecific/OpenCL/NuiHashingOpenCLSDF.cpp
 DeviceSpecific/OpenCL/NuiKinfuOpenCLAcceleratedFeedbackFrame.cpp
 DeviceSpecific/OpenCL/NuiKinfuOpenCLCameraState.cpp
 DeviceSpecific/OpenCL/NuiKinfuOpenCLColorTracker.cpp
@@ -92,7 +92,7 @@ add_definitions(-DNOMINMAX)
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
-include_directories($ENV{EIGEN_ROOT})
+include_directories(${EIGEN3_ROOT_DIR})
 include_directories($ENV{MAYA_RELEASE_BUILD}/include)
 
 add_library(libVisualOdometry
