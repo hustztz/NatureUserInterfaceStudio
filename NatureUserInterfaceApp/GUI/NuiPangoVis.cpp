@@ -219,12 +219,12 @@ void NuiPangoVis::drawBoundingBox(NuiCLMappableData* pData)
 	glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-void NuiPangoVis::displayImg(const std::string & id, NuiCLMappableData* pData)
+void NuiPangoVis::displayImg(const std::string & id, NuiTextureMappable& texMappable)
 {
 	glDisable(GL_DEPTH_TEST);
 
 	pangolin::Display(id).Activate();
-	NuiGuiHWTextureMappable::renderHWTextureBuffer(pData->ColorTex());
+	NuiGuiHWTextureMappable::renderHWTextureBuffer(texMappable);
 
 	glEnable(GL_DEPTH_TEST);
 }
@@ -285,7 +285,11 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 		}
 		if( a_drawColorImage )
 		{
-			displayImg("GrabberImage", pData);
+			displayImg("GrabberImage", pData->ColorTex());
+		}
+		if (a_kinFuOn)
+		{
+			displayImg("FusionImage", pData->FeedbackTex());
 		}
 	}
 

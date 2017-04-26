@@ -25,7 +25,7 @@ protected:
 
 	void drawFrustum(NuiCLMappableData* pData);
 	void drawBoundingBox(NuiCLMappableData* pData);
-	void displayImg(const std::string & id, NuiCLMappableData* pData);
+	void displayImg(const std::string & id, NuiTextureMappable& texMappable);
 
 public:
 	pangolin::Var<bool> a_deviceOn;

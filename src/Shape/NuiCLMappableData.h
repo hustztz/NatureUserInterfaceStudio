@@ -35,6 +35,7 @@ public:
 	NuiMappable2f&		PatchUVStream() { return m_patchUVStream; }
 
 	NuiTextureMappable&	ColorTex() { return m_colorTex; }
+	NuiTextureMappable&	FeedbackTex() { return m_feedbackTex; }
 
 	UINT				GetPositionNum() const { return (UINT)(m_positionStream.size()); }
 	const float*		GetPositionValue(UINT idx) const;
@@ -73,6 +74,7 @@ private:
 	NuiMappable2f		m_patchUVStream;
 
 	NuiTextureMappable	m_colorTex;
+	NuiTextureMappable	m_feedbackTex;
 	NuiCameraPos		m_camParams;
 
 	SgVec3f				m_boundingBoxMin;

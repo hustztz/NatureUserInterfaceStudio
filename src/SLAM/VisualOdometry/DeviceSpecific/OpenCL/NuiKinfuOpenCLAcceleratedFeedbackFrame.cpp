@@ -70,16 +70,16 @@ bool	NuiKinfuOpenCLAcceleratedFeedbackFrame::BufferToMappableTexture(NuiCLMappab
 		return false;
 	}
 
-	if( m_nWidth != pMappableData->ColorTex().width() || m_nHeight != pMappableData->ColorTex().height())
+	if( m_nWidth != pMappableData->FeedbackTex().width() || m_nHeight != pMappableData->FeedbackTex().height())
 	{
 		NuiTextureMappableAccessor::updateImpl(
-			pMappableData->ColorTex(),
+			pMappableData->FeedbackTex(),
 			m_nWidth,
 			m_nHeight,
 			NULL
 			);
 	}
-	cl_mem texGL = NuiOpenCLBufferFactory::asTexture2DCL(pMappableData->ColorTex());
+	cl_mem texGL = NuiOpenCLBufferFactory::asTexture2DCL(pMappableData->FeedbackTex());
 
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();

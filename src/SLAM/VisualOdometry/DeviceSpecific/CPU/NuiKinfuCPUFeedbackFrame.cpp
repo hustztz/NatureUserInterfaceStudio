@@ -266,7 +266,7 @@ bool	NuiKinfuCPUFeedbackFrame::BufferToMappableTexture(NuiCLMappableData* pMappa
 	}
 
 	NuiTextureMappableAccessor::updateImpl(
-		pMappableData->ColorTex(),
+		pMappableData->FeedbackTex(),
 		m_vertices.GetWidth(),
 		nHeight,
 		texBuffer

@@ -4,6 +4,7 @@
 #include "DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
+#include "Foundation/NuiLogger.h"
 
 static const std::string sTrackingName("TrackingEngine");
 
@@ -25,7 +26,6 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 {
 	SafeDelete(m_pScene);
 
-	bHashingSDF = true;
 	if(bHashingSDF)
 	{
 		NuiHashingSDFConfig sdfConfig;
@@ -128,14 +128,23 @@ bool	NuiKinfuMainEngine::processFrame (
 	}
 
 	NuiTimeLog::instance().tick(sTrackingName);
-	bool returnStatus = m_trackingEngine.RunTracking(
-		pDepthBuffer,
-		pDepthDistortionLT,
-		pDepthToColor,
-		nWidth * nHeight,
-		image,
-		m_pScene,
-		cameraParams);
+	bool returnStatus = false;
+	try
+	{
+		returnStatus = m_trackingEngine.RunTracking(
+			pDepthBuffer,
+			pDepthDistortionLT,
+			pDepthToColor,
+			nWidth * nHeight,
+			image,
+			m_pScene,
+			cameraParams);
+	}
+	catch (std::exception& e)
+	{
+		LOG4CPLUS_FATAL(NuiLogger::instance().fileLogger(), e.what());
+	}
+	
 	NuiTimeLog::instance().tock(sTrackingName);
 
 	return returnStatus;

@@ -35,7 +35,7 @@ NuiLogger.cpp
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${log4cplus_DIR}/../../../include)
-include_directories(${EIGEN3_ROOT_DIR})
+include_directories(${EIGEN3_INCLUDE_DIR})
 
 add_library(libFoundation
 			${FOUNDATION_HEADERS}
