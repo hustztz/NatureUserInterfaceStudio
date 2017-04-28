@@ -46,6 +46,8 @@ include_directories($ENV{MAYA_RELEASE_BUILD}/include)
 
 add_executable(NatureUserInterfaceDemo NatureUserInterfaceDemo.cpp ${GUI_HEADERS} ${GUI_SOURCES})
 
+set(D_SUFF	D)
+
 target_link_libraries(NatureUserInterfaceDemo
                       libVisualOdometry
 					  libFrame
@@ -53,4 +55,5 @@ target_link_libraries(NatureUserInterfaceDemo
 					  ${Boost_LIBRARIES}
                       ${Pangolin_LIBRARIES}
 					  ${OpenCV_LIBS}
+					  ${log4cplus_DIR}/../../log4cplus${D_SUFF}.lib
 )

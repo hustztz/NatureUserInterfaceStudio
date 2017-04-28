@@ -5,7 +5,7 @@
 #include <maya/MCallbackIdArray.h>
 #include <maya/MNodeMessage.h>
 
-#include "NuiMayaCacheTimer.h"
+//#include "NuiMayaCacheTimer.h"
 
 // Forwards
 class NuiRGBDDeviceController;
@@ -114,7 +114,7 @@ private:
 private:	
 	NuiRGBDDeviceController*	m_pDevice;
 	NuiFrameCacheImpl*		m_pCache;
-	NuiMayaCacheTimer*		m_pPreviewer;
+	//NuiMayaCacheTimer*		m_pPreviewer;
 
 	NuiKinfuManager*		m_kinfu;
 };

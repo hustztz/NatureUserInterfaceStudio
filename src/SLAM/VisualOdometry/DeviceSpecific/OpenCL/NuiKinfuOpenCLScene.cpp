@@ -67,39 +67,22 @@ float NuiKinfuOpenCLScene::getTsdfTruncDist () const
 	return m_tsdf_params.tranc_dist;
 }
 
-Vector3i NuiKinfuOpenCLScene::getVoxelWrap() const
-{
-	Vector3i voxelWrap = m_voxel_offset;
-
-	if(voxelWrap(0) < 0)
-		voxelWrap(0) = m_config.resolution(0) - ((-voxelWrap(0)) % m_config.resolution(0));
-	if(voxelWrap(1) < 0)
-		voxelWrap(1) = m_config.resolution(1) - ((-voxelWrap(1)) % m_config.resolution(1));
-	if(voxelWrap(2) < 0)
-		voxelWrap(2) = m_config.resolution(2) - ((-voxelWrap(2)) % m_config.resolution(2));
-
-	return voxelWrap;
-}
-
-Vector3f NuiKinfuOpenCLScene::getVoxelOffsetSize() const
-{
-	const Vector3f& voxelSizeMeters = getVoxelSize();
-	return Vector3f(
-		(float)m_voxel_offset[0] * voxelSizeMeters[0],
-		(float)m_voxel_offset[1] * voxelSizeMeters[1],
-		(float)m_voxel_offset[2] * voxelSizeMeters[2]
-		);
-}
-
 bool NuiKinfuOpenCLScene::log(const std::string& fileName) const
 {
 	return m_config.log(fileName);
 }
 
+SgVec3f NuiKinfuOpenCLScene::getNodeCoo(int x, int y, int z)
+{
+	return SgVec3f(
+		((float)x + 0.5f - m_config.resolution[0] / 2.0f) * m_tsdf_params.cell_size[0],
+		((float)(-y) - 0.5f + m_config.resolution[1] / 2.0f) * m_tsdf_params.cell_size[1],
+		((float)z + 0.5f - m_config.resolution[2] / 2.0f) * m_tsdf_params.cell_size[2]
+	);
+}
+
 void NuiKinfuOpenCLScene::reset()
 {
-	m_voxel_offset = Vector3i::Zero();
-
 	// Get the kernel
 	cl_kernel initializeKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_INITIALIZE_VOLUME);
@@ -114,6 +97,7 @@ void NuiKinfuOpenCLScene::reset()
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
 
+	Vector3i voxel_offset(0, 0, 0);
 	// Set kernel arguments
 	cl_uint idx = 0;
 	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_mem), &m_volumeCL);
@@ -122,7 +106,7 @@ void NuiKinfuOpenCLScene::reset()
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_int3), m_voxel_offset.data());
+	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_int3), voxel_offset.data());
 	NUI_CHECK_CL_ERR(err);
 
 	// Run kernel to calculate
@@ -202,274 +186,6 @@ void NuiKinfuOpenCLScene::ReleaseBuffer()
 		m_MB_triTableCL = NULL;
 	}
 }
-
-void NuiKinfuOpenCLScene::clearSlice(const Vector3i&	voxelWrap, const Vector3i&	voxelRange)
-{
-
-	// Get the kernel
-	cl_kernel initializeKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_INITIALIZE_VOLUME);
-	assert(initializeKernel);
-	if (!initializeKernel)
-	{
-		NUI_ERROR("Get kernel 'E_INITIALIZE_VOLUME' failed!\n");
-		return;
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-
-	cl_uint idx = 0;
-	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_mem), &m_volumeCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_mem), &m_colorVolumeCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(initializeKernel, idx++, sizeof(cl_int3), voxelWrap.data());
-	NUI_CHECK_CL_ERR(err);
-
-	// Run kernel to calculate
-	size_t kernelGlobalSize[3] = { voxelRange(0), voxelRange(1), voxelRange(2) };
-	err = clEnqueueNDRangeKernel(
-		queue,
-		initializeKernel,
-		3,
-		nullptr,
-		kernelGlobalSize,
-		nullptr,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-}
-
-void NuiKinfuOpenCLScene::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	voxelRange)
-{
-
-	// Get the kernel
-	cl_kernel fetchKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_FETCH_VOLUME);
-	assert(fetchKernel);
-	if (!fetchKernel)
-	{
-		NUI_ERROR("Get kernel 'E_FETCH_VOLUME' failed!\n");
-		return;
-	}
-
-	// OpenCL command queue and device
-	cl_int           err = CL_SUCCESS;
-	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
-	cl_context       context = NuiOpenCLGlobal::instance().clContext();
-
-	cl_mem volumeOutputVerticesCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, voxelRange(0)*voxelRange(1)*voxelRange(2)*sizeof(cl_float3), NULL, &err);
-	NUI_CHECK_CL_ERR(err);
-	cl_mem volumeOutputColorsCL = NuiGPUMemManager::instance().CreateBufferCL(context, CL_MEM_READ_WRITE, voxelRange(0)*voxelRange(1)*voxelRange(2)*sizeof(cl_float4), NULL, &err);
-	NUI_CHECK_CL_ERR(err);
-
-	cl_int vertex_sum = 0;
-	err = clEnqueueWriteBuffer(
-		queue,
-		m_vertexSumCL,
-		CL_FALSE,//blocking
-		0,
-		sizeof(cl_int),
-		&vertex_sum,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	cl_uint idx = 0;
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_colorVolumeCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &voxelRange(2));
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int3), voxelWrap.data());
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int3), m_voxel_offset.data());
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &volumeOutputVerticesCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &volumeOutputColorsCL);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_vertexSumCL);
-	NUI_CHECK_CL_ERR(err);
-
-	// Run kernel to calculate 
-	size_t kernelGlobalSize[2] = { (size_t)voxelRange(0), (size_t)voxelRange(1) };
-	size_t local_ws[2] = {1, 1};
-	err = clEnqueueNDRangeKernel(
-		queue,
-		fetchKernel,
-		2,
-		nullptr,
-		kernelGlobalSize,
-		local_ws,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	err = clEnqueueReadBuffer(
-		queue,
-		m_vertexSumCL,
-		CL_TRUE,//blocking
-		0,
-		sizeof(cl_int),
-		&vertex_sum,
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	m_cachedPointCloud.writeLock();
-
-	int originalSize = m_cachedPointCloud.pointSize();
-	m_cachedPointCloud.resizePoints(originalSize + vertex_sum);
-	err = clEnqueueReadBuffer(
-		queue,
-		volumeOutputVerticesCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 3 * sizeof(float),
-		(void*)(m_cachedPointCloud.getVertices() + originalSize),
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	err = clEnqueueReadBuffer(
-		queue,
-		volumeOutputColorsCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 4 * sizeof(float),
-		(void*)(m_cachedPointCloud.getColors() + originalSize),
-		0,
-		NULL,
-		NULL
-		);
-	NUI_CHECK_CL_ERR(err);
-
-	m_cachedPointCloud.writeUnlock();
-
-	err = NuiGPUMemManager::instance().ReleaseMemObjectCL(volumeOutputVerticesCL);
-	NUI_CHECK_CL_ERR(err);
-	err = NuiGPUMemManager::instance().ReleaseMemObjectCL(volumeOutputColorsCL);
-	NUI_CHECK_CL_ERR(err);
-}
-
-void NuiKinfuOpenCLScene::fetchAndClearX(int xVoxelTrans)
-{
-	int offsetX = m_voxel_offset(0);
-	if(xVoxelTrans < 0)
-		offsetX += xVoxelTrans;
-	offsetX = (offsetX > 0) ? (offsetX % m_config.resolution(0)) : (m_config.resolution(0) - (-offsetX) % m_config.resolution(0));
-	Vector3i voxelWrap(offsetX, 0, 0);
-	Vector3i voxelTranslation(abs(xVoxelTrans), m_config.resolution(1), m_config.resolution(2));
-	fetchSlice(voxelWrap, voxelTranslation);
-	clearSlice(voxelWrap, voxelTranslation);
-
-	m_voxel_offset(0) += xVoxelTrans;
-}
-
-void NuiKinfuOpenCLScene::fetchAndClearY(int yVoxelTrans)
-{
-	int offsetY = m_voxel_offset(1);
-	if(yVoxelTrans < 0)
-		offsetY += yVoxelTrans;
-	offsetY = (offsetY > 0) ? (offsetY % m_config.resolution(1)) : (m_config.resolution(1) - (-offsetY) % m_config.resolution(1));
-	Vector3i voxelWrap(0, offsetY, 0);
-	Vector3i voxelTranslation(m_config.resolution(0), abs(yVoxelTrans), m_config.resolution(2));
-	fetchSlice(voxelWrap, voxelTranslation);
-	clearSlice(voxelWrap, voxelTranslation);
-
-	m_voxel_offset(1) += yVoxelTrans;
-}
-
-void NuiKinfuOpenCLScene::fetchAndClearZ(int zVoxelTrans)
-{
-	int offsetZ = m_voxel_offset(2);
-	if(zVoxelTrans < 0)
-		offsetZ += zVoxelTrans;
-	offsetZ = (offsetZ > 0) ? (offsetZ % m_config.resolution(2)) : (m_config.resolution(2) - (-offsetZ) % m_config.resolution(2));
-	Vector3i voxelWrap(0, 0, offsetZ);
-	Vector3i voxelTranslation(m_config.resolution(0), m_config.resolution(1), abs(zVoxelTrans));
-	fetchSlice(voxelWrap, voxelTranslation);
-	clearSlice(voxelWrap, voxelTranslation);
-
-	m_voxel_offset(2) += zVoxelTrans;
-}
-
-Vector3f NuiKinfuOpenCLScene::shiftVolume(const Vector3f& translation)
-{
-	if(!m_config.bIsDynamic)
-		return translation;
-
-	const Vector3f& voxelSizeMeters = getVoxelSize();
-	Vector3f shiftTranslation = translation - m_config.translateBasis;
-
-	int xVoxelTrans = 0;
-	int yVoxelTrans = 0;
-	int zVoxelTrans = 0;
-
-	if((int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)) < 0)
-	{
-		xVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
-	}
-	else
-	{
-		xVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
-	}
-
-	if((int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)) < 0)
-	{
-		yVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
-	}
-	else
-	{
-		yVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
-	}
-
-	if((int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)) < 0)
-	{
-		zVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)));
-	}
-	else
-	{
-		zVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)));
-	}
-
-	if(abs(xVoxelTrans) >= m_config.voxel_shift)
-	{
-		fetchAndClearX(xVoxelTrans);
-		shiftTranslation(0) -= xVoxelTrans * voxelSizeMeters(0);
-	}
-	if(abs(yVoxelTrans) >= m_config.voxel_shift)
-	{
-		fetchAndClearY(yVoxelTrans);
-		shiftTranslation(1) -= yVoxelTrans * voxelSizeMeters(1);
-	}
-	if(abs(zVoxelTrans) >= m_config.voxel_shift)
-	{
-		fetchAndClearZ(zVoxelTrans);
-		shiftTranslation(2) -= zVoxelTrans * voxelSizeMeters(2);
-	}
-
-	return shiftTranslation + m_config.translateBasis;
-}
-
 
 /** \brief Function that integrates volume if volume element contains: 2 bytes for round(tsdf*SHORT_MAX) and 2 bytes for integer weight.*/
 bool    NuiKinfuOpenCLScene::integrateVolume(
@@ -772,9 +488,6 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	openclutil::enqueueAcquireHWObjects(
 		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 
-	cl_int3 voxelWrap;
-	voxelWrap.x = voxelWrap.y = voxelWrap.z = 0;
-
 	// Set kernel arguments
 	cl_uint idx = 0;
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volumeCL);
@@ -784,10 +497,6 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &m_volume_paramsCL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int), &m_config.resolution(2));
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int3), &voxelWrap);
-	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_int3), m_voxel_offset.data());
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(fetchKernel, idx++, sizeof(cl_mem), &positionsGL);
 	NUI_CHECK_CL_ERR(err);
@@ -876,13 +585,13 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	// Set bounding box
 	const Vector3f& voxelSizeMeters = getVoxelSize();
 	pCLData->SetBoundingBox(SgVec3f(
-		m_voxel_offset(0)*voxelSizeMeters(0)-m_config.dimensions[0]/2,
-		m_voxel_offset(1)*voxelSizeMeters(1)-m_config.dimensions[1]/2,
-		m_voxel_offset(2)*voxelSizeMeters(2)-m_config.dimensions[2]/2),
+		-m_config.dimensions[0]/2,
+		-m_config.dimensions[1]/2,
+		-m_config.dimensions[2]/2),
 		SgVec3f(
-		m_voxel_offset(0)*voxelSizeMeters(0)+m_config.dimensions[0]/2,
-		m_voxel_offset(1)*voxelSizeMeters(1)+m_config.dimensions[1]/2,
-		m_voxel_offset(2)*voxelSizeMeters(2)+m_config.dimensions[2]/2));
+		m_config.dimensions[0]/2,
+		m_config.dimensions[1]/2,
+		m_config.dimensions[2]/2));
 
 	pCLData->SetStreamDirty(true);
 
@@ -1061,16 +770,7 @@ bool NuiKinfuOpenCLScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 	return true;
 }
 
-SgVec3f NuiKinfuOpenCLScene::getNodeCoo (int x, int y, int z)
-{
-	return SgVec3f(
-		((float)x + 0.5f - m_config.resolution[0]/2.0f) * m_tsdf_params.cell_size[0],
-		((float)(-y) - 0.5f + m_config.resolution[1]/2.0f) * m_tsdf_params.cell_size[1],
-		((float)z + 0.5f - m_config.resolution[2]/2.0f) * m_tsdf_params.cell_size[2]
-	);
-}
-
-SgVec3f vertex_interp (const SgVec3f& p0, const SgVec3f& p1, short tsdf0, short tsdf1)
+SgVec3f vertex_interp(const SgVec3f& p0, const SgVec3f& p1, short tsdf0, short tsdf1)
 {
 	float f0 = (float)tsdf0 / 32766.0f;
 	float f1 = (float)tsdf1 / 32766.0f;

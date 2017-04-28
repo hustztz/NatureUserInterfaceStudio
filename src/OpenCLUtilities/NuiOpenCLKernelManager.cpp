@@ -65,6 +65,7 @@ static const char * const KernelNames[] =
 	"initializeVolume",							  "tsdfVolume.cl",
 	"initializeColorVolume",					  "tsdfVolume.cl",
 	"fetchVolumeKernel",						  "extract.cl",
+	"fetchShiftVolumeKernel",						  "extract.cl",
 	"scaleDepthsKernel",						  "tsdfVolume.cl",
 	"integrateTsdfVolumeKernel",				  "tsdfVolume.cl",
 	"raycastKernel",							  "raycast.cl",

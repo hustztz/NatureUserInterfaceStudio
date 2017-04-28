@@ -31,6 +31,11 @@ public:
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
+protected:
+	virtual Vector3i getVoxelWrap() const {
+		return Vector3i(0, 0, 0);
+	}
+
 public:
 	/** \brief Returns volume size in meters */
 	const Vector3f&	getDimensions() const;
@@ -42,28 +47,15 @@ public:
 	const Vector3f	getVoxelSize() const;
 
 	/** \brief Returns tsdf truncation distance in meters */
-	float	getTsdfTruncDist () const;
+	float			getTsdfTruncDist () const;
 
 protected:
 	void			AcquireBuffer(bool bHas_color_volume);
 	void			ReleaseBuffer();
 
-	SgVec3f	getNodeCoo(int x, int y, int z);
-	Vector3i vWrap();
+	SgVec3f			getNodeCoo(int x, int y, int z);
 
-	Vector3i getVoxelWrap() const;
-	Vector3f getVoxelOffsetSize() const;
-
-	void clearSlice(const Vector3i&	voxelWrap, const Vector3i&	voxelRange);
-	void fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	voxelRange);
-
-	void fetchAndClearX(int xVoxelTrans);
-	void fetchAndClearY(int yVoxelTrans);
-	void fetchAndClearZ(int zVoxelTrans);
-
-	Vector3f shiftVolume(const Vector3f& translation);
-
-private:
+protected:
 	cl_mem				m_vertexSumCL;
 	/** \brief tsdf volume data container */
 	cl_mem				m_volumeCL;
@@ -78,8 +70,6 @@ private:
 	TsdfParams			m_tsdf_params;
 
 	NuiKinfuVolumeConfig m_config;
-
-	Vector3i			m_voxel_offset;
 
 	NuiKinfuPointCloud	m_cachedPointCloud;
 };

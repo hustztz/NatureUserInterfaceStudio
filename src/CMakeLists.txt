@@ -5,6 +5,7 @@ set(DIRS
     OpenCLUtilities
     Shape
     SLAM
+	MayaBridge
 )
 
 foreach(d ${DIRS})

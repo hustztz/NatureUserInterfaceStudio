@@ -60,6 +60,7 @@ DeviceSpecific/OpenCL/NuiKinfuOpenCLFeedbackFrame.h
 DeviceSpecific/OpenCL/NuiKinfuOpenCLFrame.h
 DeviceSpecific/OpenCL/NuiKinfuOpenCLHashGlobalCache.h
 DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h
+DeviceSpecific/OpenCL/NuiKinfuOpenCLShiftScene.h
 DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.h
 DeviceSpecific/OpenCL/NuiKinfuVoxelBlockHash.h
 DeviceSpecific/OpenCL/NuiMarchingCubeTable.h
@@ -78,6 +79,7 @@ DeviceSpecific/OpenCL/NuiKinfuOpenCLFeedbackFrame.cpp
 DeviceSpecific/OpenCL/NuiKinfuOpenCLFrame.cpp
 DeviceSpecific/OpenCL/NuiKinfuOpenCLHashGlobalCache.cpp
 DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.cpp
+DeviceSpecific/OpenCL/NuiKinfuOpenCLShiftScene.cpp
 DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.cpp
 DeviceSpecific/OpenCL/NuiKinfuVoxelBlockHash.cpp
 DeviceSpecific/OpenCL/NuiOpenCLPrefixSum.cpp

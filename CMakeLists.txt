@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(NatureUserInterfaceStudio)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/" "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 find_package(OPENCL REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -9,6 +9,13 @@ find_package(OPENGL REQUIRED)
 find_package(log4cplus REQUIRED)
 find_package(EIGEN3 REQUIRED)
 find_package(Boost COMPONENTS timer thread REQUIRED)
+
+find_path(TBB_INCLUDE_DIR
+NAMES tbb/tbb.h
+PATHS C:/Program Files (x86)/IntelSWTools/compilers_and_libraries_2016.3.207/windows/tbb/include/)
+find_library(TBB_LIBRARY
+NAMES tbb.lib
+PATHS C:/Program Files (x86)/IntelSWTools/compilers_and_libraries_2016.3.207/windows/tbb/lib/intel64_win/vc14/)
 
 # include_directories(${EIGEN_INCLUDE_DIRS})
 # include_directories($ENV{MAYA_RELEASE_BUILD}\include)

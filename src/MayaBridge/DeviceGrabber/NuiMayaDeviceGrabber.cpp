@@ -4,7 +4,7 @@
 #include "Frame/Buffer/NuiFrameCache.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
 #include "DeviceManager/NuiRGBDDeviceController.h"
-#include "SLAM/NuiKinfuManager.h"
+#include "SLAM/VisualOdometry//NuiKinfuManager.h"
 #include "../SkeletonDriver/NuiMayaSkeletonData.h"
 #include "../SkeletonDriver/NuiMayaGestureData.h"
 #include "../SkeletonDriver/NuiMayaFacialModelData.h"
@@ -71,7 +71,6 @@ MObject		NuiMayaDeviceGrabber::aCameraTranslate;
 NuiMayaDeviceGrabber::NuiMayaDeviceGrabber()
 	: m_pDevice(NULL)
 	, m_pCache(NULL)
-	, m_pPreviewer(NULL)
 	, m_kinfu(NULL)
 {
 }
@@ -80,7 +79,6 @@ NuiMayaDeviceGrabber::~NuiMayaDeviceGrabber()
 	if(m_pDevice)
 		m_pDevice->stopDevice();
 	SafeDelete(m_pDevice);
-	SafeDelete(m_pPreviewer);
 	SafeDelete(m_kinfu);
 
 	if(m_pCache)
@@ -601,7 +599,7 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 		}
 		int indexFlags = getBooleanValue(aShowMesh) ? (NuiCLMappableData::E_MappableData_Triangle | NuiCLMappableData::E_MappableData_Wireframe) : NuiCLMappableData::E_MappableData_Point;
 		bool bReceived = (m_kinfu && m_kinfu->isThreadOn()) ?
-			m_kinfu->getCLData(clData.get(), getBooleanValue(aShowMesh)) :
+			m_kinfu->m_engine.getCLData(clData.get(), getBooleanValue(aShowMesh)) :
 			NuiFrameUtilities::FrameToMappableData(pCurrentFrame.get(), clData.get(), indexFlags, getBooleanValue(aShowOnlyBody), 0.2f);
 			
 		datablock.setClean( plug );
@@ -610,7 +608,7 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 	{
 		NuiMeshShape mesh;
 		bool bReceived = (m_kinfu && m_kinfu->isThreadOn()) ?
-			m_kinfu->getMesh(&mesh) :
+			m_kinfu->m_engine.getMesh(&mesh) :
 			NuiFrameUtilities::FrameToMesh(pCurrentFrame.get(), &mesh, getBooleanValue(aShowOnlyBody), 0.2f);
 		// Create some mesh data and access the
 		// geometry so we can set it
@@ -763,7 +761,7 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 		}
 		else if(m_kinfu)
 		{
-			m_kinfu->getCameraPose(&cam);
+			m_kinfu->m_engine.getCameraPose(&cam);
 			received = true;
 		}
 		if(received)
@@ -876,21 +874,21 @@ bool NuiMayaDeviceGrabber::updateNearMode()
 
 void NuiMayaDeviceGrabber::startPreviewer()
 {
-	if(!m_pPreviewer)
+	/*if(!m_pPreviewer)
 	{
 		m_pPreviewer = new NuiMayaCacheTimer(PreviewerCallingBack);
 	}
 	assert(m_pPreviewer);
 	int interval = 100;
-	m_pPreviewer->start(interval);
+	m_pPreviewer->start(interval);*/
 }
 
 void NuiMayaDeviceGrabber::stopPreviewer()
 {
-	if(m_pPreviewer)
+	/*if(m_pPreviewer)
 	{
 		m_pPreviewer->stop();
-	}
+	}*/
 }
 
 void NuiMayaDeviceGrabber::updatePreviewer()
@@ -969,7 +967,8 @@ void NuiMayaDeviceGrabber::updateKinfu()
 			inputHandle = datablock.inputValue( aVolumeVoxelSize, &returnStatus );
 			if(returnStatus == MS::kSuccess)
 				voxelSize = inputHandle.asFloat();
-			m_kinfu->resetVolume(voxelSize, false);
+			m_kinfu->m_engine.resetVolume();
+			m_kinfu->m_engine.setVolume(voxelSize, false);
 			m_kinfu->startThread();
 		}
 	}
