@@ -18,7 +18,7 @@ NuiLogger& NuiLogger::instance() {
 
 NuiLogger::NuiLogger()
 	: m_consoleAppender(new ConsoleAppender())
-	, m_fileAppender(new RollingFileAppender(LOG4CPLUS_TEXT("a////b/c/d/Test.log"), 5 * 1024, 5,
+	, m_fileAppender(new RollingFileAppender(LOG4CPLUS_TEXT("Test.log"), 20 * 1024, 5,
 		false, true))
 {
 	log4cplus::Initializer initializer;
@@ -34,7 +34,6 @@ NuiLogger::NuiLogger()
 
 	//m_fileAppender->addFilter(spi::FilterPtr(new FunctionFilter(filterFunction)));
 
-	m_consoleAppender->setName(LOG4CPLUS_TEXT("consoleAppender"));
 	m_consoleAppender->setLayout(std::unique_ptr<Layout>(new TTCCLayout()));
 
 	Logger root = Logger::getRoot();
@@ -55,6 +54,8 @@ NuiLogger::NuiLogger()
 
 NuiLogger::~NuiLogger()
 {
+	m_consolelogger.shutdown();
+	m_filelogger.shutdown();
 }
 
 void	NuiLogger::setQuietMode()

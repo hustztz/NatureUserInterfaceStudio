@@ -10,18 +10,13 @@ public:
 
 	/** \brief Resets tsdf volume data to uninitialized state */
 	virtual void	reset() override;
-	virtual bool	log(const std::string& fileName) const override;
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
-	virtual bool	Volume2Mesh(NuiMeshShape* pMesh) override;
 
 protected:
 	virtual Vector3i getVoxelWrap() const override;
-protected:
-	void			AcquireBuffer(bool bHas_color_volume);
-	void			ReleaseBuffer();
 
-	
+protected:
 	Vector3i vWrap();
 	Vector3f getVoxelOffsetSize() const;
 

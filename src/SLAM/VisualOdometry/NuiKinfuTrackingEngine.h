@@ -24,7 +24,7 @@ namespace NuiKinfuEngine
 		~NuiKinfuTrackingEngine();
 
 		bool	isInit() const { return (m_pTracker ? true : false); }
-		void	initialize(const NuiTrackerConfig& tracerConfig, UINT nWidth, UINT nHeight);
+		void	initialize(const NuiTrackerConfig& tracerConfig, bool bAcceleratedFeedback, UINT nWidth, UINT nHeight);
 		bool	log(const std::string& fileName) const;
 
 		/** \brief Performs the tracker reset to initial  state. It's used if case of camera tracking fail.  */

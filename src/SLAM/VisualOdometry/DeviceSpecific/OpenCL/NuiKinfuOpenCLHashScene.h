@@ -18,6 +18,8 @@ public:
 	virtual void	reset() override;
 	virtual bool	log(const std::string& fileName) const override;
 
+	virtual bool	needAcceleratedFeedback() const override { return true; }
+
 	virtual bool	integrateVolume(
 		NuiKinfuFrame*			pFrame,
 		NuiKinfuCameraState*	pCameraState

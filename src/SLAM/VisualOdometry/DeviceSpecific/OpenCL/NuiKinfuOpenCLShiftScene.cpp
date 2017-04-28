@@ -21,6 +21,7 @@ static const std::string sVolume2Vertices("Volume2Vertices");
 NuiKinfuOpenCLShiftScene::NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config)
 	: NuiKinfuOpenCLScene(config)
 {
+	m_voxel_offset = Vector3i::Zero();
 }
 
 NuiKinfuOpenCLShiftScene::~NuiKinfuOpenCLShiftScene()

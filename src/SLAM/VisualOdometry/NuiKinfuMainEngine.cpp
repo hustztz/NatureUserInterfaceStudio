@@ -1,6 +1,6 @@
 #include "NuiKinfuMainEngine.h"
 
-#include "DeviceSpecific/OpenCL/NuiKinfuOpenCLScene.h"
+#include "DeviceSpecific/OpenCL/NuiKinfuOpenCLShiftScene.h"
 #include "DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
@@ -42,7 +42,7 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 		NuiKinfuVolumeConfig volumeConfig;
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-		m_pScene = new NuiKinfuOpenCLScene(volumeConfig);
+		m_pScene = new NuiKinfuOpenCLShiftScene(volumeConfig);
 	}
 }
 
@@ -124,7 +124,8 @@ bool	NuiKinfuMainEngine::processFrame (
 
 	if( !m_trackingEngine.isInit() )
 	{
-		m_trackingEngine.initialize(m_trackingConfig, nWidth, nHeight);
+		bool bAcceleratedFeedback = m_pScene->needAcceleratedFeedback();
+		m_trackingEngine.initialize(m_trackingConfig, bAcceleratedFeedback, nWidth, nHeight);
 	}
 
 	NuiTimeLog::instance().tick(sTrackingName);

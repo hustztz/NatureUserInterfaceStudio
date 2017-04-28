@@ -268,9 +268,9 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 	idx = 0;
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &floatDepthsCL);
 	NUI_CHECK_CL_ERR(err);
-	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), NULL);
-	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &colorsCL);
+	NUI_CHECK_CL_ERR(err);
+	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), NULL);
 	NUI_CHECK_CL_ERR(err);
 	err = clSetKernelArg(integrateKernel, idx++, sizeof(cl_mem), &cameraParamsCL);
 	NUI_CHECK_CL_ERR(err);
@@ -312,8 +312,11 @@ bool    NuiKinfuOpenCLScene::integrateVolume(
 		);
 	NUI_CHECK_CL_ERR(err);
 
+#ifdef _DEBUG
+	err = clFinish(queue);
+	NUI_CHECK_CL_ERR(err);
+#endif
 #ifdef _GPU_PROFILER
-	clFinish(queue);
 	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
 	clGetEventProfilingInfo(timing_event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
 	std::cout << "integration:" << (time_end - time_start) << std::endl;

@@ -384,7 +384,9 @@ void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UIN
 			int colorY = (int)(pDepthToColor[mappedIndex].Y + 0.5f);
 			if ((colorX >= 0 && colorX < (int)image.GetWidth()) && (colorY >= 0 && colorY < (int)image.GetHeight()))
 			{
-				pColors[i] = pImgSrc[i];
+				int color_id = colorY * (int)image.GetWidth() + colorX;
+				pColors[i] = pImgSrc[color_id];
+				pColors[i].rgbReserved = 255;
 			}
 			else
 			{

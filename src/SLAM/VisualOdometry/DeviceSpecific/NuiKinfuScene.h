@@ -24,6 +24,7 @@ public:
 
 	virtual bool	log(const std::string& fileName) const = 0;
 	virtual bool	hasColorData() const { return true; }
+	virtual bool	needAcceleratedFeedback() const { return false; }
 	/** \brief Resets tsdf volume data to uninitialized state */
 	virtual void	reset() = 0;
 	virtual bool	integrateVolume(

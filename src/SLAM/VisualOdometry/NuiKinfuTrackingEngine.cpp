@@ -21,7 +21,7 @@ NuiKinfuTrackingEngine::NuiKinfuTrackingEngine(NuiTrackerConfig& tracerConfig, U
 	, m_pCameraState(NULL)
 	, m_integration_metric_threshold(0.15f)
 {
-	initialize(tracerConfig, nWidth, nHeight);
+	//initialize(tracerConfig, nWidth, nHeight);
 }
 
 NuiKinfuTrackingEngine::NuiKinfuTrackingEngine()
@@ -56,10 +56,10 @@ void NuiKinfuTrackingEngine::reset(const Vector3f& translateBasis)
 	m_lastIntegrationPos = m_pCameraState->GetCameraPos();
 }
 
-void NuiKinfuTrackingEngine::initialize(const NuiTrackerConfig& trackerConfig, UINT nWidth, UINT nHeight)
+void NuiKinfuTrackingEngine::initialize(const NuiTrackerConfig& trackerConfig, bool bAcceleratedFeedback, UINT nWidth, UINT nHeight)
 {
 	NuiKinfuTrackingFactory::Instance().BuildTrackingEngine(
-		&m_pTracker, &m_pFrame, &m_pFeedbackFrame, &m_pCameraState, trackerConfig, nWidth, nHeight);
+		&m_pTracker, &m_pFrame, &m_pFeedbackFrame, &m_pCameraState, trackerConfig, bAcceleratedFeedback, nWidth, nHeight);
 
 	reset( Vector3f::Zero() );
 }

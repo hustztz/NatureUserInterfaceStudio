@@ -30,8 +30,8 @@ __kernel void scaleDepthsKernel(
 
 __kernel void integrateTsdfVolumeKernel(
                     __global float* depths,
-					__global float* normals,
 					__global uchar* colors,
+					__global float* normals,
                     __constant	struct  NuiCLCameraParams* cameraParams,
 					__global	struct	NuiCLRigidTransform* matrix,
 					int3  voxelWrap,
@@ -162,8 +162,9 @@ __kernel void integrateTsdfVolumeKernel(
 							uchar4 volume_color = vload4(idx, color_volume);
 
 							float Wrk = 1.f;
-							float3 ncurr = vload3(coo_id, normals);
+							if(normals)
 							{
+								float3 ncurr = vload3(coo_id, normals);
 								if( !_isnan3(ncurr) )
 									Wrk = min(1.0f, fabs(ncurr.z) / RGB_VIEW_ANGLE_WEIGHT) * 2.f;
 							}

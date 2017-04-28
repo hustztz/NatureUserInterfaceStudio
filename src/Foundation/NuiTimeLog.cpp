@@ -1,6 +1,7 @@
 #include "NuiTimeLog.h"
 
 #include "NuiFileIOUtilities.h"
+#include "Foundation/NuiLogger.h"
 
 #include <iostream>
 
@@ -104,8 +105,8 @@ void	NuiTimeLog::print() const
 	TimeStampMap::const_iterator iter;
 	for(iter = m_timeMap.begin();iter != m_timeMap.end(); ++iter)
 	{
-		std::cout << iter->first << " fps:" << iter->second.m_count / (double(iter->second.m_sumTime) + 0.05)  << std::endl;
-		std::cout << iter->first << " count:" << iter->second.m_count  << std::endl;
+		LOG4CPLUS_INFO(NuiLogger::instance().fileLogger(), iter->first << " fps:" << iter->second.m_count / (double(iter->second.m_sumTime) + 0.05)  << std::endl);
+		LOG4CPLUS_INFO(NuiLogger::instance().fileLogger(), iter->first << " count:" << iter->second.m_count  << std::endl);
 	}
 }
 
@@ -113,6 +114,6 @@ void	NuiTimeLog::log(const std::string& fileName) const
 {
 	if ( !NuiFileIOUtilities::writeTimeLog(fileName, m_timeMap) )
 	{
-		std::cout << "Failed to log time to file." << std::endl;
+		LOG4CPLUS_INFO(NuiLogger::instance().fileLogger(), "Failed to log time to file." << std::endl);
 	}
 }
