@@ -337,6 +337,26 @@ namespace NuiFrameUtilities
 
 		return true;
 	}
+
+	bool	ColorTexToMappableData(NuiCompositeFrame* pCompositeFrame, NuiCLMappableData* pData)
+	{
+		if (!pData || !pCompositeFrame)
+			return false;
+
+		// For color texture
+		//if(std::abs(m_depthFrame.GetTimeStamp() - m_colorFrame.GetTimeStamp()) < cHalfADepthFrameMs)
+		{
+			pCompositeFrame->m_colorFrame.ReadFrameLock();
+			NuiTextureMappableAccessor::updateImpl(
+				pData->ColorTex(),
+				pCompositeFrame->m_colorFrame.GetWidth(),
+				pCompositeFrame->m_colorFrame.GetHeight(),
+				pCompositeFrame->m_colorFrame.GetBuffer()
+			);
+			pCompositeFrame->m_colorFrame.ReadFrameUnlock();
+		}
+		return true;
+	}
 	
 	bool	FrameToMappableData(NuiCompositeFrame* pCompositeFrame, NuiCLMappableData* pData, int indexFlags, bool bOnlyShowBody, float depthThreshold)
 	{
@@ -349,20 +369,11 @@ namespace NuiFrameUtilities
 		if( !ColorMapToMappableData(pCompositeFrame, pData) )
 			return false;
 
-		pData->SetStreamDirty(true);
-
 		// For color texture
-		//if(std::abs(m_depthFrame.GetTimeStamp() - m_colorFrame.GetTimeStamp()) < cHalfADepthFrameMs)
-		{
-			pCompositeFrame->m_colorFrame.ReadFrameLock();
-			NuiTextureMappableAccessor::updateImpl(
-				pData->ColorTex(),
-				pCompositeFrame->m_colorFrame.GetWidth(),
-				pCompositeFrame->m_colorFrame.GetHeight(),
-				pCompositeFrame->m_colorFrame.GetBuffer()
-				);
-			pCompositeFrame->m_colorFrame.ReadFrameUnlock();
-		}
+		if (!ColorTexToMappableData(pCompositeFrame, pData))
+			return false;
+
+		pData->SetStreamDirty(true);
 
 		// Camera
 		pData->SetCameraParams( pCompositeFrame->GetCameraParams() );

@@ -42,7 +42,7 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 		NuiKinfuVolumeConfig volumeConfig;
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-		m_pScene = new NuiKinfuOpenCLShiftScene(volumeConfig);
+		m_pScene = new NuiKinfuOpenCLScene(volumeConfig);
 	}
 }
 
@@ -68,7 +68,9 @@ bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	//returnStatus = m_trackingEngine.VerticesToMappablePosition(pCLData);
 	if( m_pScene )
 	{
+		boost::mutex::scoped_lock volumeLock(m_trackingMutex);
 		returnStatus = bIsMesh ? m_pScene->Volume2CLMesh(pCLData) : m_pScene->Volume2CLVertices(pCLData);
+		volumeLock.unlock();
 	}
 
 	return returnStatus;
@@ -132,6 +134,7 @@ bool	NuiKinfuMainEngine::processFrame (
 	bool returnStatus = false;
 	try
 	{
+		boost::mutex::scoped_lock trackingLock(m_trackingMutex);
 		returnStatus = m_trackingEngine.RunTracking(
 			pDepthBuffer,
 			pDepthDistortionLT,
@@ -140,6 +143,7 @@ bool	NuiKinfuMainEngine::processFrame (
 			image,
 			m_pScene,
 			cameraParams);
+		trackingLock.unlock();
 	}
 	catch (std::exception& e)
 	{

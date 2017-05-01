@@ -86,6 +86,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 		(pScene && pScene->hasColorData()))
 	{
 		m_pFrame->UpdateColorBuffers(pDepthToColor, pDepthDistortionLT, nPointNum, colorImage);
+		m_pFrame->setDirty();
 	}
 	
 	// Tracking
@@ -174,5 +175,10 @@ bool NuiKinfuTrackingEngine::VerticesToMappablePosition(NuiCLMappableData* pMapp
 bool	NuiKinfuTrackingEngine::BufferToMappableTexture(NuiCLMappableData* pMappableData)
 {
 	NuiKinfuFeedbackFrame::TrackerBufferType bufferType = NuiKinfuFeedbackFrame::eTracker_Ranges;
-	return m_pFeedbackFrame ? m_pFeedbackFrame->BufferToMappableTexture(pMappableData, bufferType) : NULL;
+	bool returnStatus = false;
+	if (m_pFeedbackFrame)
+		returnStatus |= m_pFeedbackFrame->BufferToMappableTexture(pMappableData, bufferType);
+	if (m_pFrame)
+		returnStatus |= m_pFrame->BufferToMappableTexture(pMappableData);
+	return returnStatus;
 }

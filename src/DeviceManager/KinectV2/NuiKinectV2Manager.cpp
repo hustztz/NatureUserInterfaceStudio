@@ -776,6 +776,12 @@ bool NuiKinectV2Manager::OnCoordinateMappingChanged()
 
 	m_pCoordinateMapper->GetDepthCameraIntrinsics(&intrinsics);
 
+	if (m_cameraIntri.m_fx == intrinsics.FocalLengthX &&
+		m_cameraIntri.m_fy == intrinsics.FocalLengthY &&
+		m_cameraIntri.m_cx == intrinsics.PrincipalPointX &&
+		m_cameraIntri.m_cy == intrinsics.PrincipalPointY)
+		return true;
+
 	m_cameraIntri.m_fx = intrinsics.FocalLengthX;
 	m_cameraIntri.m_fy = intrinsics.FocalLengthY;
 	m_cameraIntri.m_cx = intrinsics.PrincipalPointX;

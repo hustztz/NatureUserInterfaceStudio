@@ -97,11 +97,15 @@ void NuiGuiController::handleGuiChanged()
 	{
 		if(m_gui->a_deviceOn)
 		{
-			DWORD deviceMode = NuiRGBDDeviceController::EDeviceMode_VertexColorCamera;
-			if(m_gui->a_fileToFrame)
-				m_pDevice->startFileLoader(deviceMode, sTestDataFolder);
+			if (m_gui->a_fileToFrame)
+			{
+				m_pDevice->initializeFileLoader(sTestDataFolder);
+			}
 			else
-				m_pDevice->startDevice(deviceMode);
+			{
+				DWORD deviceMode = NuiRGBDDeviceController::EDeviceMode_VertexColorCamera;
+				m_pDevice->initializeDevice(deviceMode);
+			}
 		}
 		else
 		{
@@ -161,6 +165,8 @@ void NuiGuiController::handleGuiChanged()
 
 	if(pangolin::Pushed(m_gui->a_start))
 	{
+		if (m_pDevice)
+			m_pDevice->startDevice();
 		if(m_pKinfu)
 			m_pKinfu->startThread();
 	}
@@ -171,6 +177,8 @@ void NuiGuiController::handleGuiChanged()
 	}
 	else if(pangolin::Pushed(m_gui->a_stop))
 	{
+		if (m_pDevice)
+			m_pDevice->pauseDevice();
 		if(m_pKinfu)
 			m_pKinfu->stopThread();
 	}

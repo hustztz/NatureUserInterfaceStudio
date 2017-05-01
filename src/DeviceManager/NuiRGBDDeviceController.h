@@ -27,8 +27,9 @@ public:
 	NuiRGBDDeviceController();
 	~NuiRGBDDeviceController();
 
-	bool startDevice(DWORD deviceMode);
-	bool startFileLoader(DWORD deviceMode, const std::string&	fileName);
+	bool initializeDevice(DWORD deviceMode);
+	bool initializeFileLoader(const std::string&	fileName);
+	bool startDevice();
 	void pauseDevice();
 	void stopDevice();
 

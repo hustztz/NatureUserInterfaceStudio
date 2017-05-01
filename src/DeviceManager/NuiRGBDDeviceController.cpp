@@ -13,7 +13,7 @@ NuiRGBDDeviceController::~NuiRGBDDeviceController()
 	SafeDelete(m_pDevice);
 }
 
-bool NuiRGBDDeviceController::startDevice(DWORD deviceMode)
+bool NuiRGBDDeviceController::initializeDevice(DWORD deviceMode)
 {
 	DWORD deviceFlag = 0;
 	switch (deviceMode)
@@ -96,17 +96,10 @@ bool NuiRGBDDeviceController::startDevice(DWORD deviceMode)
 		SafeDelete(m_pDevice);
 		return false;
 	}
-
-	if( !m_pDevice->StartDevice() )
-	{
-		std::cerr << "Error : Failed to start the device." << std::endl;
-		SafeDelete(m_pDevice);
-		return false;
-	}
 	return true;
 }
 
-bool NuiRGBDDeviceController::startFileLoader(DWORD deviceMode, const std::string&	fileName)
+bool NuiRGBDDeviceController::initializeFileLoader(const std::string&	fileName)
 {
 	DWORD deviceFlag = 0;
 	
@@ -121,8 +114,15 @@ bool NuiRGBDDeviceController::startFileLoader(DWORD deviceMode, const std::strin
 		SafeDelete(m_pDevice);
 		return false;
 	}
+	return true;
+}
 
-	if( !m_pDevice->StartDevice() )
+bool NuiRGBDDeviceController::startDevice()
+{
+	if (!m_pDevice)
+		return false;
+
+	if (!m_pDevice->StartDevice())
 	{
 		std::cerr << "Error : Failed to start the device." << std::endl;
 		SafeDelete(m_pDevice);

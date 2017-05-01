@@ -48,6 +48,7 @@ static const char * const KernelNames[] =
 	"UV2color",									  "transformMaps.cl",
 	"transform_maps_kernel",					  "transformMaps.cl",
 	"resize_maps_kernel",						  "transformMaps.cl",
+	"color_to_texture_kernel",					  "transformMaps.cl",
 	"float3_to_texture_kernel",					  "transformMaps.cl",
 	"float2_to_texture_kernel",					  "transformMaps.cl",
 	"intensity_to_float4_kernel",				  "transformMaps.cl",

@@ -3,6 +3,8 @@
 #include "NuiKinfuTrackingEngine.h"
 #include "NuiKinfuVolumeConfig.h"
 
+#include <boost/thread/mutex.hpp>
+
 class NuiMeshShape;
 class NuiKinfuScene;
 class NuiCameraPos;
@@ -50,5 +52,7 @@ namespace NuiKinfuEngine
 
 		NuiTrackerConfig					m_trackingConfig;
 		Vector3f							m_translateBasis;
+
+		boost::mutex						m_trackingMutex;
 	};
 }

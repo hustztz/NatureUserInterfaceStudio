@@ -13,6 +13,7 @@ public:
 
 	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState) override;
 	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image) override;
+	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData) override;
 	virtual UINT	GetWidth() const override { return m_nWidth; }
 	virtual UINT	GetHeight() const override { return m_nHeight; }
 

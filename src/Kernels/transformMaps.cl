@@ -304,6 +304,25 @@ __kernel void UV2color(
 	vstore4((uchar4)(0, 0, 0, 0), idx, colors);
 }
 
+__kernel void color_to_texture_kernel(
+					__global uchar* colors,
+					write_only image2d_t tex
+						)
+{
+	const int gidx = get_global_id(0);
+	const int gidy = get_global_id(1);
+    const int gsizex = get_global_size(0);
+	const int idx = mul24(gidy, gsizex)+gidx;
+
+	uchar4 color = vload4(idx, colors);
+	float4 floatColor;
+	if(color.w > 0)
+		floatColor = (float4)(convert_float(color.z) /255.f, convert_float(color.y) /255.f, convert_float(color.x) /255.f, 1.0f);
+	else
+		floatColor = (float4)(0.0f,0.0f,0.0f,0.0f);
+	write_imagef(tex, (int2)(gidx, gidy), floatColor);
+}
+
 __kernel void float3_to_texture_kernel(
 					__global float* floatColors,
 					write_only image2d_t tex

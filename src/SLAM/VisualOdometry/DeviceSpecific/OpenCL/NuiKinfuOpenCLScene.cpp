@@ -447,8 +447,6 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 		return false;
 	}
 
-	NuiTimeLog::instance().tick(sVolume2Vertices);
-
 	// OpenCL command queue and device
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
@@ -479,6 +477,8 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	{
 		NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
 	}
+
+	NuiTimeLog::instance().tick(sVolume2Vertices);
 
 	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
 	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
