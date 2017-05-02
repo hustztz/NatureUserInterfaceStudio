@@ -29,7 +29,7 @@ namespace NuiKinfuEngine
 		int		getTrackerCount() const { return m_trackingEngine.getTrackerCount(); }
 		int		getFrameID() const { return m_trackingEngine.getFrameID(); }
 
-		void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
+		void	setTranslateBasis(const Vector3f& basis);
 		void	setIntegrationMetricThreshold(float threshold);
 		void	setColorTracker(bool bHasColor) { m_trackingConfig.bHasColor = bHasColor; }
 		void	log(const std::string& fileName) const;
@@ -51,7 +51,6 @@ namespace NuiKinfuEngine
 		NuiKinfuScene*						m_pScene;
 
 		NuiTrackerConfig					m_trackingConfig;
-		Vector3f							m_translateBasis;
 
 		boost::mutex						m_trackingMutex;
 	};

@@ -27,8 +27,10 @@ namespace NuiKinfuEngine
 		void	initialize(const NuiTrackerConfig& tracerConfig, bool bAcceleratedFeedback, UINT nWidth, UINT nHeight);
 		bool	log(const std::string& fileName) const;
 
+		void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
+		const Vector3f&	getTranslateBasis() const { return m_translateBasis; }
 		/** \brief Performs the tracker reset to initial  state. It's used if case of camera tracking fail.  */
-		void	reset(const Vector3f& translateBasis);
+		void	reset();
 
 		bool	RunTracking(UINT16* pDepths,
 			UINT* pDepthDistortionLT,
@@ -57,6 +59,7 @@ namespace NuiKinfuEngine
 		NuiKinfuFeedbackFrame*	m_pFeedbackFrame;
 		NuiKinfuCameraState*	m_pCameraState;
 		std::vector<NuiCameraPos> m_poses;
+		Vector3f				m_translateBasis;
 
 		NuiCameraPos			m_lastIntegrationPos;
 		float					m_integration_metric_threshold;

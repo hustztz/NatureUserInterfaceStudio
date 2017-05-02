@@ -12,7 +12,6 @@ using namespace NuiKinfuEngine;
 
 NuiKinfuMainEngine::NuiKinfuMainEngine()
 	: m_pScene(NULL)
-	, m_translateBasis(Vector3f::Zero())
 {
 }
 
@@ -102,13 +101,18 @@ void	NuiKinfuMainEngine::setIntegrationMetricThreshold(float threshold)
 
 void	NuiKinfuMainEngine::resetTracker()
 {
-	m_trackingEngine.reset(m_translateBasis);
+	m_trackingEngine.reset();
 }
 
 void	NuiKinfuMainEngine::resetVolume()
 {
 	if(m_pScene)
 		m_pScene->reset();
+}
+
+void	NuiKinfuMainEngine::setTranslateBasis(const Vector3f& basis) {
+	m_trackingEngine.setTranslateBasis(basis);
+	m_trackingEngine.reset();
 }
 
 bool	NuiKinfuMainEngine::processFrame (

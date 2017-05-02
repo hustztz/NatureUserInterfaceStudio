@@ -590,11 +590,11 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	pCLData->SetBoundingBox(SgVec3f(
 		-m_config.dimensions[0]/2,
 		-m_config.dimensions[1]/2,
-		-m_config.dimensions[2]/2),
+		0),
 		SgVec3f(
 		m_config.dimensions[0]/2,
 		m_config.dimensions[1]/2,
-		m_config.dimensions[2]/2));
+		m_config.dimensions[2]));
 
 	pCLData->SetStreamDirty(true);
 
@@ -766,7 +766,7 @@ bool NuiKinfuOpenCLScene::Volume2CLMesh(NuiCLMappableData* pCLData)
 	}
 
 	// Set bounding box
-	pCLData->SetBoundingBox(SgVec3f(-m_config.dimensions[0]/2, -m_config.dimensions[1]/2, -m_config.dimensions[2]/2), SgVec3f(m_config.dimensions[0]/2, m_config.dimensions[1]/2, m_config.dimensions[2]/2));
+	pCLData->SetBoundingBox(SgVec3f(-m_config.dimensions[0]/2, -m_config.dimensions[1]/2, 0), SgVec3f(m_config.dimensions[0]/2, m_config.dimensions[1]/2, m_config.dimensions[2]));
 	
 	pCLData->SetStreamDirty(true);
 
