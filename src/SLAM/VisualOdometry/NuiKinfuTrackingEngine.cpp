@@ -115,7 +115,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 			// Integration check - We do not integrate volume if camera does not move.
 			const NuiCameraPos& cameraPos = m_pCameraState->GetCameraPos();
 			float rnorm = NuiMatrixUtilities::rodrigues2(cameraPos.getRotation().inverse() * m_lastIntegrationPos.getRotation()).norm();
-			float tnorm = (cameraPos.getTranslation() - m_lastIntegrationPos.getTranslation()).norm();
+			float tnorm = (cameraPos.getGlobalTranslation() - m_lastIntegrationPos.getGlobalTranslation()).norm();
 			const float alpha = 1.f;
 			bool bNeedIntegrate = (rnorm + alpha * tnorm)/2 >= m_integration_metric_threshold;
 			// Integrate
@@ -137,7 +137,7 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 	}
 
 	//save camera state
-	m_poses.push_back( m_pCameraState->GetCameraPos() );
+	m_poses.push_back( NuiDensePose(m_pCameraState->GetCameraPos()) );
 
 	return true;
 }
@@ -165,7 +165,7 @@ const NuiCameraPos&	NuiKinfuTrackingEngine::getCameraPose (int time /*= -1*/) co
 	if (time > (int)m_poses.size () || time < 0)
 		time = (int)m_poses.size () - 1;
 
-	return m_poses[time];
+	return m_poses[time].m_cameraPos;
 }
 
 bool NuiKinfuTrackingEngine::VerticesToMappablePosition(NuiCLMappableData* pMappableData)

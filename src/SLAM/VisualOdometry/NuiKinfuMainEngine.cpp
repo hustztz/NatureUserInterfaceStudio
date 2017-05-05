@@ -39,9 +39,11 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 	else
 	{
 		NuiKinfuVolumeConfig volumeConfig;
+		volumeConfig.bIsDynamic = false;
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-		m_pScene = new NuiKinfuOpenCLScene(volumeConfig);
+		volumeConfig.translateBasis = m_trackingEngine.getTranslateBasis();
+		m_pScene = volumeConfig.bIsDynamic ? new NuiKinfuOpenCLShiftScene(volumeConfig) : new NuiKinfuOpenCLScene(volumeConfig);
 	}
 }
 
@@ -82,7 +84,7 @@ bool	NuiKinfuMainEngine::getCameraPose (NuiCameraPos* cam) const
 
 	*cam = m_trackingEngine.getCameraPose();
 	/*if(m_pVolume)
-		cam->setTranslation( cam->getTranslation() - m_translateBasis);*/
+		cam->setTranslation( cam->getGlobalTranslation() - m_translateBasis);*/
 	return true;
 }
 

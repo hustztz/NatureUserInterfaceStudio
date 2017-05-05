@@ -112,7 +112,7 @@ void NuiKinfuCPUFeedbackFrame::TransformBuffers(Vector3f* verticesBuffer, const 
 		return;
 
 	const Matrix3frm& rot = cameraPos.getRotation();
-	const Vector3f& trans = cameraPos.getTranslation();
+	const Vector3f& trans = cameraPos.getLocalTranslation();
 	
 	Vector3f* dstBuffer = m_vertices.GetBuffer();
 	Vector3f* normalsBuffer = m_normals.GetBuffer();

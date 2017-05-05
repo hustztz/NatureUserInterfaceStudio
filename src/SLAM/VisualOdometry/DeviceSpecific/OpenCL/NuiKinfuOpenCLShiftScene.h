@@ -10,6 +10,12 @@ public:
 
 	/** \brief Resets tsdf volume data to uninitialized state */
 	virtual void	reset() override;
+
+	virtual bool	integrateVolume(
+		NuiKinfuFrame*			pFrame,
+		NuiKinfuCameraState*	pCameraState
+	) override;
+
 	virtual bool	Volume2CLVertices(NuiCLMappableData* pCLData) override;
 	virtual bool	Volume2CLMesh(NuiCLMappableData* pCLData) override;
 

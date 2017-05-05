@@ -384,7 +384,7 @@ bool NuiKinfuOpenCLColorTracker::ColorIterativeClosestPoint(
 	{
 		const NuiCameraPos& cameraPos = pCameraState->GetCameraPos();
 		Rcurr = cameraPos.getRotation(); // tranform to global coo for ith camera pose
-		tcurr = cameraPos.getTranslation();
+		tcurr = cameraPos.getLocalTranslation();
 	}
 	cl_mem previousTransform = pCLCamera->GetCameraTransformBuffer();
 

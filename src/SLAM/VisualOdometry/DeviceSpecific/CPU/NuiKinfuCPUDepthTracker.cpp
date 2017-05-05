@@ -258,7 +258,7 @@ bool NuiKinfuCPUDepthTracker::IterativeClosestPoint(
 
 	const NuiCameraIntrinsics& cameraIntrinsics = pCameraState->GetCameraPos().getIntrinsics();
 	const Matrix3frm& Rprev = pCameraState->GetCameraPos().getRotation();
-	const Vector3f& tprev = pCameraState->GetCameraPos().getTranslation();
+	const Vector3f& tprev = pCameraState->GetCameraPos().getLocalTranslation();
 
 	Matrix3frm Rinv;
 	Vector3f tcurr;

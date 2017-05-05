@@ -781,7 +781,7 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 			//otHandle.set( pitch, yaw + 180.0, roll );
 			datablock.setClean(aCameraRotate);
 
-			Vector3f trans = cam.getTranslation();
+			Vector3f trans = cam.getGlobalTranslation();
 			trans[2] = trans[2] - 4.0f;
 			trans = cam.getRotation() * trans;
 			MDataHandle otHandle = datablock.outputValue( aCameraTranslate ); 

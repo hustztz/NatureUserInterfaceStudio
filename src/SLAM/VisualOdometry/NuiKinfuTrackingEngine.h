@@ -4,6 +4,7 @@
 #include "NuiTrackerConfig.h"
 
 #include "Shape\NuiImageBuffer.h"
+#include "Shape\NuiDensePose.h"
 
 //Forwards
 class NuiCLMappableData;
@@ -58,7 +59,7 @@ namespace NuiKinfuEngine
 		NuiKinfuFrame*			m_pFrame;
 		NuiKinfuFeedbackFrame*	m_pFeedbackFrame;
 		NuiKinfuCameraState*	m_pCameraState;
-		std::vector<NuiCameraPos> m_poses;
+		std::vector<NuiDensePose> m_poses;
 		Vector3f				m_translateBasis;
 
 		NuiCameraPos			m_lastIntegrationPos;

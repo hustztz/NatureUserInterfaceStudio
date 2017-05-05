@@ -4,6 +4,7 @@ project(libShape)
 set(SHAPE_HEADERS
 NuiCameraParams.h
 NuiCameraPos.h
+NuiDensePose.h
 NuiCLMappableData.h
 NuiCompoundImage.h
 NuiDevicePointCloud.h

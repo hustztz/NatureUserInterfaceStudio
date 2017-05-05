@@ -216,6 +216,7 @@ __kernel void marchingCubeKernel(
 			c[6] = vload4(voxel_id2+voxel_z+1, color_volume);
 			c[7] = vload4(voxel_id3+voxel_z+1, color_volume);
 		}
+
 		float4 color[12];
 		color[0] = color_interp (c[0], c[1], tsdf0, tsdf1);
         color[1] = color_interp (c[1], c[2], tsdf1, tsdf2);

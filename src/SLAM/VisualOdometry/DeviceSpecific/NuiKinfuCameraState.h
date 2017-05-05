@@ -11,7 +11,13 @@ public:
 	virtual void UpdateCameraTransform(const Matrix3frm& rot, const Vector3f& tran)
 	{
 		m_pos.setRotation(rot);
-		m_pos.setTranslation(tran);
+		m_pos.setLocalTranslation(tran);
+	}
+	virtual void UpdateCameraTransform(const Matrix3frm& rot, const Vector3f& tran, const Vector3f& offsetTran)
+	{
+		m_pos.setRotation(rot);
+		m_pos.setLocalTranslation(tran);
+		m_pos.setOffsetTranslation(offsetTran);
 	}
 	virtual void UpdateCameraParams(const NuiCameraParams& cameraParams, UINT nWidth, UINT nHeight)
 	{
@@ -21,5 +27,5 @@ public:
 	const NuiCameraPos& GetCameraPos() const { return m_pos; }
 	
 private:
-	NuiCameraPos					m_pos;
+	NuiCameraPos			m_pos;
 };

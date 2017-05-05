@@ -111,11 +111,11 @@ void NuiKinfuOpenCLShiftScene::fetchSlice(const Vector3i&	voxelWrap, const Vecto
 
 	// Get the kernel
 	cl_kernel fetchKernel =
-		NuiOpenCLKernelManager::instance().acquireKernel(E_FETCH_VOLUME);
+		NuiOpenCLKernelManager::instance().acquireKernel(E_FETCH_SHIFT_VOLUME);
 	assert(fetchKernel);
 	if (!fetchKernel)
 	{
-		NUI_ERROR("Get kernel 'E_FETCH_VOLUME' failed!\n");
+		NUI_ERROR("Get kernel 'E_FETCH_SHIFT_VOLUME' failed!\n");
 		return;
 	}
 
@@ -192,37 +192,40 @@ void NuiKinfuOpenCLShiftScene::fetchSlice(const Vector3i&	voxelWrap, const Vecto
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	m_cachedPointCloud.writeLock();
+	if (vertex_sum > 0)
+	{
+		m_cachedPointCloud.writeLock();
 
-	int originalSize = m_cachedPointCloud.pointSize();
-	m_cachedPointCloud.resizePoints(originalSize + vertex_sum);
-	err = clEnqueueReadBuffer(
-		queue,
-		volumeOutputVerticesCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 3 * sizeof(float),
-		(void*)(m_cachedPointCloud.getVertices() + originalSize),
-		0,
-		NULL,
-		NULL
+		int originalSize = m_cachedPointCloud.pointSize();
+		m_cachedPointCloud.resizePoints(originalSize + vertex_sum);
+		err = clEnqueueReadBuffer(
+			queue,
+			volumeOutputVerticesCL,
+			CL_FALSE,//blocking
+			0,
+			vertex_sum * 3 * sizeof(float),
+			(void*)(m_cachedPointCloud.getVertices() + originalSize),
+			0,
+			NULL,
+			NULL
 		);
-	NUI_CHECK_CL_ERR(err);
+		NUI_CHECK_CL_ERR(err);
 
-	err = clEnqueueReadBuffer(
-		queue,
-		volumeOutputColorsCL,
-		CL_FALSE,//blocking
-		0,
-		vertex_sum * 4 * sizeof(float),
-		(void*)(m_cachedPointCloud.getColors() + originalSize),
-		0,
-		NULL,
-		NULL
+		err = clEnqueueReadBuffer(
+			queue,
+			volumeOutputColorsCL,
+			CL_FALSE,//blocking
+			0,
+			vertex_sum * 4 * sizeof(float),
+			(void*)(m_cachedPointCloud.getColors() + originalSize),
+			0,
+			NULL,
+			NULL
 		);
-	NUI_CHECK_CL_ERR(err);
+		NUI_CHECK_CL_ERR(err);
 
-	m_cachedPointCloud.writeUnlock();
+		m_cachedPointCloud.writeUnlock();
+	}
 
 	err = NuiGPUMemManager::instance().ReleaseMemObjectCL(volumeOutputVerticesCL);
 	NUI_CHECK_CL_ERR(err);
@@ -235,7 +238,7 @@ void NuiKinfuOpenCLShiftScene::fetchAndClearX(int xVoxelTrans)
 	int offsetX = m_voxel_offset(0);
 	if(xVoxelTrans < 0)
 		offsetX += xVoxelTrans;
-	offsetX = (offsetX > 0) ? (offsetX % m_config.resolution(0)) : (m_config.resolution(0) - (-offsetX) % m_config.resolution(0));
+	offsetX = (offsetX >= 0) ? (offsetX % m_config.resolution(0)) : (m_config.resolution(0) - (-offsetX) % m_config.resolution(0));
 	Vector3i voxelWrap(offsetX, 0, 0);
 	Vector3i voxelTranslation(abs(xVoxelTrans), m_config.resolution(1), m_config.resolution(2));
 	fetchSlice(voxelWrap, voxelTranslation);
@@ -249,7 +252,7 @@ void NuiKinfuOpenCLShiftScene::fetchAndClearY(int yVoxelTrans)
 	int offsetY = m_voxel_offset(1);
 	if(yVoxelTrans < 0)
 		offsetY += yVoxelTrans;
-	offsetY = (offsetY > 0) ? (offsetY % m_config.resolution(1)) : (m_config.resolution(1) - (-offsetY) % m_config.resolution(1));
+	offsetY = (offsetY >= 0) ? (offsetY % m_config.resolution(1)) : (m_config.resolution(1) - (-offsetY) % m_config.resolution(1));
 	Vector3i voxelWrap(0, offsetY, 0);
 	Vector3i voxelTranslation(m_config.resolution(0), abs(yVoxelTrans), m_config.resolution(2));
 	fetchSlice(voxelWrap, voxelTranslation);
@@ -263,7 +266,7 @@ void NuiKinfuOpenCLShiftScene::fetchAndClearZ(int zVoxelTrans)
 	int offsetZ = m_voxel_offset(2);
 	if(zVoxelTrans < 0)
 		offsetZ += zVoxelTrans;
-	offsetZ = (offsetZ > 0) ? (offsetZ % m_config.resolution(2)) : (m_config.resolution(2) - (-offsetZ) % m_config.resolution(2));
+	offsetZ = (offsetZ >= 0) ? (offsetZ % m_config.resolution(2)) : (m_config.resolution(2) - (-offsetZ) % m_config.resolution(2));
 	Vector3i voxelWrap(0, 0, offsetZ);
 	Vector3i voxelTranslation(m_config.resolution(0), m_config.resolution(1), abs(zVoxelTrans));
 	fetchSlice(voxelWrap, voxelTranslation);
@@ -274,9 +277,6 @@ void NuiKinfuOpenCLShiftScene::fetchAndClearZ(int zVoxelTrans)
 
 Vector3f NuiKinfuOpenCLShiftScene::shiftVolume(const Vector3f& translation)
 {
-	if(!m_config.bIsDynamic)
-		return translation;
-
 	const Vector3f& voxelSizeMeters = getVoxelSize();
 	Vector3f shiftTranslation = translation - m_config.translateBasis;
 
@@ -284,7 +284,7 @@ Vector3f NuiKinfuOpenCLShiftScene::shiftVolume(const Vector3f& translation)
 	int yVoxelTrans = 0;
 	int zVoxelTrans = 0;
 
-	if((int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)) < 0)
+	if(shiftTranslation(0) < 0)
 	{
 		xVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
 	}
@@ -293,7 +293,7 @@ Vector3f NuiKinfuOpenCLShiftScene::shiftVolume(const Vector3f& translation)
 		xVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(0) / voxelSizeMeters(0)));
 	}
 
-	if((int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)) < 0)
+	if(shiftTranslation(1) < 0)
 	{
 		yVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
 	}
@@ -302,7 +302,7 @@ Vector3f NuiKinfuOpenCLShiftScene::shiftVolume(const Vector3f& translation)
 		yVoxelTrans = std::min(m_config.voxel_shift, (int)std::floor(shiftTranslation(1) / voxelSizeMeters(1)));
 	}
 
-	if((int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)) < 0)
+	if(shiftTranslation(2) < 0)
 	{
 		zVoxelTrans = std::max(-m_config.voxel_shift, (int)std::floor(shiftTranslation(2) / voxelSizeMeters(2)));
 	}
@@ -328,6 +328,19 @@ Vector3f NuiKinfuOpenCLShiftScene::shiftVolume(const Vector3f& translation)
 	}
 
 	return shiftTranslation + m_config.translateBasis;
+}
+
+/*virtual*/
+bool	NuiKinfuOpenCLShiftScene::integrateVolume(
+	NuiKinfuFrame*			pFrame,
+	NuiKinfuCameraState*	pCameraState
+)
+{
+	Vector3f translation = pCameraState->GetCameraPos().getLocalTranslation();
+	translation = shiftVolume(translation);
+	pCameraState->UpdateCameraTransform(pCameraState->GetCameraPos().getRotation(), translation, getVoxelOffsetSize());
+
+	return NuiKinfuOpenCLScene::integrateVolume(pFrame, pCameraState);
 }
 
 bool NuiKinfuOpenCLShiftScene::Volume2CLVertices(NuiCLMappableData* pCLData)

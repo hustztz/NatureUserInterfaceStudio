@@ -14,7 +14,8 @@ public:
 	NuiCameraPos()
 	{
 		m_rotation.setIdentity();
-		m_translation = Vector3f::Zero();
+		m_localTranslation = Vector3f::Zero();
+		m_offsetTranslation = Vector3f::Zero();
 	}
 	~NuiCameraPos(){}
 
@@ -27,21 +28,27 @@ public:
 		return m_rotation;
 	}
 
-	void setTranslation(const Vector3f& tran)
+	void setLocalTranslation(const Vector3f& tran)
 	{
-		m_translation = tran;
+		m_localTranslation = tran;
 	}
-	const Vector3f& getTranslation() const
+	const Vector3f& getLocalTranslation() const
 	{
-		return m_translation;
+		return m_localTranslation;
 	}
+
+	void setOffsetTranslation(const Vector3f& tran)
+	{
+		m_offsetTranslation = tran;
+	}
+	Vector3f		getGlobalTranslation() const { return m_localTranslation + m_offsetTranslation; }
 
 	Matrix4frm getTransform() const
 	{
 		Matrix4frm transform;
 		transform.setIdentity();
 		transform.topLeftCorner(3, 3) = m_rotation;
-		transform.block<1, 3>(3, 0) = m_translation;
+		transform.block<1, 3>(3, 0) = getGlobalTranslation();
 		return transform;
 	}
 
@@ -49,7 +56,7 @@ public:
 	{
 		Eigen::Affine3f aff;
 		aff.linear () = m_rotation;
-		aff.translation () = m_translation;
+		aff.translation () = getGlobalTranslation();
 		return aff;
 	}
 
@@ -88,6 +95,7 @@ public:
 
 private:
 	Matrix3frm				m_rotation;
-	Vector3f				m_translation;
+	Vector3f				m_localTranslation;
+	Vector3f				m_offsetTranslation;
 	NuiCameraParams			m_params;
 };
