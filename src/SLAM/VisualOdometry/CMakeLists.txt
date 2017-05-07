@@ -7,7 +7,7 @@ NuiHashingRaycastConfig.h
 NuiHashingSDFConfig.h
 NuiKinfuMainEngine.h
 NuiKinfuManager.h
-NuiKinfuPointCloud.h
+NuiKinfuPointCloudCache.h
 NuiKinfuTrackingEngine.h
 NuiKinfuVolumeConfig.h
 NuiMeshingUtil.h
@@ -96,6 +96,7 @@ add_definitions(-DWITH_OPENMP)
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${PCL_COMMON_INCLUDE_DIRS})
 include_directories(${log4cplus_DIR}/../../../include)
 include_directories($ENV{MAYA_RELEASE_BUILD}/include)
 

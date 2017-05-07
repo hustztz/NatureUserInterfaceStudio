@@ -10,6 +10,7 @@ GUI/NuiGuiOpenCLUtilities.h
 GUI/NuiPangoCloud.h
 GUI/NuiPangoCloudShader.h
 GUI/NuiPangoMeshShader.h
+GUI/NuiPangoPolygonMeshShader.h
 GUI/NuiPangoRayIntervalSplattingShader.h
 GUI/NuiPangoTexturedCloudShader.h
 GUI/NuiPangoTexturedMeshShader.h
@@ -22,6 +23,7 @@ GUI/NuiGuiController.cpp
 GUI/NuiGuiOpenCLUtilities.cpp
 GUI/NuiPangoCloudShader.cpp
 GUI/NuiPangoMeshShader.cpp
+GUI/NuiPangoPolygonMeshShader.cpp
 GUI/NuiPangoRayIntervalSplattingShader.cpp
 GUI/NuiPangoTexturedCloudShader.cpp
 GUI/NuiPangoTexturedMeshShader.cpp
@@ -32,16 +34,18 @@ SOURCE_GROUP(GUI FILES ${GUI_HEADERS} ${GUI_SOURCES})
 
 find_package(Pangolin 0.1 REQUIRED)
 
-add_definitions(-DNOMINMAX)
-add_definitions(-D_UNICODE -DUNICODE)
-
 include_directories($ENV{NUI_LOCATION})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${Pangolin_INCLUDE_DIRS})
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${PCL_COMMON_INCLUDE_DIRS})
 # include_directories(${OPENCL_INCLUDE_DIRS})
 include_directories($ENV{MAYA_RELEASE_BUILD}/include)
+
+add_definitions(${PCL_DEFINITIONS})
+add_definitions(-DNOMINMAX)
+add_definitions(-D_UNICODE -DUNICODE)
 
 
 add_executable(NatureUserInterfaceDemo NatureUserInterfaceDemo.cpp ${GUI_HEADERS} ${GUI_SOURCES})
@@ -55,5 +59,6 @@ target_link_libraries(NatureUserInterfaceDemo
 					  ${Boost_LIBRARIES}
                       ${Pangolin_LIBRARIES}
 					  ${OpenCV_LIBS}
+					  ${PCL_COMMON_LIBRARIES}
 					  ${log4cplus_DIR}/../../log4cplus${D_SUFF}.lib
 )

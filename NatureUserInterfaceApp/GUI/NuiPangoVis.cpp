@@ -5,6 +5,7 @@
 #include "NuiPangoTexturedCloudShader.h"
 #include "NuiPangoMeshShader.h"
 #include "NuiPangoTexturedMeshShader.h"
+#include "NuiPangoPolygonMeshShader.h"
 
 #include <pangolin/gl/gl.h>
 #include <pangolin/gl/gldraw.h>
@@ -21,6 +22,7 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	, m_pTexturedCloudDraw(NULL)
 	, m_pMeshDraw(NULL)
 	, m_pTexturedMeshDraw(NULL)
+	, m_pPolygonMeshDraw(NULL)
 	, a_deviceOn("ui.Device On", false, true)
 	, a_start("ui.Start", false, false)
 	, a_stepIn("ui.Step In", false, false)
@@ -121,6 +123,7 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	m_pTexturedCloudDraw = new NuiPangoTexturedCloudShader(shadersFolder);
 	m_pMeshDraw = new NuiPangoMeshShader(shadersFolder);
 	m_pTexturedMeshDraw = new NuiPangoTexturedMeshShader(shadersFolder);
+	m_pPolygonMeshDraw = new NuiPangoPolygonMeshShader();
 }
 
 NuiPangoVis::~NuiPangoVis()
@@ -131,6 +134,7 @@ NuiPangoVis::~NuiPangoVis()
 	SafeDelete(m_pTexturedCloudDraw);
 	SafeDelete(m_pMeshDraw);
 	SafeDelete(m_pTexturedMeshDraw);
+	SafeDelete(m_pPolygonMeshDraw);
 }
 
 void NuiPangoVis::preCall()
@@ -234,7 +238,15 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 	if(!pData)
 		return;
 
-	if(pData->PointIndices().size())
+	if (pData->GetPolygonMesh() && m_pPolygonMeshDraw)
+	{
+		if (m_pPolygonMeshDraw->initializeBuffers(pData->GetPolygonMesh()))
+		{
+			m_pPolygonMeshDraw->drawMesh(s_cam.GetProjectionModelViewMatrix(), false);
+			m_pPolygonMeshDraw->uninitializeBuffers();
+		}
+	}
+	else if (pData->PointIndices().size())
 	{
 		if(m_pCloudDraw && pData->ColorStream().size())
 		{

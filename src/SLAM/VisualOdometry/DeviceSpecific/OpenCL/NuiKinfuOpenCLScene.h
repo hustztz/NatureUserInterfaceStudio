@@ -2,7 +2,7 @@
 
 #include "../NuiKinfuScene.h"
 #include "../../NuiKinfuVolumeConfig.h"
-#include "../../NuiKinfuPointCloud.h"
+#include "../../NuiKinfuPointCloudCache.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
 #include "Kernels/gpu_def.h"
 
@@ -71,5 +71,5 @@ protected:
 
 	NuiKinfuVolumeConfig m_config;
 
-	NuiKinfuPointCloud	m_cachedPointCloud;
+	NuiKinfuPointCloudCache	m_cachedPointCloud;
 };

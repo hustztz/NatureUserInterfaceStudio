@@ -5,6 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/" 
 
 find_package(OPENCL REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(PCL 1.7 QUIET REQUIRED)
 find_package(OPENGL REQUIRED)
 find_package(log4cplus REQUIRED)
 find_package(EIGEN3 REQUIRED)

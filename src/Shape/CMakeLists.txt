@@ -17,6 +17,7 @@ NuiMemoryBlock.h
 NuiMeshShape.h
 NuiPointCloudImpl.h
 NuiPointCloudShape.h
+NuiPolygonMesh.h
 NuiSkeletonJoints.h
 NuiTrackedFace.h
 )
@@ -30,14 +31,25 @@ NuiGestureResponse.cpp
 NuiGestureResult.cpp
 NuiSkeletonJoints.cpp
 NuiTrackedFace.cpp
+NuiPointCloudShape.cpp
+NuiPolygonMesh.cpp
 )
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${PCL_COMMON_INCLUDE_DIRS})
+include_directories(${FLANN_INCLUDE_DIRS})
+
+add_definitions(${PCL_DEFINITIONS})
 
 add_library(libShape
 			${SHAPE_HEADERS}
 			${SHAPE_SOURCES}
 )
-target_link_libraries(libShape ${Boost_LIBRARIES})
+target_link_libraries(libShape
+					 ${Boost_LIBRARIES}
+					 ${PCL_COMMON_LIBRARIES}
+					 ${PCL_SURFACE_LIBRARIES}
+					 ${PCL_SEARCH_LIBRARIES}
+)

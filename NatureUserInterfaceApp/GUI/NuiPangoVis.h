@@ -8,6 +8,7 @@ class NuiPangoCloudShader;
 class NuiPangoMeshShader;
 class NuiPangoTexturedCloudShader;
 class NuiPangoTexturedMeshShader;
+class NuiPangoPolygonMeshShader;
 
 class NuiPangoVis
 {
@@ -71,6 +72,7 @@ private:
 	NuiPangoCloudShader*			m_pCloudDraw;
 	NuiPangoTexturedMeshShader*		m_pTexturedMeshDraw;
 	NuiPangoMeshShader*				m_pMeshDraw;
+	NuiPangoPolygonMeshShader*		m_pPolygonMeshDraw;
 
 	pangolin::Var<float> a_drawPointSize;
 	pangolin::Var<bool> a_followPose;

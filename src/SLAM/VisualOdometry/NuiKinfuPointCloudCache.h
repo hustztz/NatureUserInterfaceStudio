@@ -7,7 +7,7 @@
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
-class NuiKinfuPointCloud
+class NuiKinfuPointCloudCache
 {
 public:
 

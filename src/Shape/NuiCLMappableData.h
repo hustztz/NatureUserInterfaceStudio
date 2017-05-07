@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "Shape/NuiCameraPos.h"
+#include "Shape/NuiPolygonMesh.h"
 #include "OpenCLUtilities/NuiMappable.h"
 #include "OpenCLUtilities/NuiTextureMappable.h"
 
@@ -50,6 +51,8 @@ public:
 	void				SetCameraParams(const NuiCameraPos& cam) { m_camParams = cam; }
 	const NuiCameraPos&	GetCameraParams() const { return m_camParams; }
 
+	NuiPolygonMesh*		GetPolygonMesh() const { return m_pMesh; }
+
 	void				SetBoundingBox(const SgVec3f& min, const SgVec3f& max) { m_boundingBoxMin = min; m_boundingBoxMax = max; }
 	const SgVec3f&		GetBoundingBoxMin() const { return m_boundingBoxMin; }
 	const SgVec3f&		GetBoundingBoxMax() const { return m_boundingBoxMax; }
@@ -79,6 +82,8 @@ private:
 
 	SgVec3f				m_boundingBoxMin;
 	SgVec3f				m_boundingBoxMax;
+
+	NuiPolygonMesh*		m_pMesh;
 
 	bool				m_streamDirty;
 	bool				m_indexDirty;
