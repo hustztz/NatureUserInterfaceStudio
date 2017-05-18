@@ -66,11 +66,10 @@ void NuiKinfuTrackingEngine::initialize(const NuiTrackerConfig& trackerConfig, b
 }
 
 bool	NuiKinfuTrackingEngine::RunTracking(
+	INT64 timeStamp,
 	UINT16* pDepths,
-	UINT* pDepthDistortionLT,
-	ColorSpacePoint* pDepthToColor,
+	BGRQUAD* pColors,
 	UINT nPointNum,
-	const NuiColorImage& colorImage,
 	NuiKinfuScene*	pScene,
 	const NuiCameraParams& cameraParams)
 {
@@ -82,11 +81,11 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 
 	// Build the frame buffers
 	m_pCameraState->UpdateCameraParams(cameraParams, m_pFrame->GetWidth(), m_pFrame->GetHeight());
-	m_pFrame->UpdateVertexBuffers(pDepths, pDepthDistortionLT, nPointNum, m_pCameraState);
+	m_pFrame->UpdateVertexBuffers(pDepths, nPointNum, m_pCameraState);
 	if( m_pTracker->hasColorData() ||
 		(pScene && pScene->hasColorData()))
 	{
-		m_pFrame->UpdateColorBuffers(pDepthToColor, pDepthDistortionLT, nPointNum, colorImage);
+		m_pFrame->UpdateColorBuffers(pColors, nPointNum);
 		m_pFrame->setDirty();
 	}
 	

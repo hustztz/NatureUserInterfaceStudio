@@ -311,7 +311,7 @@ void NuiKinfuOpenCLFrame::Depth2vertex(cl_mem cameraParamsCL)
 	NUI_CHECK_CL_ERR(err);
 }
 
-void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState)
+void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState)
 {
 	assert(m_nWidth*m_nHeight == nNum);
 	if(!pDepths|| !m_rawDepthsCL)
@@ -364,6 +364,42 @@ void	NuiKinfuOpenCLFrame::UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDisto
 	{
 		Depth2vertex(pCLCamera->GetCameraParamsBuffer());
 	}
+}
+
+void	NuiKinfuOpenCLFrame::UpdateColorBuffers(BGRQUAD* pColors, UINT nNum)
+{
+	assert(m_nWidth*m_nHeight == nNum);
+	if (!pColors || !m_colorsCL)
+		return;
+
+	// OpenCL command queue and device
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+#ifdef _GPU_PROFILER
+	cl_event timing_event;
+	cl_ulong time_start, time_end;
+#endif
+	clEnqueueWriteBuffer(
+		queue,
+		m_colorsCL,
+#ifdef _GPU_PROFILER
+		CL_TRUE,
+#else
+		CL_FALSE,//blocking
+#endif
+		0,
+		nNum * sizeof(BGRQUAD),
+		pColors,
+		0,
+		NULL,
+#ifdef _GPU_PROFILER
+		&timing_event
+#else
+		NULL
+#endif
+	);
+	NUI_CHECK_CL_ERR(err);
 }
 
 void	NuiKinfuOpenCLFrame::UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image)

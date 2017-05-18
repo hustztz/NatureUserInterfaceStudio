@@ -33,11 +33,11 @@ namespace NuiKinfuEngine
 		/** \brief Performs the tracker reset to initial  state. It's used if case of camera tracking fail.  */
 		void	reset();
 
-		bool	RunTracking(UINT16* pDepths,
-			UINT* pDepthDistortionLT,
-			ColorSpacePoint* pDepthToColor,
+		bool	RunTracking(
+			INT64 timeStamp,
+			UINT16* pDepths,
+			BGRQUAD* pColors,
 			UINT nPointNum,
-			const NuiColorImage& image,
 			NuiKinfuScene*	pVolume,
 			const NuiCameraParams& cameraParams);
 

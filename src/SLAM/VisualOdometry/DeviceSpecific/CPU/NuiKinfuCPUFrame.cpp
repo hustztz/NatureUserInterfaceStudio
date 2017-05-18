@@ -142,7 +142,7 @@ void NuiKinfuCPUFrame::Depth2vertex(NuiCameraIntrinsics cameraIntrics)
 	}
 }
 
-void	NuiKinfuCPUFrame::UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState)
+void	NuiKinfuCPUFrame::UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState)
 {
 	assert(m_floatDepths.GetWidth()*m_floatDepths.GetHeight() == nNum);
 	if(!pDepths || !pCameraState)
@@ -157,17 +157,9 @@ void	NuiKinfuCPUFrame::UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistorti
 #endif
 	for (UINT i = 0; i < nNum; ++i)
 	{
-		const UINT mappedIndex = pDepthDistortionLT ? pDepthDistortionLT[i] : i;
-		if (mappedIndex < nNum)
-		{
-			pBuffers[i] = pDepths[mappedIndex] * 0.001f;
-			if ((pBuffers[i] < minDepth) || (pBuffers[i] > maxDepth))
-				pBuffers[i] = NAN_FLOAT;
-		}
-		else
-		{
+		pBuffers[i] = pDepths[i] * 0.001f;
+		if ((pBuffers[i] < minDepth) || (pBuffers[i] > maxDepth))
 			pBuffers[i] = NAN_FLOAT;
-		}
 	}
 
 	SmoothDepths(m_filter_radius, m_sigma_depth2_inv_half, m_depth_threshold);

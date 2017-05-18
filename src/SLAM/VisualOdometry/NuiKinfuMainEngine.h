@@ -35,12 +35,11 @@ namespace NuiKinfuEngine
 		void	log(const std::string& fileName) const;
 
 		bool	processFrame(
+			INT64 timeStamp,
 			UINT16* pDepthBuffer,
-			UINT* pDepthDistortionLT,
-			ColorSpacePoint* pDepthToColor,
+			BGRQUAD* pColorBuffer,
 			UINT nWidth,
 			UINT nHeight,
-			const NuiColorImage& image,
 			const NuiCameraParams& cameraParams
 			);
 

@@ -17,7 +17,8 @@ public:
 	void setDirty() { m_dirty = true; }
 	void clearDirty() { m_dirty = false; }
 
-	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState) = 0;
+	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState) = 0;
+	virtual void	UpdateColorBuffers(BGRQUAD* pColors, UINT nNum) = 0;
 	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image) = 0;
 	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData) { return false; }
 

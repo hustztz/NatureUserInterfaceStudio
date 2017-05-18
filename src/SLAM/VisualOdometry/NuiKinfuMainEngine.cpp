@@ -118,12 +118,11 @@ void	NuiKinfuMainEngine::setTranslateBasis(const Vector3f& basis) {
 }
 
 bool	NuiKinfuMainEngine::processFrame (
+	INT64 timeStamp,
 	UINT16* pDepthBuffer,
-	UINT* pDepthDistortionLT,
-	ColorSpacePoint* pDepthToColor,
+	BGRQUAD* pColorBuffer,
 	UINT nWidth,
 	UINT nHeight,
-	const NuiColorImage& image,
 	const NuiCameraParams& cameraParams
 	)
 {
@@ -142,11 +141,10 @@ bool	NuiKinfuMainEngine::processFrame (
 	{
 		boost::mutex::scoped_lock trackingLock(m_trackingMutex);
 		returnStatus = m_trackingEngine.RunTracking(
+			timeStamp,
 			pDepthBuffer,
-			pDepthDistortionLT,
-			pDepthToColor,
+			pColorBuffer,
 			nWidth * nHeight,
-			image,
 			m_pScene,
 			cameraParams);
 		trackingLock.unlock();

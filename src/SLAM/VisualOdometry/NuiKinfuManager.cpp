@@ -40,18 +40,61 @@ bool	NuiKinfuManager::process ()
 	ColorSpacePoint* pDepthToColor = pCompositeFrame->m_colorMapFrame.GetBuffer();
 	//assert(nPointNum == nColorMapNum);
 
+	const NuiColorImage& colorTex = pCompositeFrame->m_colorFrame.GetImage();
+	BGRQUAD* pImgSrc = colorTex.GetBuffer();
+
+	NuiColorImage colorBuffer;
+	BGRQUAD* pColors = colorBuffer.AllocateBuffer(nWidth, nHeight);
+	NuiDepthImage depthBuffer;
+	UINT16* pDepths = depthBuffer.AllocateBuffer(nWidth, nHeight);
+#ifdef WITH_OPENMP
+#pragma omp parallel for
+#endif
+	for (UINT i = 0; i < nPointNum; ++i)
+	{
+		const UINT mappedIndex = pDepthDistortionLT ? pDepthDistortionLT[i] : i;
+		if (mappedIndex < nPointNum)
+		{
+			pDepths[i] = pDepthBuffer[mappedIndex];
+
+			int colorX = (int)(pDepthToColor[mappedIndex].X + 0.5f);
+			int colorY = (int)(pDepthToColor[mappedIndex].Y + 0.5f);
+			if ((colorX >= 0 && colorX < (int)colorTex.GetWidth()) && (colorY >= 0 && colorY < (int)colorTex.GetHeight()))
+			{
+				int color_id = colorY * (int)colorTex.GetWidth() + colorX;
+				pColors[i] = pImgSrc[color_id];
+				pColors[i].rgbReserved = 255;
+			}
+			else
+			{
+				pColors[i].rgbRed = 0;
+				pColors[i].rgbGreen = 0;
+				pColors[i].rgbBlue = 0;
+				pColors[i].rgbReserved = 0;
+			}
+		}
+		else
+		{
+			pDepths[i] = -1;
+
+			pColors[i].rgbRed = 0;
+			pColors[i].rgbGreen = 0;
+			pColors[i].rgbBlue = 0;
+			pColors[i].rgbReserved = 0;
+		}
+	}
+
 	NuiCameraParams cameraParams;
 	cameraParams.m_intrinsics = pCompositeFrame->GetCameraParams().getIntrinsics();
 	cameraParams.m_sensorDepthMax = (float)(pCompositeFrame->m_depthFrame.GetMaxDepth()) / 1000.0f;
 	cameraParams.m_sensorDepthMin = (float)(pCompositeFrame->m_depthFrame.GetMinDepth()) / 1000.0f;
 
 	bool bSucceed = m_engine.processFrame(
-		pDepthBuffer,
-		pDepthDistortionLT,
-		pDepthToColor,
+		pCompositeFrame->m_depthFrame.GetTimeStamp(),
+		pDepths,
+		pColors,
 		nWidth,
 		nHeight,
-		pCompositeFrame->m_colorFrame.GetImage(),
 		cameraParams);
 
 	pCompositeFrame.reset();

@@ -11,7 +11,8 @@ public:
 	NuiKinfuOpenCLFrame(const NuiTrackerConfig& config, UINT nWidth, UINT nHeight);
 	virtual ~NuiKinfuOpenCLFrame();
 
-	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT* pDepthDistortionLT, UINT nNum, NuiKinfuCameraState* pCameraState) override;
+	virtual void	UpdateVertexBuffers(UINT16* pDepths, UINT nNum, NuiKinfuCameraState* pCameraState) override;
+	virtual void	UpdateColorBuffers(BGRQUAD* pColors, UINT nNum) override;
 	virtual void	UpdateColorBuffers(ColorSpacePoint* pDepthToColor, UINT* pDepthDistortionLT, UINT nNum, const NuiColorImage& image) override;
 	virtual bool	BufferToMappableTexture(NuiCLMappableData* pMappableData) override;
 	virtual UINT	GetWidth() const override { return m_nWidth; }
