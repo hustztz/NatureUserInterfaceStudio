@@ -188,7 +188,7 @@ void NuiPangoVis::drawFrustum(NuiCLMappableData* pData)
 	pangolin::glDrawFrustrum(Kinv,
 		4,
 		4,
-		pData->GetCameraParams().getTransform(),
+		pData->GetCameraPos().getTransform(),
 		0.1f);
 }
 
@@ -314,7 +314,7 @@ void NuiPangoVis::updateView(NuiCLMappableData* pData)
 
 	pangolin::OpenGlMatrix mv;
 
-	Matrix3frm currRot = pData->GetCameraParams().getRotation().inverse();
+	Matrix3frm currRot = pData->GetCameraPos().getRotation().inverse();
 
 	Eigen::Quaternionf currQuat(currRot);
 	Vector3f forwardVector(0, 0, 1);
@@ -323,7 +323,7 @@ void NuiPangoVis::updateView(NuiCLMappableData* pData)
 	Vector3f forward = (currQuat * forwardVector).normalized();
 	Vector3f up = (currQuat * upVector).normalized();
 
-	Vector3f eye = - pData->GetCameraParams().getGlobalTranslation();
+	Vector3f eye = - pData->GetCameraPos().getGlobalTranslation();
 
 	eye -= forward;
 

@@ -756,7 +756,7 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 		bool received = false;
 		if(pCurrentFrame)
 		{
-			cam = pCurrentFrame->GetCameraParams();
+			//cam = pCurrentFrame->GetCameraParams();
 			received = true;
 		}
 		else if(m_kinfu)

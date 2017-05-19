@@ -78,7 +78,7 @@ public:
 		return false;
 	}
 
-	bool			saveFrame(const std::string& fileName)
+	bool			saveFrame(const std::string& fileName, bool bCompressed)
 	{
 		const UINT nWidth = GetWidth();
 		const UINT nHeight = GetHeight();
@@ -88,6 +88,7 @@ public:
 		{
 			if( NuiFileIOUtilities::writeFrameImage(
 				fileName,
+				bCompressed,
 				nWidth,
 				nHeight,
 				pBuffer,

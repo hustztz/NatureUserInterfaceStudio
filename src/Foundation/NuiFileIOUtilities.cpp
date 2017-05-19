@@ -1,18 +1,21 @@
 #include "NuiFileIOUtilities.h"
 
 #include "NuiTimeStamp.h"
+#include "NuiLogger.h"
 
 #include <fstream>
 #include <ctime>
+#include <zlib.h>
 
 namespace NuiFileIOUtilities
 {
-	bool writeFrameImage (const std::string& fileName, UINT nWidth, UINT nHeight, const char* pBuffer, UINT bufferSize)
+	bool writeFrameImage (const std::string& fileName, bool bCompressed, UINT nWidth, UINT nHeight, const char* pBuffer, UINT bufferSize)
 	{
 		// Open file in binary appendable
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
 		if( !fpout.is_open() )
 		{
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -20,7 +23,27 @@ namespace NuiFileIOUtilities
 		fpout.write (reinterpret_cast<const char*> (&nWidth), sizeof (UINT));
 		fpout.write (reinterpret_cast<const char*> (&nHeight), sizeof (UINT));
 
-		fpout.write (pBuffer, bufferSize);
+		if (bCompressed)
+		{
+			UINT compressedBufferSize = compressBound(bufferSize);
+			Bytef* compressedBuffer = (Bytef*)malloc(sizeof(Bytef) * compressedBufferSize);
+			if (Z_OK == compress2(compressedBuffer, (unsigned long *)&compressedBufferSize, (const Bytef*)pBuffer, bufferSize, Z_BEST_SPEED))
+			{
+				fpout.write(reinterpret_cast<const char*> (compressedBufferSize), sizeof(UINT));
+				fpout.write(reinterpret_cast<const char*> (compressedBuffer), compressedBufferSize);
+			}
+			else
+			{
+				fpout.write(reinterpret_cast<const char*> (bufferSize), sizeof(UINT));
+				fpout.write(pBuffer, bufferSize);
+			}
+			free(compressedBuffer);
+		}
+		else
+		{
+			fpout.write(reinterpret_cast<const char*> (bufferSize), sizeof(UINT));
+			fpout.write(pBuffer, bufferSize);
+		}
 
 		// Close file
 		fpout.close ();
@@ -53,13 +76,31 @@ namespace NuiFileIOUtilities
 		std::ifstream fpin (fileName.c_str(), std::ios::in | std::ios::binary);
 		if( !fpin.is_open() )
 		{
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
 
 		fpin.seekg(2 * sizeof(UINT), std::ios::beg);
 		if (pBuffer && bufferSize > 0)
-			fpin.read (pBuffer, bufferSize);
+		{
+			UINT storeSize = bufferSize;
+			fpin.read(reinterpret_cast<char*> (storeSize), sizeof(UINT));
+			if (storeSize != bufferSize)
+			{
+				Bytef* compressedBuffer = (Bytef*)malloc(sizeof(Bytef) * storeSize);
+				fpin.read(reinterpret_cast<char*> (compressedBuffer), storeSize);
+				if (Z_OK != uncompress((Bytef*)pBuffer, (unsigned long *)&bufferSize, compressedBuffer, storeSize))
+				{
+					LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "failed to uncompress buffer.");
+				}
+				free(compressedBuffer);
+			}
+			else
+			{
+				fpin.read(pBuffer, bufferSize);
+			}
+		}
 
 		// Close file
 		fpin.close ();
@@ -72,6 +113,7 @@ namespace NuiFileIOUtilities
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
 		if( !fpout.is_open() )
 		{
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -95,6 +137,7 @@ namespace NuiFileIOUtilities
 		std::ifstream fpin (fileName.c_str(), std::ios::in | std::ios::binary);
 		if( !fpin.is_open() )
 		{
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -119,6 +162,7 @@ namespace NuiFileIOUtilities
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);
 		if( !fpout.is_open() )
 		{
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -143,6 +187,7 @@ namespace NuiFileIOUtilities
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);
 		if( !fpout.is_open() )
 		{
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}

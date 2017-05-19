@@ -9,7 +9,7 @@ struct NuiTimeStamp;
 
 namespace NuiFileIOUtilities
 {
-	bool		writeFrameImage (const std::string& fileName, UINT nWidth, UINT nHeight, const char* pBuffer, UINT bufferSize);
+	bool		writeFrameImage (const std::string& fileName, bool bCompressed, UINT nWidth, UINT nHeight, const char* pBuffer, UINT bufferSize);
 	bool		readFrameImageHeader (const std::string& fileName, UINT* pWidth, UINT* pHeight);
 	bool		readFrameImageBuffer (const std::string& fileName, char* pBuffer, UINT bufferSize);
 

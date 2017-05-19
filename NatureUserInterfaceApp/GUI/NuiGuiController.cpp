@@ -15,7 +15,7 @@
 
 #include "SLAM/VisualOdometry/NuiKinfuManager.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
-#include "Frame/NuiFrameSaveManager.h"
+#include "Frame/NuiVisualFrameSaveManager.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Frame/NuiFrameUtilities.h"
 #include "Foundation/NuiTimeLog.h"
@@ -117,7 +117,7 @@ void NuiGuiController::handleGuiChanged()
 		if(m_gui->a_frameToFile)
 		{
 			if(!m_pFrameToFile)
-				m_pFrameToFile = new NuiFrameSaveManager(sTestDataFolder);
+				m_pFrameToFile = new NuiVisualFrameSaveManager(sTestDataFolder);
 			m_pFrameToFile->startThread();
 		}
 		else
@@ -268,14 +268,21 @@ void NuiGuiController::launch()
 				{
 					readGuiStatus(pFrame.get());
 
-					if(m_pFrameToFile && m_pFrameToFile->isThreadOn())
+					if (m_pFrameToFile || m_pKinfu)
 					{
-						m_pFrameToFile->pushbackFrame(pFrame);
+						std::shared_ptr<NuiVisualFrame> pVisualFrame = std::make_shared<NuiVisualFrame>();
+						pVisualFrame->acquireFromCompositeFrame(pFrame.get());
+						if (m_pFrameToFile && m_pFrameToFile->isThreadOn())
+						{
+							m_pFrameToFile->pushbackFrame(pVisualFrame);
+						}
+						if (m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
+						{
+							m_pKinfu->pushbackFrame(pVisualFrame);
+						}
+						pVisualFrame.reset();
 					}
-					if(m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
-					{
-						m_pKinfu->pushbackFrame(pFrame);
-					}
+					
 					m_pCache->pushbackFrame(pFrame);
 					pFrame.reset();
 				}

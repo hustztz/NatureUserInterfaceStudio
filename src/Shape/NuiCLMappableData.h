@@ -48,8 +48,9 @@ public:
 	UINT				WidthStep() const { return m_nWidthStep; }
 	void				WidthStep(UINT w) { m_nWidthStep = w; }
 
-	void				SetCameraParams(const NuiCameraPos& cam) { m_camParams = cam; }
-	const NuiCameraPos&	GetCameraParams() const { return m_camParams; }
+	void				SetCameraParams(const NuiCameraParams& params);
+	void				SetCameraPos(const NuiCameraPos& cam) { m_camPos = cam; }
+	const NuiCameraPos&	GetCameraPos() const { return m_camPos; }
 
 	NuiPolygonMesh*		GetPolygonMesh() const { return m_pMesh; }
 
@@ -78,7 +79,7 @@ private:
 
 	NuiTextureMappable	m_colorTex;
 	NuiTextureMappable	m_feedbackTex;
-	NuiCameraPos		m_camParams;
+	NuiCameraPos		m_camPos;
 
 	SgVec3f				m_boundingBoxMin;
 	SgVec3f				m_boundingBoxMax;

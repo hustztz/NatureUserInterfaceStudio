@@ -1,25 +1,24 @@
 #pragma once
 
 #include "Foundation\NuiThreadObject.h"
-#include "NuiKinfuMainEngine.h"
-#include "Frame/Buffer/NuiVisualFrameCircleBuffer.h"
 
-class NuiKinfuManager : public NuiThreadObject
+#include "Buffer/NuiVisualFrameCircleBuffer.h"
+
+class NuiVisualFrameSaveManager : public NuiThreadObject
 {
 public:
-	NuiKinfuManager();
-	virtual ~NuiKinfuManager();
+	NuiVisualFrameSaveManager(const std::string&	fileName);
+	virtual ~NuiVisualFrameSaveManager();
 
 	virtual void	reset() override;
-
 	bool	pushbackFrame(std::shared_ptr<NuiVisualFrame> pFrame) { return m_buffer.pushbackVisualFrame(pFrame); }
 	size_t	getLagFrames() { return m_buffer.size(); }
 
-	NuiKinfuEngine::NuiKinfuMainEngine	m_engine;
-private:
+protected:
 	virtual bool process() override;
 
 private:
-	NuiVisualFrameCircleBuffer			m_buffer;
-	bool								m_bAutoReset;
+	NuiVisualFrameCircleBuffer	m_buffer;
+	std::string				m_fileName;
+	UINT					m_bCompressed;
 };

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Eigen/Geometry>
-#include "Foundation/NuiFileIOUtilities.h"
 #include "NuiCameraParams.h"
 
 typedef Eigen::Matrix<float, 3, 3, Eigen::RowMajor> Matrix3frm;
@@ -81,16 +80,6 @@ public:
 	float getSensorDepthMax() const
 	{
 		return m_params.m_sensorDepthMax;
-	}
-
-	bool save(const std::string& fileName)
-	{
-		return NuiFileIOUtilities::writeCamera(fileName, m_params.m_intrinsics.m_fx, m_params.m_intrinsics.m_fy, m_params.m_intrinsics.m_cx, m_params.m_intrinsics.m_cy);
-	}
-
-	bool load(const std::string& fileName)
-	{
-		return NuiFileIOUtilities::readCamera(fileName, &m_params.m_intrinsics.m_fx, &m_params.m_intrinsics.m_fy, &m_params.m_intrinsics.m_cx, &m_params.m_intrinsics.m_cy);
 	}
 
 private:

@@ -10,6 +10,7 @@ find_package(OPENGL REQUIRED)
 find_package(log4cplus REQUIRED)
 find_package(EIGEN3 REQUIRED)
 find_package(Boost COMPONENTS timer thread REQUIRED)
+find_package(ZLIB REQUIRED)
 
 find_path(TBB_INCLUDE_DIR
 NAMES tbb/tbb.h

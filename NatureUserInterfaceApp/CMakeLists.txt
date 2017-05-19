@@ -59,6 +59,7 @@ target_link_libraries(NatureUserInterfaceDemo
 					  ${Boost_LIBRARIES}
                       ${Pangolin_LIBRARIES}
 					  ${OpenCV_LIBS}
+					  ${ZLIB_LIBRARY}
 					  ${PCL_COMMON_LIBRARIES}
 					  ${log4cplus_DIR}/../../log4cplus${D_SUFF}.lib
 )

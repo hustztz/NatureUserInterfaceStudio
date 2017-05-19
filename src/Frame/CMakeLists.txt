@@ -19,12 +19,14 @@ Buffer/NuiFrameCache.cpp
 
 set(FRAME_HEADS
 NuiCompositeFrame.h
+NuiVisualFrame.h
 NuiCompoundImageFrame.h
 NuiCompressedDepthFrame.h
 NuiExtendedDepthFrame.h
 NuiFaceTrackingFrame.h
 NuiFacialModelFrame.h
 NuiFrameSaveManager.h
+NuiVisualFrameSaveManager.h
 NuiFrameUtilities.h
 NuiFusionImageFrame.h
 NuiGestureFrame.h
@@ -36,12 +38,14 @@ NuiSkeletonFrame.h
 
 set(FRAME_SOURCES
 NuiCompositeFrame.cpp
+NuiVisualFrame.cpp
 NuiCompoundImageFrame.cpp
 NuiCompressedDepthFrame.cpp
 NuiExtendedDepthFrame.cpp
 NuiFaceTrackingFrame.cpp
 NuiFacialModelFrame.cpp
 NuiFrameSaveManager.cpp
+NuiVisualFrameSaveManager.cpp
 NuiFrameUtilities.cpp
 NuiFusionImageFrame.cpp
 NuiGestureFrame.cpp

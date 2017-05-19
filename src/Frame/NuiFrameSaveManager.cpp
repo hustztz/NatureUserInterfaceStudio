@@ -2,6 +2,7 @@
 
 NuiFrameSaveManager::NuiFrameSaveManager(const std::string&	fileName)
 	: m_fileName(fileName)
+	, m_bCompressed(true)
 	, m_frameId(0)
 {
 	
@@ -40,28 +41,28 @@ bool	NuiFrameSaveManager::process ()
 	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".depth");
-	if( pCompositeFrame->m_depthFrame.saveFrame(imageFileName) )
+	if( pCompositeFrame->m_depthFrame.saveFrame(imageFileName, m_bCompressed) )
 		bSaved = true;
 
 	imageFileName = m_fileName;
 	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".color");
-	if( pCompositeFrame->m_colorFrame.saveFrame(imageFileName) )
+	if( pCompositeFrame->m_colorFrame.saveFrame(imageFileName, m_bCompressed) )
 		bSaved = true;
 
 	imageFileName = m_fileName;
 	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".cmap");
-	if( pCompositeFrame->m_colorMapFrame.saveFrame(imageFileName) )
+	if( pCompositeFrame->m_colorMapFrame.saveFrame(imageFileName, m_bCompressed) )
 		bSaved = true;
 
 	imageFileName = m_fileName;
 	imageFileName.append("\\");
 	imageFileName.append(timeStamp);
 	imageFileName.append(".vertex");
-	if( pCompositeFrame->m_cameraMapFrame.saveFrame(imageFileName) )
+	if( pCompositeFrame->m_cameraMapFrame.saveFrame(imageFileName, m_bCompressed) )
 		bSaved = true;
 
 	imageFileName = m_fileName;

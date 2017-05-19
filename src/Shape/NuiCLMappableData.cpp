@@ -10,6 +10,7 @@ NuiCLMappableData::NuiCLMappableData()
 	, m_patchUVStream("UV")
 	, m_streamDirty(true)
 	, m_indexDirty(true)
+	, m_pMesh(NULL)
 {
 }
 
@@ -50,6 +51,8 @@ void NuiCLMappableData::Clear()
 
 	m_streamDirty = true;
 	m_indexDirty = true;
+
+	SafeDelete(m_pMesh);
 }
 
 //void NuiCLMappableData::DeepCopy (const NuiCLMappableData& other)
@@ -64,6 +67,12 @@ void NuiCLMappableData::Clear()
 //	m_normalStream = other.m_normalStream->clone();
 //	m_patchUVStream = other.m_patchUVStream->clone();
 //}
+
+void		NuiCLMappableData::SetCameraParams(const NuiCameraParams& params)
+{
+	m_camPos.setIntrinsics(params.m_intrinsics);
+	m_camPos.setSensorDepthRange(params.m_sensorDepthMin, params.m_sensorDepthMax);
+}
 
 const float*	NuiCLMappableData::GetPositionValue(UINT idx) const
 {

@@ -376,7 +376,7 @@ namespace NuiFrameUtilities
 		pData->SetStreamDirty(true);
 
 		// Camera
-		pData->SetCameraParams( pCompositeFrame->GetCameraParams() );
+		pData->SetCameraParams( pCompositeFrame->m_cameraParams );
 	
 		// Write Index data
 		const UINT nFrameWidth = pCompositeFrame->m_cameraMapFrame.GetWidth();

@@ -60,7 +60,7 @@ bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 		return false;
 
 	// Camera
-	pCLData->SetCameraParams( m_trackingEngine.getCameraPose() );
+	pCLData->SetCameraPos( m_trackingEngine.getCameraPose() );
 
 	// Color image
 	m_trackingEngine.BufferToMappableTexture(pCLData);

@@ -5,7 +5,7 @@ class NuiPangoVis;
 class NuiRGBDDeviceController;
 class NuiFrameCacheImpl;
 class NuiCompositeFrame;
-class NuiFrameSaveManager;
+class NuiVisualFrameSaveManager;
 class NuiKinfuManager;
 
 class NuiGuiController
@@ -27,7 +27,7 @@ private:
 	NuiPangoVis*			m_gui;
 
 	NuiRGBDDeviceController*	m_pDevice;
-	NuiFrameCacheImpl*		m_pCache;
-	NuiFrameSaveManager*	m_pFrameToFile;
-	NuiKinfuManager*		m_pKinfu;
+	NuiFrameCacheImpl*			m_pCache;
+	NuiVisualFrameSaveManager*	m_pFrameToFile;
+	NuiKinfuManager*			m_pKinfu;
 };

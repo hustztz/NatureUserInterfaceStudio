@@ -917,9 +917,7 @@ DWORD WINAPI NuiKinectV2Manager::GrabThread (LPVOID pParam)
 		if ((pthis->m_eDeviceFlags & EDevice_Camera_Intrisics)
 			&& pthis->m_coordinateMappingChangedEvent != NULL)
 		{
-			NuiCameraPos cam = pCompositeFrame->GetCameraParams();
-			cam.setIntrinsics(pthis->m_cameraIntri);
-			pCompositeFrame->SetCameraParams(cam);
+			pCompositeFrame->m_cameraParams.m_intrinsics = pthis->m_cameraIntri;
 
 			if (pthis->m_eDeviceFlags & EDevice_Depth_On)
 			{

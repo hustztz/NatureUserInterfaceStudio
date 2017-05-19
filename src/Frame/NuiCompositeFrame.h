@@ -41,7 +41,7 @@ public:
 	NuiPointCloudFrame		m_pointCloudFrame;
 
 	//boost::mutex			m_bCameraMutex;
-	NuiCameraPos			m_cameraParams;
+	NuiCameraParams			m_cameraParams;
 
 	// For KinectV1
 	NuiCompressedDepthFrame	m_compressedDepthBuffer;

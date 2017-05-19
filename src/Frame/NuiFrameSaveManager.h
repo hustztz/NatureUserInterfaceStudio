@@ -20,5 +20,6 @@ protected:
 private:
 	NuiFrameCircleBuffer	m_buffer;
 	std::string				m_fileName;
+	UINT					m_bCompressed;
 	UINT					m_frameId;
 };
