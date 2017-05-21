@@ -105,28 +105,17 @@ bool	NuiVisualFrame::saveFrame(const std::string& fileName, bool bCompressed)
 {
 	bool bSaved = false;
 
-	std::stringstream ssTime;
-	ssTime << getTimeStamp();
-	std::string timeStampString;
-	ssTime >> timeStampString;
-
 	std::string imageFileName = fileName;
-	imageFileName.append("\\");
-	imageFileName.append(timeStampString);
 	imageFileName.append(".depth");
 	if (m_depthFrame.saveFrame(imageFileName, bCompressed))
 		bSaved = true;
 
 	imageFileName = fileName;
-	imageFileName.append("\\");
-	imageFileName.append(timeStampString);
 	imageFileName.append(".color");
 	if (m_colorFrame.saveFrame(imageFileName, bCompressed))
 		bSaved = true;
 
 	imageFileName = fileName;
-	imageFileName.append("\\");
-	imageFileName.append(timeStampString);
 	imageFileName.append(".camIntri");
 	if (m_cameraParams.save(imageFileName))
 		bSaved = true;

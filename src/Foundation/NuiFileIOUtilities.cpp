@@ -9,7 +9,7 @@
 
 namespace NuiFileIOUtilities
 {
-	bool writeFrameImage (const std::string& fileName, bool bCompressed, UINT nWidth, UINT nHeight, const char* pBuffer, UINT bufferSize)
+	bool writeFrameImage (const std::string& fileName, bool bCompressed, INT64 timeStamp, UINT nWidth, UINT nHeight, const char* pBuffer, UINT bufferSize)
 	{
 		// Open file in binary appendable
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
@@ -20,6 +20,7 @@ namespace NuiFileIOUtilities
 			return false;
 		}
 
+		fpout.write(reinterpret_cast<const char*> (&timeStamp), sizeof(INT64));
 		fpout.write (reinterpret_cast<const char*> (&nWidth), sizeof (UINT));
 		fpout.write (reinterpret_cast<const char*> (&nHeight), sizeof (UINT));
 
@@ -29,19 +30,19 @@ namespace NuiFileIOUtilities
 			Bytef* compressedBuffer = (Bytef*)malloc(sizeof(Bytef) * compressedBufferSize);
 			if (Z_OK == compress2(compressedBuffer, (unsigned long *)&compressedBufferSize, (const Bytef*)pBuffer, bufferSize, Z_BEST_SPEED))
 			{
-				fpout.write(reinterpret_cast<const char*> (compressedBufferSize), sizeof(UINT));
+				fpout.write(reinterpret_cast<const char*> (&compressedBufferSize), sizeof(UINT));
 				fpout.write(reinterpret_cast<const char*> (compressedBuffer), compressedBufferSize);
 			}
 			else
 			{
-				fpout.write(reinterpret_cast<const char*> (bufferSize), sizeof(UINT));
+				fpout.write(reinterpret_cast<const char*> (&bufferSize), sizeof(UINT));
 				fpout.write(pBuffer, bufferSize);
 			}
 			free(compressedBuffer);
 		}
 		else
 		{
-			fpout.write(reinterpret_cast<const char*> (bufferSize), sizeof(UINT));
+			fpout.write(reinterpret_cast<const char*> (&bufferSize), sizeof(UINT));
 			fpout.write(pBuffer, bufferSize);
 		}
 
@@ -50,7 +51,7 @@ namespace NuiFileIOUtilities
 		return true;
 	}
 
-	bool readFrameImageHeader (const std::string& fileName, UINT* pWidth, UINT* pHeight)
+	bool readFrameImageHeader (const std::string& fileName, INT64* timeStamp, UINT* pWidth, UINT* pHeight)
 	{
 		// Open file in binary appendable
 		std::ifstream fpin (fileName.c_str(), std::ios::in | std::ios::binary);
@@ -60,6 +61,8 @@ namespace NuiFileIOUtilities
 			return false;
 		}
 
+		if (timeStamp)
+			fpin.read(reinterpret_cast<char*> (timeStamp), sizeof(INT64));
 		if (pWidth)
 			fpin.read (reinterpret_cast<char*> (pWidth), sizeof (UINT));
 		if (pHeight)
@@ -81,11 +84,11 @@ namespace NuiFileIOUtilities
 			return false;
 		}
 
-		fpin.seekg(2 * sizeof(UINT), std::ios::beg);
+		fpin.seekg(2 * sizeof(UINT) + sizeof(INT64), std::ios::beg);
 		if (pBuffer && bufferSize > 0)
 		{
 			UINT storeSize = bufferSize;
-			fpin.read(reinterpret_cast<char*> (storeSize), sizeof(UINT));
+			fpin.read(reinterpret_cast<char*> (&storeSize), sizeof(UINT));
 			if (storeSize != bufferSize)
 			{
 				Bytef* compressedBuffer = (Bytef*)malloc(sizeof(Bytef) * storeSize);
@@ -137,7 +140,7 @@ namespace NuiFileIOUtilities
 		std::ifstream fpin (fileName.c_str(), std::ios::in | std::ios::binary);
 		if( !fpin.is_open() )
 		{
-			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
+			//LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}

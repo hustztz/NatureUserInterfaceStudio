@@ -357,21 +357,123 @@ namespace NuiFrameUtilities
 		}
 		return true;
 	}
+
+	bool	ColorToMappableData(NuiCompositeFrame* pCompositeFrame, NuiCLMappableData* pData)
+	{
+		if (!pData || !pCompositeFrame)
+			return false;
+
+		// Patch color
+		const UINT nColorWidth = pCompositeFrame->m_colorFrame.GetWidth();
+		const UINT nColorHeight = pCompositeFrame->m_colorFrame.GetHeight();
+		const UINT nColorNum = nColorWidth * nColorHeight;
+		BGRQUAD* pColors = pCompositeFrame->m_colorFrame.GetBuffer();
+		if (!pColors)
+			return false;
+
+		if (nColorNum != pData->ColorStream().size())
+		{
+			NuiMappableAccessor::asVectorImpl(pData->ColorStream())->data().resize(nColorNum);
+		}
+
+		std::vector<SgVec4f>& clColors =
+			NuiMappableAccessor::asVectorImpl(pData->ColorStream())->data();
+
+#ifdef WITH_OPENMP
+#pragma omp parallel for
+#endif
+		for (UINT id = 0; id < nColorNum; id++)
+		{
+			clColors[id] = SgVec4f(pColors[id].rgbRed / 255.0f, pColors[id].rgbGreen / 255.0f, pColors[id].rgbBlue / 255.0f, 1.0f);
+		}
+
+		// OpenCL command queue and device
+		cl_int           err = CL_SUCCESS;
+		cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+		cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pData->ColorStream());
+		// Acquire OpenGL objects before use
+		cl_mem glObjs[] = {
+			colorsGL
+		};
+
+		openclutil::enqueueAcquireHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+		clEnqueueWriteBuffer(
+			queue,
+			colorsGL,
+			CL_TRUE,
+			0,
+			nColorNum * sizeof(SgVec4f),
+			NuiMappableAccessor::asVectorImpl(pData->ColorStream())->map(),
+			0,
+			NULL,
+			NULL
+		);
+		NUI_CHECK_CL_ERR(err);
+
+		// Release OpenGL objects
+		openclutil::enqueueReleaseHWObjects(
+			sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+		return true;
+	}
 	
 	bool	FrameToMappableData(NuiCompositeFrame* pCompositeFrame, NuiCLMappableData* pData, int indexFlags, bool bOnlyShowBody, float depthThreshold)
 	{
 		if(!pData || !pCompositeFrame)
 			return false;
 
-		if( !CameraSpacePointsToMappableData(pCompositeFrame, pData) )
-			return false;
+		const UINT16 minZ = pCompositeFrame->m_depthFrame.GetMinDepth();
+		const UINT16 maxZ = pCompositeFrame->m_depthFrame.GetMaxDepth();
+		UINT16* pDepthBuffer = pCompositeFrame->m_depthFrame.GetBuffer();
 
-		if( !ColorMapToMappableData(pCompositeFrame, pData) )
-			return false;
+		if (!CameraSpacePointsToMappableData(pCompositeFrame, pData))
+		{
+			if(!pDepthBuffer)
+				return false;
 
+			const UINT nWidth = pCompositeFrame->m_depthFrame.GetWidth();
+			const UINT nHeight = pCompositeFrame->m_depthFrame.GetHeight();
+
+			CameraSpacePoint* pDepthToCamera = pCompositeFrame->m_cameraMapFrame.AllocateBuffer(nWidth, nHeight);
+			NuiCameraIntrinsics cameraIntrics = pCompositeFrame->m_cameraParams.m_intrinsics;
+#ifdef WITH_OPENMP
+#pragma omp parallel for
+#endif
+			for (UINT y = 0; y < nHeight; y++)
+			{
+				for (UINT x = 0; x < nWidth; x++)
+				{
+					const UINT id = y * nWidth + x;
+
+					if ((pDepthBuffer[id] > minZ) && (pDepthBuffer[id] < maxZ))
+					{
+
+						float dp = pDepthBuffer[id] * 0.001f;
+						const float intr_fx_inv = 1 / cameraIntrics.m_fx;
+						const float intr_fy_inv = 1 / cameraIntrics.m_fy;
+						const float intr_cx = cameraIntrics.m_cx;
+						const float intr_cy = cameraIntrics.m_cy;
+						pDepthToCamera[id].X = - dp * ((float)x - intr_cx) * intr_fx_inv;
+						pDepthToCamera[id].Y = - dp * ((float)y - intr_cy) * intr_fy_inv;
+						pDepthToCamera[id].Z = dp;
+					}
+					else
+					{
+						pDepthToCamera[id] = { NAN_FLOAT, NAN_FLOAT, NAN_FLOAT };
+					}
+				}
+			}
+		}
+		
 		// For color texture
-		if (!ColorTexToMappableData(pCompositeFrame, pData))
-			return false;
+		if (!ColorTexToMappableData(pCompositeFrame, pData) || !ColorMapToMappableData(pCompositeFrame, pData))
+		{
+			if (!ColorToMappableData(pCompositeFrame, pData))
+				return false;
+		}
 
 		pData->SetStreamDirty(true);
 
@@ -383,10 +485,7 @@ namespace NuiFrameUtilities
 		const UINT nFrameHeight = pCompositeFrame->m_cameraMapFrame.GetHeight();
 		const UINT nFramePointsNum = nFrameWidth * nFrameHeight;
 		CameraSpacePoint* pDepthToCamera = pCompositeFrame->m_cameraMapFrame.GetBuffer();
-		UINT16* pDepthBuffer = pCompositeFrame->m_depthFrame.GetBuffer();
 		BYTE* pBodyIndexBuffer = pCompositeFrame->m_bodyIndexFrame.GetBuffer();
-		const UINT16 minZ = pCompositeFrame->m_depthFrame.GetMinDepth();
-		const UINT16 maxZ = pCompositeFrame->m_depthFrame.GetMaxDepth();
 		if(!pDepthToCamera || !pDepthBuffer)
 			return false;
 

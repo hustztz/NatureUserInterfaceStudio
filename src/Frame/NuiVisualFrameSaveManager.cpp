@@ -3,6 +3,7 @@
 NuiVisualFrameSaveManager::NuiVisualFrameSaveManager(const std::string&	fileName)
 	: m_fileName(fileName)
 	, m_bCompressed(true)
+	, m_frameId(0)
 {
 	
 }
@@ -16,6 +17,7 @@ NuiVisualFrameSaveManager::~NuiVisualFrameSaveManager()
 void	NuiVisualFrameSaveManager::reset()
 {
 	m_buffer.clear();
+	m_frameId = 0;
 }
 
 /*virtual*/
@@ -28,7 +30,20 @@ bool	NuiVisualFrameSaveManager::process ()
 		return true;
 	}
 
-	bool bSaved = pVisualFrame->saveFrame(m_fileName, m_bCompressed);
+	std::stringstream ssTime;
+	ssTime << m_frameId;
+	std::string timeStamp;
+	ssTime >> timeStamp;
+
+	std::string imageFileName = m_fileName;
+	imageFileName.append("\\");
+	imageFileName.append(timeStamp);
+
+	bool bSaved = pVisualFrame->saveFrame(imageFileName, m_bCompressed);
+	if (bSaved)
+	{
+		m_frameId++;
+	}
 
 	pVisualFrame.reset();
 	return bSaved;

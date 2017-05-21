@@ -4,7 +4,6 @@
 
 
 typedef Eigen::Vector3f Vector3f;
-#define NAN_FLOAT -std::numeric_limits<float>::max()
 
 static bool _IsNan(Vector3f data)
 {

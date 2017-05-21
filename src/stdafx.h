@@ -53,6 +53,8 @@ typedef signed int          INT32;
 typedef unsigned int        UINT32;
 typedef unsigned int        UINT;
 
+#define NAN_FLOAT -std::numeric_limits<float>::max()
+
 #ifndef _tagBGRQUAD_
 #define _tagBGRQUAD_
 typedef struct tagBGRQUAD {

@@ -52,6 +52,7 @@ public:
 		UINT nHeight = 0;
 		if( NuiFileIOUtilities::readFrameImageHeader(
 			fileName,
+			&m_liTimeStamp,
 			&nWidth,
 			&nHeight) )
 		{
@@ -89,6 +90,7 @@ public:
 			if( NuiFileIOUtilities::writeFrameImage(
 				fileName,
 				bCompressed,
+				m_liTimeStamp,
 				nWidth,
 				nHeight,
 				pBuffer,
