@@ -30,6 +30,7 @@ public:
 	virtual bool			IsDeviceOn() const = 0;
 	virtual bool			StartDevice () = 0;
 	virtual void			PauseDevice () = 0;
+	virtual void			stepInDevice() {};
 	virtual void			ShutdownDevice () = 0;
 
 	virtual bool			UpdateNearMode(bool bNearMode) { return false; }

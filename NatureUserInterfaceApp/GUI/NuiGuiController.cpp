@@ -138,7 +138,7 @@ void NuiGuiController::handleGuiChanged()
 			m_pKinfu->m_engine.setColorTracker(m_gui->a_trackColors);
 			m_pKinfu->m_engine.setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
 			m_pKinfu->m_engine.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
-			m_pKinfu->m_engine.setVolume(m_gui->a_volumeVoxelSize, m_gui->a_hashingVolume);
+			m_pKinfu->m_engine.setVolume(m_gui->a_volumeVoxelSize, m_gui->a_volumeMode);
 		}
 		else
 		{
@@ -172,6 +172,8 @@ void NuiGuiController::handleGuiChanged()
 	}
 	else if(pangolin::Pushed(m_gui->a_stepIn))
 	{
+		if (m_pDevice)
+			m_pDevice->stepInDevice();
 		if(m_pKinfu)
 			m_pKinfu->stepIn();
 	}

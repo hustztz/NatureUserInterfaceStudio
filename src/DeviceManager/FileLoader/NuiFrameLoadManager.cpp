@@ -33,6 +33,11 @@ void	NuiFrameLoadManager::PauseDevice()
 	m_loader.pauseThread();
 }
 
+void	NuiFrameLoadManager::stepInDevice()
+{
+	m_loader.stepIn();
+}
+
 void	NuiFrameLoadManager::ShutdownDevice()
 {
 	m_loader.stopThread();

@@ -43,7 +43,7 @@ NuiPangoVis::NuiPangoVis(bool showcaseMode)
 	, a_kinFuOn("ui.KinFu On", false, true)
 	, a_kinFuPause("ui.KinFu Pause", false, false)
 	, a_trackColors("ui.Track Colors", false, true)
-	, a_hashingVolume("ui.Hashing Volume", false, true)
+	, a_volumeMode("ui.Volume Mode", 0, 0, 2)
 	, a_volumeVoxelSize("ui.Volume Voxel Size", 0.005f, 0.0005f, 0.01f)
 	, a_translateBasisX("ui.Tracker Basis X", 0.f, -10.0f, 10.0f)
 	, a_translateBasisZ("ui.Tracker Basis Z", 0.f, -10.0f, 10.0f)
@@ -314,16 +314,22 @@ void NuiPangoVis::updateView(NuiCLMappableData* pData)
 
 	pangolin::OpenGlMatrix mv;
 
-	Matrix3frm currRot = pData->GetCameraPos().getRotation().inverse();
+	Matrix3frm currRot = pData->GetCameraPos().getRotation();
 
 	Eigen::Quaternionf currQuat(currRot);
+	float& xquat = currQuat.x();
+	xquat = -xquat;
+	float& zquat = currQuat.z();
+	zquat = -zquat;
 	Vector3f forwardVector(0, 0, 1);
 	Vector3f upVector(0, 1, 0);
 
 	Vector3f forward = (currQuat * forwardVector).normalized();
 	Vector3f up = (currQuat * upVector).normalized();
 
-	Vector3f eye = - pData->GetCameraPos().getGlobalTranslation();
+	Vector3f eye = pData->GetCameraPos().getGlobalTranslation();
+	float& ytrans = eye.y();
+	ytrans = - ytrans;
 
 	eye -= forward;
 

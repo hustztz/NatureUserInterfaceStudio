@@ -64,7 +64,7 @@ void	NuiKinfuOpenCLCameraState::UpdateCameraParams(const NuiCameraParams& camPar
 	NuiKinfuCameraState::UpdateCameraParams(camParams, nWidth, nHeight);
 }
 
-void NuiKinfuOpenCLCameraState::UpdateCameraTransform(const Matrix3frm& rot, const Vector3f& tran)
+void	NuiKinfuOpenCLCameraState::WriteToBuffer(const Matrix3frm& rot, const Vector3f& tran)
 {
 	Matrix3frm rot_inv = rot.inverse();
 	NuiCLRigidTransform currTransform;
@@ -85,10 +85,22 @@ void NuiKinfuOpenCLCameraState::UpdateCameraTransform(const Matrix3frm& rot, con
 		0,
 		NULL,
 		NULL
-		);
+	);
 	NUI_CHECK_CL_ERR(err);
+}
+
+void NuiKinfuOpenCLCameraState::UpdateCameraTransform(const Matrix3frm& rot, const Vector3f& tran)
+{
+	WriteToBuffer(rot, tran);
 
 	NuiKinfuCameraState::UpdateCameraTransform(rot, tran);
+}
+
+void NuiKinfuOpenCLCameraState::UpdateCameraTransform(const Matrix3frm& rot, const Vector3f& tran, const Vector3f& offsetTran)
+{
+	WriteToBuffer(rot, tran);
+
+	NuiKinfuCameraState::UpdateCameraTransform(rot, tran, offsetTran);
 }
 
 //void NuiKinfuTransform::setTransform(cl_mem transformCL)

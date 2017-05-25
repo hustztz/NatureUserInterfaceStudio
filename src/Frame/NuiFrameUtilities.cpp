@@ -428,16 +428,19 @@ namespace NuiFrameUtilities
 		const UINT16 minZ = pCompositeFrame->m_depthFrame.GetMinDepth();
 		const UINT16 maxZ = pCompositeFrame->m_depthFrame.GetMaxDepth();
 		UINT16* pDepthBuffer = pCompositeFrame->m_depthFrame.GetBuffer();
+		UINT nWidth = pCompositeFrame->m_cameraMapFrame.GetWidth();
+		UINT nHeight = pCompositeFrame->m_cameraMapFrame.GetHeight();
+		CameraSpacePoint* pDepthToCamera = pCompositeFrame->m_cameraMapFrame.GetBuffer();
 
-		if (!CameraSpacePointsToMappableData(pCompositeFrame, pData))
+		if (!pDepthToCamera)
 		{
 			if(!pDepthBuffer)
 				return false;
 
-			const UINT nWidth = pCompositeFrame->m_depthFrame.GetWidth();
-			const UINT nHeight = pCompositeFrame->m_depthFrame.GetHeight();
+			nWidth = pCompositeFrame->m_depthFrame.GetWidth();
+			nHeight = pCompositeFrame->m_depthFrame.GetHeight();
 
-			CameraSpacePoint* pDepthToCamera = pCompositeFrame->m_cameraMapFrame.AllocateBuffer(nWidth, nHeight);
+			pDepthToCamera = pCompositeFrame->m_cameraMapFrame.AllocateBuffer(nWidth, nHeight);
 			NuiCameraIntrinsics cameraIntrics = pCompositeFrame->m_cameraParams.m_intrinsics;
 #ifdef WITH_OPENMP
 #pragma omp parallel for
@@ -467,7 +470,11 @@ namespace NuiFrameUtilities
 				}
 			}
 		}
-		
+
+		if (!CameraSpacePointsToMappableData(pCompositeFrame, pData))
+		{
+			return false;
+		}
 		// For color texture
 		if (!ColorTexToMappableData(pCompositeFrame, pData) || !ColorMapToMappableData(pCompositeFrame, pData))
 		{
@@ -481,13 +488,7 @@ namespace NuiFrameUtilities
 		pData->SetCameraParams( pCompositeFrame->m_cameraParams );
 	
 		// Write Index data
-		const UINT nFrameWidth = pCompositeFrame->m_cameraMapFrame.GetWidth();
-		const UINT nFrameHeight = pCompositeFrame->m_cameraMapFrame.GetHeight();
-		const UINT nFramePointsNum = nFrameWidth * nFrameHeight;
-		CameraSpacePoint* pDepthToCamera = pCompositeFrame->m_cameraMapFrame.GetBuffer();
 		BYTE* pBodyIndexBuffer = pCompositeFrame->m_bodyIndexFrame.GetBuffer();
-		if(!pDepthToCamera || !pDepthBuffer)
-			return false;
 
 		std::vector<unsigned int>& pointIndices =
 			NuiMappableAccessor::asVectorImpl(pData->PointIndices())->data();
@@ -509,11 +510,11 @@ namespace NuiFrameUtilities
 		SgVec3f boundingBoxMax( -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max(), -std::numeric_limits<float>::max() );
 
 #pragma omp parallel for schedule(dynamic)
-		for (UINT h = 0; h < nFrameHeight; ++h)
+		for (UINT h = 0; h < nHeight; ++h)
 		{
-			for (UINT w = 0; w < nFrameWidth; ++w)
+			for (UINT w = 0; w < nWidth; ++w)
 			{
-				UINT idx1 = w + h * nFrameWidth;
+				UINT idx1 = w + h * nWidth;
 
 				float rPtZ1 = pDepthToCamera[idx1].Z;
 				bool bIsIdx1Valid = (rPtZ1 > 0.0f) && pDepthBuffer && (pDepthBuffer[idx1] > minZ) && (pDepthBuffer[idx1] < maxZ);
@@ -539,12 +540,12 @@ namespace NuiFrameUtilities
 
 				if(bNeedTriangleIndex || bNeedWireframeIndex)
 				{
-					if(w == (nFrameWidth-1) || h == (nFrameHeight-1))
+					if(w == (nWidth-1) || h == (nHeight-1))
 						continue;
 
-					UINT idx2 = w + 1 + h * nFrameWidth;
-					UINT idx3 = w + (h + 1) * nFrameWidth;
-					UINT idx4 = w + 1 + (h + 1) * nFrameWidth;
+					UINT idx2 = w + 1 + h * nWidth;
+					UINT idx3 = w + (h + 1) * nWidth;
+					UINT idx4 = w + 1 + (h + 1) * nWidth;
 
 					float rPtZ2 = pDepthToCamera[idx2].Z;
 					bool bIsIdx2Valid = (rPtZ2 > 0)&& pDepthBuffer  && (pDepthBuffer[idx2] > minZ) && (pDepthBuffer[idx2] < maxZ);

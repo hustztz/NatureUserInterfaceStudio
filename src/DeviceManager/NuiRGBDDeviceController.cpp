@@ -137,6 +137,12 @@ void NuiRGBDDeviceController::pauseDevice()
 		m_pDevice->PauseDevice();
 }
 
+void NuiRGBDDeviceController::stepInDevice()
+{
+	if (m_pDevice)
+		m_pDevice->stepInDevice();
+}
+
 void NuiRGBDDeviceController::stopDevice()
 {
 	if(m_pDevice)

@@ -15,12 +15,19 @@ namespace NuiKinfuEngine
 	class NuiKinfuMainEngine
 	{
 	public:
+		enum NuiKinfuSceneMode
+		{
+			eScene_FusionVolume = 0,
+			eScene_ShiftingVolume = 1,
+			eScene_HashingVolume = 2,
+		};
+	public:
 		NuiKinfuMainEngine();
 		~NuiKinfuMainEngine();
 
 		void	resetTracker();
 		void	resetVolume();
-		void	setVolume(float voxelSize, bool bHashingSDF);
+		void	setVolume(float voxelSize, int volumeMode);
 		bool	getCLData(NuiCLMappableData* pCLData, bool bIsMesh);
 		bool	getMesh(NuiMeshShape* pMesh);
 		bool	getCameraPose (NuiCameraPos* cam) const;

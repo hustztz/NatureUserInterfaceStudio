@@ -36,7 +36,7 @@ __kernel void depth2vertex_kernel(
 		const float intr_fy_inv = div * camParams.fy_inv;
 		const float intr_cx = camParams.cx / div;
 		const float intr_cy = camParams.cy / div;
-		vert = -dp * (float3)((convert_float(gidx)-intr_cx)*intr_fx_inv, (convert_float(gidy)-intr_cy)*intr_fy_inv, -1.0f);
+		vert = dp * (float3)((convert_float(gidx)-intr_cx)*intr_fx_inv, (convert_float(gidy)-intr_cy)*intr_fy_inv, 1.0f);
 	}
 	vstore3(vert, index, vertices);
 }

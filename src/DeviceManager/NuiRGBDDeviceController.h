@@ -31,6 +31,7 @@ public:
 	bool initializeFileLoader(const std::string&	fileName);
 	bool startDevice();
 	void pauseDevice();
+	void stepInDevice();
 	void stopDevice();
 
 	std::shared_ptr<NuiCompositeFrame>	popFrame();

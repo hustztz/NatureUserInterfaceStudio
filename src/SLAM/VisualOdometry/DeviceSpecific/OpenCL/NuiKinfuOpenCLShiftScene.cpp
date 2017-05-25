@@ -7,6 +7,7 @@
 #include "../NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "Foundation/NuiTimeLog.h"
+#include "Foundation/NuiLogger.h"
 #include "NuiMarchingCubeTable.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Shape\NuiMeshShape.h"
@@ -315,16 +316,25 @@ Vector3f NuiKinfuOpenCLShiftScene::shiftVolume(const Vector3f& translation)
 	{
 		fetchAndClearX(xVoxelTrans);
 		shiftTranslation(0) -= xVoxelTrans * voxelSizeMeters(0);
+#ifdef _DEBUG
+		LOG4CPLUS_DEBUG(NuiLogger::instance().consoleLogger(), "Scene shift x-voxel: " << shiftTranslation(0));
+#endif // _DEBUG
 	}
 	if(abs(yVoxelTrans) >= m_config.voxel_shift)
 	{
 		fetchAndClearY(yVoxelTrans);
 		shiftTranslation(1) -= yVoxelTrans * voxelSizeMeters(1);
+#ifdef _DEBUG
+		LOG4CPLUS_DEBUG(NuiLogger::instance().consoleLogger(), "Scene shift y-voxel: " << shiftTranslation(1));
+#endif // _DEBUG
 	}
 	if(abs(zVoxelTrans) >= m_config.voxel_shift)
 	{
 		fetchAndClearZ(zVoxelTrans);
 		shiftTranslation(2) -= zVoxelTrans * voxelSizeMeters(2);
+#ifdef _DEBUG
+		LOG4CPLUS_DEBUG(NuiLogger::instance().consoleLogger(), "Scene shift z-voxel: " << shiftTranslation(2));
+#endif // _DEBUG
 	}
 
 	return shiftTranslation + m_config.translateBasis;

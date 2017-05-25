@@ -43,7 +43,7 @@ public:
 	pangolin::Var<bool> a_kinFuOn;
 	pangolin::Var<bool> a_kinFuPause;
 	pangolin::Var<bool> a_trackColors;
-	pangolin::Var<bool> a_hashingVolume;
+	pangolin::Var<int> a_volumeMode;
 	pangolin::Var<float> a_volumeVoxelSize;
 	pangolin::Var<float> a_translateBasisX;
 	pangolin::Var<float> a_translateBasisZ;

@@ -21,11 +21,14 @@ NuiKinfuMainEngine::~NuiKinfuMainEngine()
 }
 
 
-void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
+void	NuiKinfuMainEngine::setVolume(float voxelSize, int volumeMode)
 {
 	SafeDelete(m_pScene);
 
-	if(bHashingSDF)
+	NuiKinfuVolumeConfig volumeConfig;
+	switch (volumeMode)
+	{
+	case NuiKinfuEngine::NuiKinfuMainEngine::eScene_HashingVolume:
 	{
 		NuiHashingSDFConfig sdfConfig;
 		sdfConfig.m_bUseSwapping = false;
@@ -35,15 +38,17 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, bool bHashingSDF)
 		//sdfConfig.m_truncScale = 2.5f * sdfConfig.m_virtualVoxelSize;
 		//NuiHashingRaycastConfig raycastConfig;
 		m_pScene = new NuiKinfuOpenCLHashScene(sdfConfig);
+		break;
 	}
-	else
-	{
-		NuiKinfuVolumeConfig volumeConfig;
-		volumeConfig.bIsDynamic = false;
+	case NuiKinfuEngine::NuiKinfuMainEngine::eScene_ShiftingVolume:
+		volumeConfig.bIsDynamic = true;
+	case NuiKinfuEngine::NuiKinfuMainEngine::eScene_FusionVolume:
+	default:
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
 		volumeConfig.translateBasis = m_trackingEngine.getTranslateBasis();
 		m_pScene = volumeConfig.bIsDynamic ? new NuiKinfuOpenCLShiftScene(volumeConfig) : new NuiKinfuOpenCLScene(volumeConfig);
+		break;
 	}
 }
 

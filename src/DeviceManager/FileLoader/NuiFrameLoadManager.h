@@ -15,6 +15,7 @@ public:
 	virtual bool		IsDeviceOn() const override;
 	virtual bool		StartDevice() override;
 	virtual void		PauseDevice() override;
+	virtual void		stepInDevice() override;
 	virtual void		ShutdownDevice() override;
 
 private:
