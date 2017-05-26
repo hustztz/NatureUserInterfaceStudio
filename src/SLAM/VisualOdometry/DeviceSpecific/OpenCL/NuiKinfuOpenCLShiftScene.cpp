@@ -4,6 +4,7 @@
 #include "NuiKinfuOpenCLFeedbackFrame.h"
 #include "NuiKinfuOpenCLCameraState.h"
 
+#include "../../NuiKinfuPointCloudCache.h"
 #include "../NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "Foundation/NuiTimeLog.h"
@@ -19,8 +20,9 @@
 
 static const std::string sVolume2Vertices("Volume2Vertices");
 
-NuiKinfuOpenCLShiftScene::NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config)
+NuiKinfuOpenCLShiftScene::NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config, NuiKinfuPointCloudCache* pCache)
 	: NuiKinfuOpenCLScene(config)
+	, m_pCachedPointCloud(pCache)
 {
 	m_voxel_offset = Vector3i::Zero();
 }
@@ -109,6 +111,8 @@ void NuiKinfuOpenCLShiftScene::clearSlice(const Vector3i&	voxelWrap, const Vecto
 
 void NuiKinfuOpenCLShiftScene::fetchSlice(const Vector3i&	voxelWrap, const Vector3i&	voxelRange)
 {
+	if (!m_pCachedPointCloud)
+		return;
 
 	// Get the kernel
 	cl_kernel fetchKernel =
@@ -195,17 +199,17 @@ void NuiKinfuOpenCLShiftScene::fetchSlice(const Vector3i&	voxelWrap, const Vecto
 
 	if (vertex_sum > 0)
 	{
-		m_cachedPointCloud.writeLock();
+		m_pCachedPointCloud->writeLock();
 
-		int originalSize = m_cachedPointCloud.pointSize();
-		m_cachedPointCloud.resizePoints(originalSize + vertex_sum);
+		int originalSize = m_pCachedPointCloud->pointSize();
+		m_pCachedPointCloud->resizePoints(originalSize + vertex_sum);
 		err = clEnqueueReadBuffer(
 			queue,
 			volumeOutputVerticesCL,
 			CL_FALSE,//blocking
 			0,
 			vertex_sum * 3 * sizeof(float),
-			(void*)(m_cachedPointCloud.getVertices() + originalSize),
+			(void*)(m_pCachedPointCloud->getVertices() + originalSize),
 			0,
 			NULL,
 			NULL
@@ -218,14 +222,14 @@ void NuiKinfuOpenCLShiftScene::fetchSlice(const Vector3i&	voxelWrap, const Vecto
 			CL_FALSE,//blocking
 			0,
 			vertex_sum * 4 * sizeof(float),
-			(void*)(m_cachedPointCloud.getColors() + originalSize),
+			(void*)(m_pCachedPointCloud->getColors() + originalSize),
 			0,
 			NULL,
 			NULL
 		);
 		NUI_CHECK_CL_ERR(err);
 
-		m_cachedPointCloud.writeUnlock();
+		m_pCachedPointCloud->writeUnlock();
 	}
 
 	err = NuiGPUMemManager::instance().ReleaseMemObjectCL(volumeOutputVerticesCL);
@@ -494,6 +498,8 @@ bool NuiKinfuOpenCLShiftScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	clReleaseEvent(timing_event);
 #endif
 
+	pCLData->SetStreamDirty(true);
+
 	//Push the cached point cloud
 	/*m_cachedPointCloud.readLock();
 	const int cachedVertexSize = m_cachedPointCloud.pointSize();
@@ -508,12 +514,15 @@ bool NuiKinfuOpenCLShiftScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 
 	NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data().clear();
 	NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data().clear();
-	if(pCLData->PointIndices().size() != MAX_OUTPUT_VERTEX_SIZE)
+	if(pCLData->PointIndices().size() != vertex_sum)
 	{
 		std::vector<unsigned int>& clPointIndices =
 			NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
-		clPointIndices.resize(MAX_OUTPUT_VERTEX_SIZE);
-		for (int i = 0; i < MAX_OUTPUT_VERTEX_SIZE; ++i)
+		clPointIndices.resize(vertex_sum);
+#ifdef WITH_OPENMP
+#pragma omp parallel for
+#endif
+		for (int i = 0; i < vertex_sum; ++i)
 		{
 			clPointIndices[i] = i;
 		}
@@ -530,8 +539,6 @@ bool NuiKinfuOpenCLShiftScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 		m_voxel_offset(0)*voxelSizeMeters(0)+m_config.dimensions[0]/2,
 		m_voxel_offset(1)*voxelSizeMeters(1)+m_config.dimensions[1]/2,
 		m_voxel_offset(2)*voxelSizeMeters(2)+m_config.dimensions[2]));
-
-	pCLData->SetStreamDirty(true);
 
 	NuiTimeLog::instance().tock(sVolume2Vertices);
 	return true;

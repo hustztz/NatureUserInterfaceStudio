@@ -2,6 +2,9 @@
 
 #include "DeviceSpecific/OpenCL/NuiKinfuOpenCLShiftScene.h"
 #include "DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h"
+
+#include "OpenCLUtilities/NuiOpenCLGlobal.h"
+#include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 #include "Shape/NuiCLMappableData.h"
 #include "Foundation/NuiTimeLog.h"
 #include "Foundation/NuiLogger.h"
@@ -21,12 +24,12 @@ NuiKinfuMainEngine::~NuiKinfuMainEngine()
 }
 
 
-void	NuiKinfuMainEngine::setVolume(float voxelSize, int volumeMode)
+void	NuiKinfuMainEngine::setVolume(float voxelSize, int sceneMode)
 {
 	SafeDelete(m_pScene);
 
 	NuiKinfuVolumeConfig volumeConfig;
-	switch (volumeMode)
+	switch (sceneMode)
 	{
 	case NuiKinfuEngine::NuiKinfuMainEngine::eScene_HashingVolume:
 	{
@@ -47,7 +50,7 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, int volumeMode)
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
 		volumeConfig.translateBasis = m_trackingEngine.getTranslateBasis();
-		m_pScene = volumeConfig.bIsDynamic ? new NuiKinfuOpenCLShiftScene(volumeConfig) : new NuiKinfuOpenCLScene(volumeConfig);
+		m_pScene = volumeConfig.bIsDynamic ? new NuiKinfuOpenCLShiftScene(volumeConfig, &m_cachedPointCloud) : new NuiKinfuOpenCLScene(volumeConfig);
 		break;
 	}
 }
@@ -59,7 +62,7 @@ void	NuiKinfuMainEngine::log(const std::string& fileName) const
 		m_pScene->log(fileName);
 }
 
-bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
+bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, int drawMode)
 {
 	if(!pCLData)
 		return false;
@@ -71,11 +74,30 @@ bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, bool bIsMesh)
 	m_trackingEngine.BufferToMappableTexture(pCLData);
 
 	bool returnStatus = false;
-	//returnStatus = m_trackingEngine.VerticesToMappablePosition(pCLData);
 	if( m_pScene )
 	{
 		boost::mutex::scoped_lock volumeLock(m_trackingMutex);
-		returnStatus = bIsMesh ? m_pScene->Volume2CLMesh(pCLData) : m_pScene->Volume2CLVertices(pCLData);
+		switch (drawMode)
+		{
+		case eDraw_PointCloud:
+			returnStatus = m_pScene->Volume2CLVertices(pCLData);
+			break;
+		case eDraw_PolygonMesh:
+		{
+			returnStatus = m_pScene->Volume2CLVertices(pCLData);
+			if (returnStatus)
+			{
+				CachePointCloud(pCLData);
+			}
+			break;
+		}
+		case eDraw_RealtimeMesh:
+			returnStatus = m_pScene->Volume2CLMesh(pCLData);
+			break;
+		case eDraw_None:
+		default:
+			break;
+		}
 		volumeLock.unlock();
 	}
 
@@ -115,6 +137,7 @@ void	NuiKinfuMainEngine::resetVolume()
 {
 	if(m_pScene)
 		m_pScene->reset();
+	m_cachedPointCloud.clear();
 }
 
 void	NuiKinfuMainEngine::setTranslateBasis(const Vector3f& basis) {
@@ -162,4 +185,74 @@ bool	NuiKinfuMainEngine::processFrame (
 	NuiTimeLog::instance().tock(sTrackingName);
 
 	return returnStatus;
+}
+
+void	NuiKinfuMainEngine::CachePointCloud(NuiCLMappableData* pCLData)
+{
+	assert(pCLData);
+	if (!pCLData)
+		return;
+
+	int vertex_sum = pCLData->PointIndices().size();
+	if (vertex_sum <= 0)
+		return;
+
+	cl_int           err = CL_SUCCESS;
+	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
+
+	cl_mem positionsGL = NuiOpenCLBufferFactory::asPosition3fBufferCL(pCLData->PositionStream());
+	cl_mem colorsGL = NuiOpenCLBufferFactory::asColor4fBufferCL(pCLData->ColorStream());
+	// Acquire OpenGL objects before use
+	cl_mem glObjs[] = {
+		positionsGL,
+		colorsGL
+	};
+
+	openclutil::enqueueAcquireHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
+
+	m_cachedPointCloud.writeLock();
+
+	int originalSize = m_cachedPointCloud.pointSize();
+	m_cachedPointCloud.resizePoints(originalSize + vertex_sum);
+	err = clEnqueueReadBuffer(
+		queue,
+		positionsGL,
+		CL_FALSE,//blocking
+		0,
+		vertex_sum * 3 * sizeof(float),
+		(void*)(m_cachedPointCloud.getVertices() + originalSize),
+		0,
+		NULL,
+		NULL
+	);
+	NUI_CHECK_CL_ERR(err);
+
+	err = clEnqueueReadBuffer(
+		queue,
+		colorsGL,
+		CL_FALSE,//blocking
+		0,
+		vertex_sum * 4 * sizeof(float),
+		(void*)(m_cachedPointCloud.getColors() + originalSize),
+		0,
+		NULL,
+		NULL
+	);
+	NUI_CHECK_CL_ERR(err);
+
+	m_cachedPointCloud.writeUnlock();
+
+	//Push the cached point cloud
+	/*m_cachedPointCloud.readLock();
+	const int cachedVertexSize = m_cachedPointCloud.pointSize();
+	const int point_count = cachedVertexSize + vertex_sum;
+	if(positions.size() != point_count)
+	positions.resize(point_count);
+	memcpy((void*)(positions.data()+vertex_sum), m_cachedPointCloud.getVertices(), cachedVertexSize*sizeof(SgVec3f));
+	if(colors.size() != point_count)
+	colors.resize(point_count);
+	memcpy((void*)(colors.data()+vertex_sum), m_cachedPointCloud.getColors(), cachedVertexSize*sizeof(SgVec4f));
+	m_cachedPointCloud.readUnlock();*/
+
 }

@@ -2,6 +2,7 @@
 
 #include "NuiKinfuTrackingEngine.h"
 #include "NuiKinfuVolumeConfig.h"
+#include "NuiKinfuPointCloudCache.h"
 
 #include <boost/thread/mutex.hpp>
 
@@ -21,14 +22,21 @@ namespace NuiKinfuEngine
 			eScene_ShiftingVolume = 1,
 			eScene_HashingVolume = 2,
 		};
+		enum NuiKinfuSceneDrawMode
+		{
+			eDraw_None = 0,
+			eDraw_PointCloud = 1,
+			eDraw_RealtimeMesh = 2,
+			eDraw_PolygonMesh = 3,
+		};
 	public:
 		NuiKinfuMainEngine();
 		~NuiKinfuMainEngine();
 
 		void	resetTracker();
 		void	resetVolume();
-		void	setVolume(float voxelSize, int volumeMode);
-		bool	getCLData(NuiCLMappableData* pCLData, bool bIsMesh);
+		void	setVolume(float voxelSize, int sceneMode);
+		bool	getCLData(NuiCLMappableData* pCLData, int drawMode);
 		bool	getMesh(NuiMeshShape* pMesh);
 		bool	getCameraPose (NuiCameraPos* cam) const;
 
@@ -49,12 +57,16 @@ namespace NuiKinfuEngine
 			UINT nHeight,
 			const NuiCameraParams& cameraParams
 			);
+	protected:
+		void	CachePointCloud(NuiCLMappableData* pCLData);
 
 	private:
 		NuiKinfuTrackingEngine				m_trackingEngine;
 
 		/** \brief Tsdf volume container. */
 		NuiKinfuScene*						m_pScene;
+
+		NuiKinfuPointCloudCache				m_cachedPointCloud;
 
 		NuiTrackerConfig					m_trackingConfig;
 

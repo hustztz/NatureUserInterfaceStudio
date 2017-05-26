@@ -2,8 +2,8 @@
 
 #include "../NuiKinfuScene.h"
 #include "../../NuiKinfuVolumeConfig.h"
-#include "../../NuiKinfuPointCloudCache.h"
 #include "OpenCLUtilities/NuiOpenCLUtil.h"
+#include <Foundation/SgVec3T.h>
 #include "Kernels/gpu_def.h"
 
 class NuiKinfuOpenCLScene : public NuiKinfuScene
@@ -53,6 +53,8 @@ protected:
 	void			AcquireBuffer(bool bHas_color_volume);
 	void			ReleaseBuffer();
 
+	int				FetchVolume(NuiCLMappableData* pCLData);
+
 	SgVec3f			getNodeCoo(int x, int y, int z);
 
 protected:
@@ -70,6 +72,4 @@ protected:
 	TsdfParams			m_tsdf_params;
 
 	NuiKinfuVolumeConfig m_config;
-
-	NuiKinfuPointCloudCache	m_cachedPointCloud;
 };

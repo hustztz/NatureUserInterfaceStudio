@@ -43,14 +43,13 @@ public:
 	pangolin::Var<bool> a_kinFuOn;
 	pangolin::Var<bool> a_kinFuPause;
 	pangolin::Var<bool> a_trackColors;
-	pangolin::Var<int> a_volumeMode;
+	pangolin::Var<int>	a_sceneMode;
 	pangolin::Var<float> a_volumeVoxelSize;
 	pangolin::Var<float> a_translateBasisX;
 	pangolin::Var<float> a_translateBasisZ;
 	pangolin::Var<float> a_integrationThreshold;
 
-	pangolin::Var<bool> a_drawGlobalModel;
-	pangolin::Var<bool> a_drawMesh;
+	pangolin::Var<int> a_drawMode;
 
 	pangolin::Var<std::string> a_grabberSpeed;
 	pangolin::Var<std::string> a_trackerFrameID;

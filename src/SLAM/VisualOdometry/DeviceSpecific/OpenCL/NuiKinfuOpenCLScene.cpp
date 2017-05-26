@@ -16,6 +16,8 @@
 #include "OpenCLUtilities/NuiGPUMemManager.h"
 #include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 
+#include <boost/smart_ptr.hpp>
+
 static const std::string sVolume2Vertices("Volume2Vertices");
 
 NuiKinfuOpenCLScene::NuiKinfuOpenCLScene(const NuiKinfuVolumeConfig& config)
@@ -124,7 +126,6 @@ void NuiKinfuOpenCLScene::reset()
 		);
 	NUI_CHECK_CL_ERR(err);
 
-	m_cachedPointCloud.clear();
 	setDirty();
 }
 
@@ -425,18 +426,14 @@ void    NuiKinfuOpenCLScene::raycastRender(
 #endif
 }
 
-bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
+int	NuiKinfuOpenCLScene::FetchVolume(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
-	if(!pCLData)
-		return false;
+	if (!pCLData)
+		return 0;
 
-	if(!m_volumeCL || !m_vertexSumCL)
-		return false;
-
-	if(!m_dirty)
-		return false;
-	clearDirty();
+	if (!m_volumeCL || !m_vertexSumCL)
+		return 0;
 
 	cl_kernel fetchKernel =
 		NuiOpenCLKernelManager::instance().acquireKernel(E_FETCH_VOLUME);
@@ -444,7 +441,7 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	if (!fetchKernel)
 	{
 		NUI_ERROR("Get kernel 'E_FETCH_VOLUME' failed!\n");
-		return false;
+		return 0;
 	}
 
 	// OpenCL command queue and device
@@ -462,18 +459,18 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 		0,
 		NULL,
 		NULL
-		);
+	);
 	NUI_CHECK_CL_ERR(err);
 
 	// 
 	err = clFinish(queue);
 	NUI_CHECK_CL_ERR(err);
 
-	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->PositionStream().size() )
+	if (MAX_OUTPUT_VERTEX_SIZE != pCLData->PositionStream().size())
 	{
 		NuiMappableAccessor::asVectorImpl(pCLData->PositionStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
 	}
-	if( MAX_OUTPUT_VERTEX_SIZE != pCLData->ColorStream().size() )
+	if (MAX_OUTPUT_VERTEX_SIZE != pCLData->ColorStream().size())
 	{
 		NuiMappableAccessor::asVectorImpl(pCLData->ColorStream())->data().resize(MAX_OUTPUT_VERTEX_SIZE);
 	}
@@ -514,7 +511,7 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 #endif
 	// Run kernel to calculate 
 	size_t kernelGlobalSize[2] = { (size_t)m_config.resolution(0), (size_t)m_config.resolution(1) };
-	size_t local_ws[2] = {1, 1};
+	size_t local_ws[2] = { 1, 1 };
 	err = clEnqueueNDRangeKernel(
 		queue,
 		fetchKernel,
@@ -529,7 +526,7 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 #else
 		NULL
 #endif
-		);
+	);
 	NUI_CHECK_CL_ERR(err);
 
 	err = clFinish(queue);
@@ -549,7 +546,7 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 		0,
 		NULL,
 		NULL
-		);
+	);
 	NUI_CHECK_CL_ERR(err);
 
 #ifdef _GPU_PROFILER
@@ -559,26 +556,37 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	clReleaseEvent(timing_event);
 #endif
 
-	//Push the cached point cloud
-	/*m_cachedPointCloud.readLock();
-	const int cachedVertexSize = m_cachedPointCloud.pointSize();
-	const int point_count = cachedVertexSize + vertex_sum;
-	if(positions.size() != point_count)
-		positions.resize(point_count);
-	memcpy((void*)(positions.data()+vertex_sum), m_cachedPointCloud.getVertices(), cachedVertexSize*sizeof(SgVec3f));
-	if(colors.size() != point_count)
-		colors.resize(point_count);
-	memcpy((void*)(colors.data()+vertex_sum), m_cachedPointCloud.getColors(), cachedVertexSize*sizeof(SgVec4f));
-	m_cachedPointCloud.readUnlock();*/
+	pCLData->SetStreamDirty(true);
+
+	NuiTimeLog::instance().tock(sVolume2Vertices);
+	return vertex_sum;
+}
+
+bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
+{
+	assert(pCLData);
+	if(!pCLData)
+		return false;
+
+	if (!m_dirty)
+		return false;
+	clearDirty();
+
+	int vertex_sum = FetchVolume(pCLData);
+	if (vertex_sum <= 0)
+		return false;
 
 	NuiMappableAccessor::asVectorImpl(pCLData->TriangleIndices())->data().clear();
 	NuiMappableAccessor::asVectorImpl(pCLData->WireframeIndices())->data().clear();
-	if(pCLData->PointIndices().size() != MAX_OUTPUT_VERTEX_SIZE)
+	if (pCLData->PointIndices().size() != vertex_sum)
 	{
 		std::vector<unsigned int>& clPointIndices =
 			NuiMappableAccessor::asVectorImpl(pCLData->PointIndices())->data();
-		clPointIndices.resize(MAX_OUTPUT_VERTEX_SIZE);
-		for (int i = 0; i < MAX_OUTPUT_VERTEX_SIZE; ++i)
+		clPointIndices.resize(vertex_sum);
+#ifdef WITH_OPENMP
+#pragma omp parallel for
+#endif
+		for (int i = 0; i < vertex_sum; ++i)
 		{
 			clPointIndices[i] = i;
 		}
@@ -588,17 +596,14 @@ bool NuiKinfuOpenCLScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	// Set bounding box
 	const Vector3f& voxelSizeMeters = getVoxelSize();
 	pCLData->SetBoundingBox(SgVec3f(
-		-m_config.dimensions[0]/2,
-		-m_config.dimensions[1]/2,
+		-m_config.dimensions[0] / 2,
+		-m_config.dimensions[1] / 2,
 		0),
 		SgVec3f(
-		m_config.dimensions[0]/2,
-		m_config.dimensions[1]/2,
-		m_config.dimensions[2]));
+			m_config.dimensions[0] / 2,
+			m_config.dimensions[1] / 2,
+			m_config.dimensions[2]));
 
-	pCLData->SetStreamDirty(true);
-
-	NuiTimeLog::instance().tock(sVolume2Vertices);
 	return true;
 }
 

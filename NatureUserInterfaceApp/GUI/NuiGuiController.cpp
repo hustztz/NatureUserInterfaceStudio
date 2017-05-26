@@ -138,7 +138,7 @@ void NuiGuiController::handleGuiChanged()
 			m_pKinfu->m_engine.setColorTracker(m_gui->a_trackColors);
 			m_pKinfu->m_engine.setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
 			m_pKinfu->m_engine.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
-			m_pKinfu->m_engine.setVolume(m_gui->a_volumeVoxelSize, m_gui->a_volumeMode);
+			m_pKinfu->m_engine.setVolume(m_gui->a_volumeVoxelSize, m_gui->a_sceneMode);
 		}
 		else
 		{
@@ -296,13 +296,13 @@ void NuiGuiController::launch()
 		}
 
 		std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
-		if(m_gui->a_drawGlobalModel && m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
+		if(m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
 		{
-			m_pKinfu->m_engine.getCLData(&frameData, m_gui->a_drawMesh);
+			m_pKinfu->m_engine.getCLData(&frameData, m_gui->a_drawMode);
 		}
 		else if(pCurrentFrame)
 		{
-			int indexFlags = m_gui->a_drawMesh ? NuiCLMappableData::E_MappableData_Triangle : NuiCLMappableData::E_MappableData_Point;
+			int indexFlags = (NuiKinfuEngine::NuiKinfuMainEngine::eDraw_RealtimeMesh == m_gui->a_drawMode) ? NuiCLMappableData::E_MappableData_Triangle : NuiCLMappableData::E_MappableData_Point;
 			NuiFrameUtilities::FrameToMappableData(pCurrentFrame.get(), &frameData, indexFlags, false, 0.2f);
 		}
 

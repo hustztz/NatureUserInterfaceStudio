@@ -2,10 +2,12 @@
 
 #include "NuiKinfuOpenCLScene.h"
 
+class NuiKinfuPointCloudCache;
+
 class NuiKinfuOpenCLShiftScene : public NuiKinfuOpenCLScene
 {
 public:
-	NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config);
+	NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config, NuiKinfuPointCloudCache* pCache);
 	virtual ~NuiKinfuOpenCLShiftScene();
 
 	/** \brief Resets tsdf volume data to uninitialized state */
@@ -36,6 +38,7 @@ protected:
 	Vector3f shiftVolume(const Vector3f& translation);
 
 private:
-	Vector3i			m_voxel_offset;
+	Vector3i					m_voxel_offset;
+	NuiKinfuPointCloudCache*	m_pCachedPointCloud;
 
 };

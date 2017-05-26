@@ -1066,7 +1066,7 @@ bool NuiKinfuOpenCLHashScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 
 	if(!m_dirty)
 		return false;
-	m_dirty = false;
+	clearDirty();
 
 	if(0 == m_numVisibleEntries)
 		return false;
@@ -1217,6 +1217,9 @@ bool NuiKinfuOpenCLHashScene::Volume2CLVertices(NuiCLMappableData* pCLData)
 	if(clPointIndices.size() != vertex_id)
 	{
 		clPointIndices.resize(vertex_id);
+#ifdef WITH_OPENMP
+#pragma omp parallel for
+#endif
 		for (int i = 0; i < vertex_id; ++i)
 		{
 			clPointIndices[i] = i;
