@@ -72,7 +72,7 @@ void	NuiSLAMController::log(const std::string& fileName) const
 		m_pScene->log(fileName);
 }
 
-bool	NuiSLAMController::getCLData(NuiCLMappableData* pCLData, int drawMode)
+bool	NuiSLAMController::evaluateCLData(NuiCLMappableData* pCLData, int drawMode)
 {
 	if(!pCLData)
 		return false;
@@ -162,7 +162,7 @@ void	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
 	err = clEnqueueReadBuffer(
 		queue,
 		colorsGL,
-		CL_FALSE,//blocking
+		CL_TRUE,//blocking
 		0,
 		vertex_sum * 4 * sizeof(float),
 		(void*)(m_cachedPointCloud.getColors() + originalSize),
@@ -173,6 +173,10 @@ void	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
 	NUI_CHECK_CL_ERR(err);
 
 	m_cachedPointCloud.writeUnlock();
+
+	// Release OpenGL objects
+	openclutil::enqueueReleaseHWObjects(
+		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 
 	//Push the cached point cloud
 	/*m_cachedPointCloud.readLock();

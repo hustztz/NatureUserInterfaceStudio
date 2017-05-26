@@ -109,9 +109,5 @@ add_library(libVisualOdometry
 )
 
 target_link_libraries(libVisualOdometry
-					libFoundation
-					libShape
-					libOpenCLUtilities
 					libFrame
-					${Boost_LIBRARIES}
 )

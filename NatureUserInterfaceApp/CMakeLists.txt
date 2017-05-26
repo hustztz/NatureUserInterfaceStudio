@@ -54,7 +54,6 @@ set(D_SUFF	D)
 
 target_link_libraries(NatureUserInterfaceDemo
                       libSLAM
-					  libFrame
 					  libDeviceManager
 					  ${Boost_LIBRARIES}
                       ${Pangolin_LIBRARIES}

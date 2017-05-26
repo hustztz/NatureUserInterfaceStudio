@@ -26,9 +26,5 @@ add_library(libSLAM
 			${SLAM_SOURCES}
 )
 target_link_libraries(libSLAM
-					libFoundation
-					libShape
-					libOpenCLUtilities
-					libFrame
 					libVisualOdometry
 )

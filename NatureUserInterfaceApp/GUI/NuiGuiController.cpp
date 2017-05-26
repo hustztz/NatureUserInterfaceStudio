@@ -298,7 +298,7 @@ void NuiGuiController::launch()
 		std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
 		if(m_pSLAM /*&& m_pSLAM->m_tracker.isThreadOn()*/)
 		{
-			m_pSLAM->getCLData(&frameData, m_gui->a_drawMode);
+			m_pSLAM->evaluateCLData(&frameData, m_gui->a_drawMode);
 		}
 		else if(pCurrentFrame)
 		{

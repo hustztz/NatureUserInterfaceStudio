@@ -33,7 +33,7 @@ namespace NuiSLAMEngine
 
 		void	resetScene();
 		void	setVolume(float voxelSize, int sceneMode);
-		bool	getCLData(NuiCLMappableData* pCLData, int drawMode);
+		bool	evaluateCLData(NuiCLMappableData* pCLData, int drawMode);
 		bool	getMesh(NuiMeshShape* pMesh);
 		void	log(const std::string& fileName) const;
 
