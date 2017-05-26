@@ -141,9 +141,10 @@ bool	NuiKinfuTrackingEngine::RunTracking(
 	return true;
 }
 
-bool NuiKinfuTrackingEngine::log(const std::string& fileName) const
+void NuiKinfuTrackingEngine::log(const std::string& fileName) const
 {
-	return m_pTracker ? m_pTracker->log(fileName) : false;
+	if (m_pTracker)
+		m_pTracker->log(fileName);
 }
 
 float NuiKinfuTrackingEngine::getTrackerError() const

@@ -58,9 +58,9 @@ void	NuiKinfuCPUDepthTracker::ReleaseBuffers()
 	m_verticesHierarchy.clear();
 }
 
-bool NuiKinfuCPUDepthTracker::log(const std::string& fileName) const
+void NuiKinfuCPUDepthTracker::log(const std::string& fileName) const
 {
-	return m_configuration.log(fileName);
+	m_configuration.log(fileName);
 }
 
 bool	NuiKinfuCPUDepthTracker::EstimatePose(

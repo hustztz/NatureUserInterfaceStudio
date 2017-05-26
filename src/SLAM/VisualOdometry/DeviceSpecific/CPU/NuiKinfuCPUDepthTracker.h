@@ -24,7 +24,7 @@ public:
 		Eigen::Affine3f *hint
 		) override;
 
-	virtual bool	log(const std::string& fileName) const override;
+	virtual void	log(const std::string& fileName) const override;
 
 	virtual float	getError() const override { return m_error; }
 	virtual int		getCount() const override { return m_numValidPoints; }

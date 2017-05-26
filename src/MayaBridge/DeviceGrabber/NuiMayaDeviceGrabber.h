@@ -10,7 +10,7 @@
 // Forwards
 class NuiRGBDDeviceController;
 class NuiFrameCacheImpl;
-class NuiKinfuManager;
+class NuiKinfuTrackingManager;
 class NuiMeshShape;
 
 class NuiMayaDeviceGrabber : public MPxNode
@@ -116,5 +116,5 @@ private:
 	NuiFrameCacheImpl*		m_pCache;
 	//NuiMayaCacheTimer*		m_pPreviewer;
 
-	NuiKinfuManager*		m_kinfu;
+	NuiKinfuTrackingManager*		m_kinfu;
 };

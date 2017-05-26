@@ -6,7 +6,11 @@ class NuiRGBDDeviceController;
 class NuiFrameCacheImpl;
 class NuiCompositeFrame;
 class NuiVisualFrameSaveManager;
-class NuiKinfuManager;
+namespace NuiSLAMEngine
+{
+	class NuiSLAMController;
+}
+
 
 class NuiGuiController
 {
@@ -29,5 +33,5 @@ private:
 	NuiRGBDDeviceController*	m_pDevice;
 	NuiFrameCacheImpl*			m_pCache;
 	NuiVisualFrameSaveManager*	m_pFrameToFile;
-	NuiKinfuManager*			m_pKinfu;
+	NuiSLAMEngine::NuiSLAMController*	m_pSLAM;
 };

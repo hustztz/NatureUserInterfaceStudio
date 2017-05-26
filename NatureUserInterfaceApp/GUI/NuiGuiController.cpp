@@ -13,7 +13,7 @@
 
 #include "NuiPangoVis.h"
 
-#include "SLAM/VisualOdometry/NuiKinfuManager.h"
+#include "SLAM/Backend/NuiSLAMController.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
 #include "Frame/NuiVisualFrameSaveManager.h"
 #include "Shape/NuiCLMappableData.h"
@@ -27,7 +27,7 @@ NuiGuiController::NuiGuiController()
 	, m_pDevice(NULL)
 	, m_gui(NULL)
 	, m_pFrameToFile(NULL)
-	, m_pKinfu(NULL)
+	, m_pSLAM(NULL)
 {
 	m_pCache = new NuiFrameBuffer();
 	m_gui = new NuiPangoVis(false);
@@ -81,7 +81,7 @@ NuiGuiController::~NuiGuiController()
 	SafeDelete(m_pCache);
 	SafeDelete(m_gui);
 	SafeDelete(m_pFrameToFile);
-	SafeDelete(m_pKinfu);
+	SafeDelete(m_pSLAM);
 }
 
 void NuiGuiController::resetCache()
@@ -129,26 +129,26 @@ void NuiGuiController::handleGuiChanged()
 	{
 		if(m_gui->a_kinFuOn && NuiOpenCLGlobal::instance().isCLReady())
 		{
-			if(!m_pKinfu)
+			if(!m_pSLAM)
 			{
-				m_pKinfu = new NuiKinfuManager();
+				m_pSLAM = new NuiSLAMEngine::NuiSLAMController();
 			}
 
-			m_pKinfu->pauseThread();
-			m_pKinfu->m_engine.setColorTracker(m_gui->a_trackColors);
-			m_pKinfu->m_engine.setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
-			m_pKinfu->m_engine.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
-			m_pKinfu->m_engine.setVolume(m_gui->a_volumeVoxelSize, m_gui->a_sceneMode);
+			m_pSLAM->m_tracker.pauseThread();
+			m_pSLAM->m_tracker.setColorTracker(m_gui->a_trackColors);
+			m_pSLAM->m_tracker.setTranslateBasis(Vector3f(m_gui->a_translateBasisX, 0.0f, m_gui->a_translateBasisZ));
+			m_pSLAM->m_tracker.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
+			m_pSLAM->setVolume(m_gui->a_volumeVoxelSize, m_gui->a_sceneMode);
 		}
 		else
 		{
-			SafeDelete(m_pKinfu);
+			SafeDelete(m_pSLAM);
 		}
 	}
 	if(m_gui->a_integrationThreshold.GuiChanged())
 	{
-		if(m_pKinfu)
-			m_pKinfu->m_engine.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
+		if(m_pSLAM)
+			m_pSLAM->m_tracker.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
 	}
 
 	/*if( NuiOpenCLGlobal::instance().isCLReady() )
@@ -167,22 +167,22 @@ void NuiGuiController::handleGuiChanged()
 	{
 		if (m_pDevice)
 			m_pDevice->startDevice();
-		if(m_pKinfu)
-			m_pKinfu->startThread();
+		if(m_pSLAM)
+			m_pSLAM->m_tracker.startThread();
 	}
 	else if(pangolin::Pushed(m_gui->a_stepIn))
 	{
 		if (m_pDevice)
 			m_pDevice->stepInDevice();
-		if(m_pKinfu)
-			m_pKinfu->stepIn();
+		if(m_pSLAM)
+			m_pSLAM->m_tracker.stepIn();
 	}
 	else if(pangolin::Pushed(m_gui->a_stop))
 	{
 		if (m_pDevice)
 			m_pDevice->pauseDevice();
-		if(m_pKinfu)
-			m_pKinfu->stopThread();
+		if(m_pSLAM)
+			m_pSLAM->m_tracker.stopThread();
 	}
 }
 
@@ -192,10 +192,10 @@ void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 	if(!pCompositeFrame)
 		return;
 
-	if(m_pKinfu && m_pKinfu->isThreadOn())
+	if(m_pSLAM && m_pSLAM->m_tracker.isThreadOn())
 	{
 		float trackerErrThresh = 5e-05f;
-		m_gui->a_resLog.Log(m_pKinfu->m_engine.getTrackerError(), trackerErrThresh);
+		m_gui->a_resLog.Log(m_pSLAM->m_tracker.getTrackerError(), trackerErrThresh);
 		/*float trackerCountThresh = 30000.f;
 		m_gui->a_inLog.Log((float)m_pKinfu->m_engine.getTrackerCount(), trackerCountThresh);*/
 	}
@@ -205,15 +205,15 @@ void NuiGuiController::writeGuiStatus(NuiCompositeFrame* pCompositeFrame)
 	m_gui->a_grabberSpeed = strsf.str();
 
 	strsf.str("");
-	if(m_pKinfu)
-		strsf << m_pKinfu->m_engine.getFrameID();
+	if(m_pSLAM)
+		strsf << m_pSLAM->m_tracker.getFrameID();
 	else
 		strsf << 0;
 	m_gui->a_trackerFrameID = strsf.str();
 
 	strsf.str("");
-	if(m_pKinfu)
-		strsf << m_pKinfu->getLagFrames();
+	if(m_pSLAM)
+		strsf << m_pSLAM->m_tracker.getLagFrames();
 	else
 		strsf << 0;
 	m_gui->a_trackerLagFrames = strsf.str();
@@ -270,7 +270,7 @@ void NuiGuiController::launch()
 				{
 					readGuiStatus(pFrame.get());
 
-					if (m_pFrameToFile || m_pKinfu)
+					if (m_pFrameToFile || m_pSLAM)
 					{
 						std::shared_ptr<NuiVisualFrame> pVisualFrame = std::make_shared<NuiVisualFrame>();
 						pVisualFrame->acquireFromCompositeFrame(pFrame.get());
@@ -278,9 +278,9 @@ void NuiGuiController::launch()
 						{
 							m_pFrameToFile->pushbackFrame(pVisualFrame);
 						}
-						if (m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
+						if (m_pSLAM /*&& m_pSLAM->m_tracker.isThreadOn()*/)
 						{
-							m_pKinfu->pushbackFrame(pVisualFrame);
+							m_pSLAM->m_tracker.pushbackFrame(pVisualFrame);
 						}
 						pVisualFrame.reset();
 					}
@@ -296,13 +296,13 @@ void NuiGuiController::launch()
 		}
 
 		std::shared_ptr<NuiCompositeFrame> pCurrentFrame = m_pCache->getLatestFrame();
-		if(m_pKinfu /*&& m_pKinfu->isThreadOn()*/)
+		if(m_pSLAM /*&& m_pSLAM->m_tracker.isThreadOn()*/)
 		{
-			m_pKinfu->m_engine.getCLData(&frameData, m_gui->a_drawMode);
+			m_pSLAM->getCLData(&frameData, m_gui->a_drawMode);
 		}
 		else if(pCurrentFrame)
 		{
-			int indexFlags = (NuiKinfuEngine::NuiKinfuMainEngine::eDraw_RealtimeMesh == m_gui->a_drawMode) ? NuiCLMappableData::E_MappableData_Triangle : NuiCLMappableData::E_MappableData_Point;
+			int indexFlags = (NuiSLAMEngine::NuiSLAMController::eDraw_RealtimeMesh == m_gui->a_drawMode) ? NuiCLMappableData::E_MappableData_Triangle : NuiCLMappableData::E_MappableData_Point;
 			NuiFrameUtilities::FrameToMappableData(pCurrentFrame.get(), &frameData, indexFlags, false, 0.2f);
 		}
 
@@ -329,8 +329,10 @@ void NuiGuiController::launch()
 	fileName.append(".txt");
 
 	NuiFileIOUtilities::writeDayTime(fileName);
-	if(m_pKinfu)
-		m_pKinfu->m_engine.log(fileName);
+	if (m_pSLAM)
+	{
+		m_pSLAM->log(fileName);
+	}
 	NuiTimeLog::instance().log(fileName);
 }
 

@@ -1,37 +1,43 @@
-#include "NuiKinfuMainEngine.h"
+#include "NuiSLAMController.h"
 
-#include "DeviceSpecific/OpenCL/NuiKinfuOpenCLShiftScene.h"
-#include "DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h"
+#include "SLAM/VisualOdometry/DeviceSpecific/OpenCL/NuiKinfuOpenCLShiftScene.h"
+#include "SLAM/VisualOdometry/DeviceSpecific/OpenCL/NuiKinfuOpenCLHashScene.h"
 
 #include "OpenCLUtilities/NuiOpenCLGlobal.h"
 #include "OpenCLUtilities/NuiOpenCLBufferFactory.h"
 #include "Shape/NuiCLMappableData.h"
-#include "Foundation/NuiTimeLog.h"
 #include "Foundation/NuiLogger.h"
 
-static const std::string sTrackingName("TrackingEngine");
+using namespace NuiSLAMEngine;
 
-using namespace NuiKinfuEngine;
-
-NuiKinfuMainEngine::NuiKinfuMainEngine()
+NuiSLAMController::NuiSLAMController()
 	: m_pScene(NULL)
 {
 }
 
-NuiKinfuMainEngine::~NuiKinfuMainEngine()
+NuiSLAMController::~NuiSLAMController()
 {
 	SafeDelete(m_pScene);
 }
 
-
-void	NuiKinfuMainEngine::setVolume(float voxelSize, int sceneMode)
+void	NuiSLAMController::resetScene()
 {
+	if (m_pScene)
+		m_pScene->reset();
+	m_cachedPointCloud.clear();
+}
+
+void	NuiSLAMController::setVolume(float voxelSize, int sceneMode)
+{
+	bool bIsTracking = m_tracker.isThreadOn();
+	if(bIsTracking)
+		m_tracker.stopThread();
 	SafeDelete(m_pScene);
 
 	NuiKinfuVolumeConfig volumeConfig;
 	switch (sceneMode)
 	{
-	case NuiKinfuEngine::NuiKinfuMainEngine::eScene_HashingVolume:
+	case eScene_HashingVolume:
 	{
 		NuiHashingSDFConfig sdfConfig;
 		sdfConfig.m_bUseSwapping = false;
@@ -43,40 +49,40 @@ void	NuiKinfuMainEngine::setVolume(float voxelSize, int sceneMode)
 		m_pScene = new NuiKinfuOpenCLHashScene(sdfConfig);
 		break;
 	}
-	case NuiKinfuEngine::NuiKinfuMainEngine::eScene_ShiftingVolume:
+	case eScene_ShiftingVolume:
 		volumeConfig.bIsDynamic = true;
-	case NuiKinfuEngine::NuiKinfuMainEngine::eScene_FusionVolume:
+	case eScene_FusionVolume:
 	default:
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
-		volumeConfig.translateBasis = m_trackingEngine.getTranslateBasis();
+		volumeConfig.translateBasis = m_tracker.getTranslateBasis();
 		m_pScene = volumeConfig.bIsDynamic ? new NuiKinfuOpenCLShiftScene(volumeConfig, &m_cachedPointCloud) : new NuiKinfuOpenCLScene(volumeConfig);
 		break;
 	}
+
+	m_tracker.setScene(m_pScene);
+	if (bIsTracking)
+		m_tracker.startThread();
 }
 
-void	NuiKinfuMainEngine::log(const std::string& fileName) const
+void	NuiSLAMController::log(const std::string& fileName) const
 {
-	m_trackingEngine.log(fileName);
+	m_tracker.log(fileName);
 	if(m_pScene)
 		m_pScene->log(fileName);
 }
 
-bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, int drawMode)
+bool	NuiSLAMController::getCLData(NuiCLMappableData* pCLData, int drawMode)
 {
 	if(!pCLData)
 		return false;
 
-	// Camera
-	pCLData->SetCameraPos( m_trackingEngine.getCameraPose() );
-
-	// Color image
-	m_trackingEngine.BufferToMappableTexture(pCLData);
+	m_tracker.evaluateCLData(pCLData);
 
 	bool returnStatus = false;
 	if( m_pScene )
 	{
-		boost::mutex::scoped_lock volumeLock(m_trackingMutex);
+		boost::mutex::scoped_lock volumeLock(m_tracker.getMutex());
 		switch (drawMode)
 		{
 		case eDraw_PointCloud:
@@ -104,18 +110,7 @@ bool	NuiKinfuMainEngine::getCLData(NuiCLMappableData* pCLData, int drawMode)
 	return returnStatus;
 }
 
-bool	NuiKinfuMainEngine::getCameraPose (NuiCameraPos* cam) const
-{
-	if(!cam)
-		return false;
-
-	*cam = m_trackingEngine.getCameraPose();
-	/*if(m_pVolume)
-		cam->setTranslation( cam->getGlobalTranslation() - m_translateBasis);*/
-	return true;
-}
-
-bool	NuiKinfuMainEngine::getMesh(NuiMeshShape* pMesh)
+bool	NuiSLAMController::getMesh(NuiMeshShape* pMesh)
 {
 	if(!m_pScene ||  !pMesh)
 		return false;
@@ -123,71 +118,7 @@ bool	NuiKinfuMainEngine::getMesh(NuiMeshShape* pMesh)
 	return m_pScene->Volume2Mesh(pMesh);
 }
 
-void	NuiKinfuMainEngine::setIntegrationMetricThreshold(float threshold)
-{
-	m_trackingEngine.setIntegrationMetricThreshold(threshold);
-}
-
-void	NuiKinfuMainEngine::resetTracker()
-{
-	m_trackingEngine.reset();
-}
-
-void	NuiKinfuMainEngine::resetVolume()
-{
-	if(m_pScene)
-		m_pScene->reset();
-	m_cachedPointCloud.clear();
-}
-
-void	NuiKinfuMainEngine::setTranslateBasis(const Vector3f& basis) {
-	m_trackingEngine.setTranslateBasis(basis);
-	m_trackingEngine.reset();
-}
-
-bool	NuiKinfuMainEngine::processFrame (
-	INT64 timeStamp,
-	UINT16* pDepthBuffer,
-	BGRQUAD* pColorBuffer,
-	UINT nWidth,
-	UINT nHeight,
-	const NuiCameraParams& cameraParams
-	)
-{
-	if(!pDepthBuffer)
-		return true;
-
-	if( !m_trackingEngine.isInit() )
-	{
-		bool bAcceleratedFeedback = m_pScene->needAcceleratedFeedback();
-		m_trackingEngine.initialize(m_trackingConfig, bAcceleratedFeedback, nWidth, nHeight);
-	}
-
-	NuiTimeLog::instance().tick(sTrackingName);
-	bool returnStatus = false;
-	try
-	{
-		boost::mutex::scoped_lock trackingLock(m_trackingMutex);
-		returnStatus = m_trackingEngine.RunTracking(
-			timeStamp,
-			pDepthBuffer,
-			pColorBuffer,
-			nWidth * nHeight,
-			m_pScene,
-			cameraParams);
-		trackingLock.unlock();
-	}
-	catch (std::exception& e)
-	{
-		LOG4CPLUS_FATAL(NuiLogger::instance().fileLogger(), e.what());
-	}
-	
-	NuiTimeLog::instance().tock(sTrackingName);
-
-	return returnStatus;
-}
-
-void	NuiKinfuMainEngine::CachePointCloud(NuiCLMappableData* pCLData)
+void	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
 	if (!pCLData)

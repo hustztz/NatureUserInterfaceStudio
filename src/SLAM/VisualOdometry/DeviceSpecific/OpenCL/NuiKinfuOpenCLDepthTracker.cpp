@@ -95,9 +95,9 @@ void NuiKinfuOpenCLDepthTracker::ReleaseBuffers()
 	}
 }
 
-bool NuiKinfuOpenCLDepthTracker::log(const std::string& fileName) const
+void NuiKinfuOpenCLDepthTracker::log(const std::string& fileName) const
 {
-	return m_configuration.log(fileName);
+	m_configuration.log(fileName);
 }
 
 bool NuiKinfuOpenCLDepthTracker::EstimatePose(

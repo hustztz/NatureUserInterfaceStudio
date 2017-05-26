@@ -5,9 +5,8 @@ set(VO_HEADERS
 NuiHashingChunkGridConfig.h
 NuiHashingRaycastConfig.h
 NuiHashingSDFConfig.h
-NuiKinfuMainEngine.h
-NuiKinfuManager.h
 NuiKinfuPointCloudCache.h
+NuiKinfuTrackingManager.h
 NuiKinfuTrackingEngine.h
 NuiKinfuVolumeConfig.h
 NuiMeshingUtil.h
@@ -18,8 +17,7 @@ set(VO_SOURCES
 NuiHashingChunkGridConfig.cpp
 NuiHashingRaycastConfig.cpp
 NuiHashingSDFConfig.cpp
-NuiKinfuMainEngine.cpp
-NuiKinfuManager.cpp
+NuiKinfuTrackingManager.cpp
 NuiKinfuTrackingEngine.cpp
 NuiKinfuVolumeConfig.cpp
 NuiMeshingUtil.cpp
@@ -109,13 +107,11 @@ add_library(libVisualOdometry
 			${VO_DEVICE_OPENCL_HEADERS}
 			${VO_DEVICE_OPENCL_SOURCES}
 )
-target_link_libraries(libVisualOdometry
-			${Boost_LIBRARIES}
-)
 
 target_link_libraries(libVisualOdometry
 					libFoundation
 					libShape
 					libOpenCLUtilities
 					libFrame
+					${Boost_LIBRARIES}
 )

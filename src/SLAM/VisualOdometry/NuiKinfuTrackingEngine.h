@@ -26,7 +26,7 @@ namespace NuiKinfuEngine
 
 		bool	isInit() const { return (m_pTracker ? true : false); }
 		void	initialize(const NuiTrackerConfig& tracerConfig, bool bAcceleratedFeedback, UINT nWidth, UINT nHeight);
-		bool	log(const std::string& fileName) const;
+		void	log(const std::string& fileName) const;
 
 		void	setTranslateBasis(const Vector3f& basis) { m_translateBasis = basis; }
 		const Vector3f&	getTranslateBasis() const { return m_translateBasis; }

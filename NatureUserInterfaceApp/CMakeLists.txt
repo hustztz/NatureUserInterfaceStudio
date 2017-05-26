@@ -53,13 +53,13 @@ add_executable(NatureUserInterfaceDemo NatureUserInterfaceDemo.cpp ${GUI_HEADERS
 set(D_SUFF	D)
 
 target_link_libraries(NatureUserInterfaceDemo
-                      libVisualOdometry
+                      libSLAM
 					  libFrame
 					  libDeviceManager
 					  ${Boost_LIBRARIES}
                       ${Pangolin_LIBRARIES}
 					  ${OpenCV_LIBS}
 					  ${ZLIB_LIBRARY}
-					  ${PCL_COMMON_LIBRARIES}
+					  ${PCL_LIBRARIES}
 					  ${log4cplus_DIR}/../../log4cplus${D_SUFF}.lib
 )

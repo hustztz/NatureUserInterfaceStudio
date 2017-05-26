@@ -17,7 +17,7 @@ public:
 		) = 0;
 
 	virtual bool	hasColorData() const { return false; }
-	virtual bool	log(const std::string& fileName) const { return false; }
+	virtual void	log(const std::string& fileName) const {};
 	virtual float	getError() const { return 0.0; }
 	virtual int		getCount() const { return 0; }
 };

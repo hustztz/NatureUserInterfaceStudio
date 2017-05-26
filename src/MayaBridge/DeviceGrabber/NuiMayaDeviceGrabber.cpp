@@ -4,7 +4,7 @@
 #include "Frame/Buffer/NuiFrameCache.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
 #include "DeviceManager/NuiRGBDDeviceController.h"
-#include "SLAM/VisualOdometry//NuiKinfuManager.h"
+#include "SLAM/VisualOdometry//NuiKinfuTrackingManager.h"
 #include "../SkeletonDriver/NuiMayaSkeletonData.h"
 #include "../SkeletonDriver/NuiMayaGestureData.h"
 #include "../SkeletonDriver/NuiMayaFacialModelData.h"
@@ -961,7 +961,7 @@ void NuiMayaDeviceGrabber::updateKinfu()
 		if(!m_kinfu)
 		{
 			if(!m_kinfu)
-				m_kinfu = new NuiKinfuManager();
+				m_kinfu = new NuiKinfuTrackingManager();
 
 			float voxelSize = 0.01f;
 			inputHandle = datablock.inputValue( aVolumeVoxelSize, &returnStatus );
