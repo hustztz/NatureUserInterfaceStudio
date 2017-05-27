@@ -3,6 +3,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/surface/gp3.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/io/ply_io.h>
 
 #include <boost/make_shared.hpp>
 
@@ -21,11 +22,11 @@ void	NuiPolygonMesh::clear()
 
 }
 
-void	NuiPolygonMesh::calculateMesh(pcl::PointCloud<pcl::PointXYZRGBNormal> * cloud_with_normals, float leafSize)
+void	NuiPolygonMesh::calculateMesh(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_with_normals, float leafSize)
 {
 	// Create search tree*
 	pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree2(new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
-	tree2->setInputCloud(cloud_with_normals->makeShared());
+	tree2->setInputCloud(cloud_with_normals);
 
 	// Initialize objects
 	pcl::GreedyProjectionTriangulation<pcl::PointXYZRGBNormal> gp3;
@@ -42,7 +43,7 @@ void	NuiPolygonMesh::calculateMesh(pcl::PointCloud<pcl::PointXYZRGBNormal> * clo
 	gp3.setNormalConsistency(false);
 
 	// Get result
-	gp3.setInputCloud(cloud_with_normals->makeShared());
+	gp3.setInputCloud(cloud_with_normals);
 	gp3.setSearchMethod(tree2);
 
 	gp3.reconstruct(m_mesh);
@@ -60,4 +61,11 @@ void	NuiPolygonMesh::getIndices(std::vector<uint32_t>& indices) const
 	{
 		indices.insert(indices.end(), m_mesh.polygons.at(i).vertices.begin(), m_mesh.polygons.at(i).vertices.end());
 	}
+}
+
+void	NuiPolygonMesh::save(std::string file)
+{
+	std::string filePLY = file;
+	filePLY.append(".ply");
+	pcl::io::savePLYFile(filePLY, m_mesh, 5);
 }

@@ -13,10 +13,12 @@ using namespace NuiSLAMEngine;
 NuiSLAMController::NuiSLAMController()
 	: m_pScene(NULL)
 {
+	m_pointCloudProcesser.setVertexCache(&m_vertexCache);
 }
 
 NuiSLAMController::~NuiSLAMController()
 {
+	m_pointCloudProcesser.stopThread();
 	SafeDelete(m_pScene);
 }
 
@@ -24,7 +26,8 @@ void	NuiSLAMController::resetScene()
 {
 	if (m_pScene)
 		m_pScene->reset();
-	m_cachedPointCloud.clear();
+	m_pointCloudProcesser.stopThread();
+	m_vertexCache.clear();
 }
 
 void	NuiSLAMController::setVolume(float voxelSize, int sceneMode)
@@ -56,7 +59,7 @@ void	NuiSLAMController::setVolume(float voxelSize, int sceneMode)
 		volumeConfig.dimensions = Vector3f::Constant(3.0f);
 		volumeConfig.resolution = Vector3i::Constant(int(3.0f / voxelSize));
 		volumeConfig.translateBasis = m_tracker.getTranslateBasis();
-		m_pScene = volumeConfig.bIsDynamic ? new NuiKinfuOpenCLShiftScene(volumeConfig, &m_cachedPointCloud) : new NuiKinfuOpenCLScene(volumeConfig);
+		m_pScene = volumeConfig.bIsDynamic ? new NuiKinfuOpenCLShiftScene(volumeConfig, &m_vertexCache) : new NuiKinfuOpenCLScene(volumeConfig);
 		break;
 	}
 
@@ -93,7 +96,11 @@ bool	NuiSLAMController::evaluateCLData(NuiCLMappableData* pCLData, int drawMode)
 			returnStatus = m_pScene->Volume2CLVertices(pCLData);
 			if (returnStatus)
 			{
-				CachePointCloud(pCLData);
+				if (CachePointCloud(pCLData))
+				{
+					m_pointCloudProcesser.setFilterLeafSize(m_pScene->getVoxelLeafSize());
+					m_pointCloudProcesser.startThread();
+				}
 			}
 			break;
 		}
@@ -118,15 +125,15 @@ bool	NuiSLAMController::getMesh(NuiMeshShape* pMesh)
 	return m_pScene->Volume2Mesh(pMesh);
 }
 
-void	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
+bool	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
 {
 	assert(pCLData);
 	if (!pCLData)
-		return;
+		return false;
 
 	int vertex_sum = pCLData->PointIndices().size();
 	if (vertex_sum <= 0)
-		return;
+		return false;
 
 	cl_int           err = CL_SUCCESS;
 	cl_command_queue queue = NuiOpenCLGlobal::instance().clQueue();
@@ -142,17 +149,17 @@ void	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
 	openclutil::enqueueAcquireHWObjects(
 		sizeof(glObjs) / sizeof(cl_mem), glObjs, 0, nullptr, nullptr);
 
-	m_cachedPointCloud.writeLock();
+	m_vertexCache.writeLock();
 
-	int originalSize = m_cachedPointCloud.pointSize();
-	m_cachedPointCloud.resizePoints(originalSize + vertex_sum);
+	int originalSize = m_vertexCache.pointSize();
+	m_vertexCache.resizePoints(originalSize + vertex_sum);
 	err = clEnqueueReadBuffer(
 		queue,
 		positionsGL,
 		CL_FALSE,//blocking
 		0,
 		vertex_sum * 3 * sizeof(float),
-		(void*)(m_cachedPointCloud.getVertices() + originalSize),
+		(void*)(m_vertexCache.getVertices() + originalSize),
 		0,
 		NULL,
 		NULL
@@ -165,14 +172,14 @@ void	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
 		CL_TRUE,//blocking
 		0,
 		vertex_sum * 4 * sizeof(float),
-		(void*)(m_cachedPointCloud.getColors() + originalSize),
+		(void*)(m_vertexCache.getColors() + originalSize),
 		0,
 		NULL,
 		NULL
 	);
 	NUI_CHECK_CL_ERR(err);
 
-	m_cachedPointCloud.writeUnlock();
+	m_vertexCache.writeUnlock();
 
 	// Release OpenGL objects
 	openclutil::enqueueReleaseHWObjects(
@@ -190,4 +197,11 @@ void	NuiSLAMController::CachePointCloud(NuiCLMappableData* pCLData)
 	memcpy((void*)(colors.data()+vertex_sum), m_cachedPointCloud.getColors(), cachedVertexSize*sizeof(SgVec4f));
 	m_cachedPointCloud.readUnlock();*/
 
+	return true;
+}
+
+void	NuiSLAMController::setSceneDirty()
+{
+	if (m_pScene)
+		m_pScene->setDirty();
 }

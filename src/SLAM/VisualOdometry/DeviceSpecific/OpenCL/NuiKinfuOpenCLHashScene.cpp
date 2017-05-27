@@ -126,6 +126,11 @@ bool NuiKinfuOpenCLHashScene::log(const std::string& fileName) const
 	return true;
 }
 
+float	NuiKinfuOpenCLHashScene::getVoxelLeafSize() const
+{
+	return m_config.m_virtualVoxelSize;
+}
+
 void	NuiKinfuOpenCLHashScene::reset()
 {
 	m_hashingVoxelData.reset();

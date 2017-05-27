@@ -150,7 +150,13 @@ void NuiGuiController::handleGuiChanged()
 		if(m_pSLAM)
 			m_pSLAM->m_tracker.setIntegrationMetricThreshold(m_gui->a_integrationThreshold);
 	}
-
+	if (m_gui->a_drawMode.GuiChanged())
+	{
+		if (m_pSLAM)
+		{
+			m_pSLAM->setSceneDirty();
+		}
+	}
 	/*if( NuiOpenCLGlobal::instance().isCLReady() )
 	{
 		NuiMeshingUtil::SmoothPositionCL(geomPtr);
@@ -244,7 +250,6 @@ void NuiGuiController::readGuiStatus(NuiCompositeFrame* pCompositeFrame)
 	{
 		pCompositeFrame->m_depthFrame.SetMaxDepth(m_gui->a_depthFarPlane);
 	}
-
 }
 
 void NuiGuiController::launch()

@@ -16,6 +16,7 @@ public:
 	virtual void	reset() override;
 	virtual bool	log(const std::string& fileName) const override;
 	virtual bool	hasColorData() const override { return (m_colorVolumeCL ?  true : false); }
+	virtual float	getVoxelLeafSize() const override;
 
 	virtual bool	integrateVolume(
 		NuiKinfuFrame*			pFrame,

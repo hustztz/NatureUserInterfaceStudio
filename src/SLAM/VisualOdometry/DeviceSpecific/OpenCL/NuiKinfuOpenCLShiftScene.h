@@ -2,16 +2,17 @@
 
 #include "NuiKinfuOpenCLScene.h"
 
-class NuiKinfuPointCloudCache;
+class NuiKinfuVertexCache;
 
 class NuiKinfuOpenCLShiftScene : public NuiKinfuOpenCLScene
 {
 public:
-	NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config, NuiKinfuPointCloudCache* pCache);
+	NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config, NuiKinfuVertexCache* pCache);
 	virtual ~NuiKinfuOpenCLShiftScene();
 
 	/** \brief Resets tsdf volume data to uninitialized state */
 	virtual void	reset() override;
+	virtual float	getVoxelLeafSize() const override;
 
 	virtual bool	integrateVolume(
 		NuiKinfuFrame*			pFrame,
@@ -39,6 +40,6 @@ protected:
 
 private:
 	Vector3i					m_voxel_offset;
-	NuiKinfuPointCloudCache*	m_pCachedPointCloud;
+	NuiKinfuVertexCache*	m_pCachedPointCloud;
 
 };

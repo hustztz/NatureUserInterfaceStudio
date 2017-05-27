@@ -5,7 +5,8 @@ set(VO_HEADERS
 NuiHashingChunkGridConfig.h
 NuiHashingRaycastConfig.h
 NuiHashingSDFConfig.h
-NuiKinfuPointCloudCache.h
+NuiKinfuVertexCache.h
+NuiKinfuXYZRGB.h
 NuiKinfuTrackingManager.h
 NuiKinfuTrackingEngine.h
 NuiKinfuVolumeConfig.h
@@ -22,6 +23,7 @@ NuiKinfuTrackingEngine.cpp
 NuiKinfuVolumeConfig.cpp
 NuiMeshingUtil.cpp
 NuiTrackerConfig.cpp
+NuiKinfuXYZRGB.cpp
 )
 
 set(VO_DEVICE_HEADERS

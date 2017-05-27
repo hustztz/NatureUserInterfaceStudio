@@ -74,6 +74,13 @@ bool NuiKinfuOpenCLScene::log(const std::string& fileName) const
 	return m_config.log(fileName);
 }
 
+float	NuiKinfuOpenCLScene::getVoxelLeafSize() const
+{
+	return std::max(m_tsdf_params.cell_size[0],
+		std::max(m_tsdf_params.cell_size[1],
+			m_tsdf_params.cell_size[2]));
+}
+
 SgVec3f NuiKinfuOpenCLScene::getNodeCoo(int x, int y, int z)
 {
 	return SgVec3f(

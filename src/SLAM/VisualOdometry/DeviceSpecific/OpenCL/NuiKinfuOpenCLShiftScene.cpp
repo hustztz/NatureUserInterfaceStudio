@@ -4,7 +4,7 @@
 #include "NuiKinfuOpenCLFeedbackFrame.h"
 #include "NuiKinfuOpenCLCameraState.h"
 
-#include "../../NuiKinfuPointCloudCache.h"
+#include "../../NuiKinfuVertexCache.h"
 #include "../NuiKinfuCameraState.h"
 #include "Foundation/NuiDebugMacro.h"
 #include "Foundation/NuiTimeLog.h"
@@ -20,7 +20,7 @@
 
 static const std::string sVolume2Vertices("Volume2Vertices");
 
-NuiKinfuOpenCLShiftScene::NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config, NuiKinfuPointCloudCache* pCache)
+NuiKinfuOpenCLShiftScene::NuiKinfuOpenCLShiftScene(const NuiKinfuVolumeConfig& config, NuiKinfuVertexCache* pCache)
 	: NuiKinfuOpenCLScene(config)
 	, m_pCachedPointCloud(pCache)
 {
@@ -65,6 +65,12 @@ Vector3f NuiKinfuOpenCLShiftScene::getVoxelOffsetSize() const
 		);
 }
 
+float	NuiKinfuOpenCLShiftScene::getVoxelLeafSize() const
+{
+	return std::max(m_tsdf_params.cell_size[0],
+		std::max(m_tsdf_params.cell_size[1],
+			m_tsdf_params.cell_size[2]));
+}
 
 void NuiKinfuOpenCLShiftScene::clearSlice(const Vector3i&	voxelWrap, const Vector3i&	voxelRange)
 {

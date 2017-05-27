@@ -2,7 +2,8 @@
 
 #include "SLAM/VisualOdometry/NuiKinfuVolumeConfig.h"
 #include "SLAM/VisualOdometry/NuiKinfuTrackingManager.h"
-#include "SLAM/VisualOdometry/NuiKinfuPointCloudCache.h"
+#include "SLAM/VisualOdometry/NuiKinfuVertexCache.h"
+#include "NuiSLAMPointCloudManager.h"
 
 class NuiMeshShape;
 class NuiKinfuScene;
@@ -35,17 +36,19 @@ namespace NuiSLAMEngine
 		void	setVolume(float voxelSize, int sceneMode);
 		bool	evaluateCLData(NuiCLMappableData* pCLData, int drawMode);
 		bool	getMesh(NuiMeshShape* pMesh);
+		void	setSceneDirty();
 		void	log(const std::string& fileName) const;
 
 	protected:
-		void	CachePointCloud(NuiCLMappableData* pCLData);
+		bool	CachePointCloud(NuiCLMappableData* pCLData);
 
 	public:
 		NuiKinfuEngine::NuiKinfuTrackingManager		m_tracker;
 
 	private:
 		/** \brief Tsdf volume container. */
-		NuiKinfuScene*						m_pScene;
-		NuiKinfuPointCloudCache				m_cachedPointCloud;
+		NuiKinfuScene*					m_pScene;
+		NuiKinfuVertexCache				m_vertexCache;
+		NuiSLAMPointCloudManager		m_pointCloudProcesser;
 	};
 }

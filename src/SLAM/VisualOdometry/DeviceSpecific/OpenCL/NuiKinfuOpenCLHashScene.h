@@ -19,6 +19,7 @@ public:
 	virtual bool	log(const std::string& fileName) const override;
 
 	virtual bool	needAcceleratedFeedback() const override { return true; }
+	virtual float	getVoxelLeafSize() const override;
 
 	virtual bool	integrateVolume(
 		NuiKinfuFrame*			pFrame,
