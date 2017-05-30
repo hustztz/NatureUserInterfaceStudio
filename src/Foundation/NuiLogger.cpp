@@ -1,9 +1,9 @@
 #include "NuiLogger.h"
 
-#include <log4cplus/initializer.h>
 #include <log4cplus/configurator.h>  
 #include <log4cplus/consoleappender.h>
 #include <log4cplus/fileappender.h>
+#include <log4cplus/mdc.h>
 #include <log4cplus/helpers/loglog.h>
 
 #define LOG4CPLUS_CONF_FILE "./log4cplus.properties"
@@ -21,7 +21,7 @@ NuiLogger::NuiLogger()
 	, m_fileAppender(new RollingFileAppender(LOG4CPLUS_TEXT("Test.log"), 20 * 1024, 5,
 		false, true))
 {
-	log4cplus::Initializer initializer;
+	log4cplus::initialize();
 
 	//PropertyConfigurator::doConfigure(LOG4CPLUS_TEXT(LOG4CPLUS_CONF_FILE));
 #ifdef _DEBUG
@@ -29,12 +29,14 @@ NuiLogger::NuiLogger()
 #endif // _DEBUG
 	
 	m_fileAppender->setName(LOG4CPLUS_TEXT("fileAppender"));
+	log4cplus::getMDC().put(LOG4CPLUS_TEXT("key"),
+		LOG4CPLUS_TEXT("MDC value"));
 	log4cplus::tstring pattern = LOG4CPLUS_TEXT("%d{%m/%d/%y %H:%M:%S,%Q} [%t] %-5p %c{2} %%%x%% - %X{key} - %m [%l]%n");
-	m_fileAppender->setLayout(std::unique_ptr<Layout>(new PatternLayout(pattern)));
+	m_fileAppender->setLayout(std::auto_ptr<Layout>(new PatternLayout(pattern)));
 
 	//m_fileAppender->addFilter(spi::FilterPtr(new FunctionFilter(filterFunction)));
 
-	m_consoleAppender->setLayout(std::unique_ptr<Layout>(new TTCCLayout()));
+	m_consoleAppender->setLayout(std::auto_ptr<Layout>(new TTCCLayout()));
 
 	Logger root = Logger::getRoot();
 	LOG4CPLUS_DEBUG(root,
@@ -48,7 +50,8 @@ NuiLogger::NuiLogger()
 	m_consolelogger.addAppender(m_consoleAppender);
 
 	m_filelogger = Logger::getInstance(LOG4CPLUS_TEXT("fileLogger"));
-	m_filelogger.addAppender(m_fileAppender);
+	m_fileAppender->getloc();
+	m_filelogger.addAppender(SharedAppenderPtr(m_fileAppender.get()));
 	m_filelogger.setLogLevel(INFO_LOG_LEVEL);
 }
 

@@ -237,13 +237,14 @@ void NuiPangoVis::draw(NuiCLMappableData* pData)
 	if(!pData)
 		return;
 
-	if (pData->GetPolygonMesh() && m_pPolygonMeshDraw)
+	if ((3 == a_drawMode) && pData->GetPolygonMesh() && pData->GetPolygonMesh()->getTrianglesNum() > 0 && m_pPolygonMeshDraw)
 	{
 		if (m_pPolygonMeshDraw->initializeBuffers(pData->GetPolygonMesh()))
 		{
 			m_pPolygonMeshDraw->drawMesh(s_cam.GetProjectionModelViewMatrix(), false);
 			m_pPolygonMeshDraw->uninitializeBuffers();
 		}
+		pData->GetPolygonMesh()->clearDirty();
 	}
 	else if (pData->PointIndices().size())
 	{

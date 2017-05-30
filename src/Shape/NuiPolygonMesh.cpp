@@ -1,5 +1,7 @@
 #include "NuiPolygonMesh.h"
 
+#include "Foundation/NuiLogger.h"
+
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/surface/gp3.h>
 #include <pcl/io/pcd_io.h>
@@ -8,6 +10,8 @@
 #include <boost/make_shared.hpp>
 
 NuiPolygonMesh::NuiPolygonMesh()
+	: m_dirty(false)
+	, m_numEvaluatedTriangles(0)
 {
 
 }
@@ -19,11 +23,17 @@ NuiPolygonMesh::~NuiPolygonMesh()
 
 void	NuiPolygonMesh::clear()
 {
-
+	m_indices.clear();
+	m_cloud.clear();
+	//m_mesh.cloud.clear();
+	m_numEvaluatedTriangles = 0;
+	setDirty();
 }
 
 void	NuiPolygonMesh::calculateMesh(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr cloud_with_normals, float leafSize)
 {
+	LOG4CPLUS_INFO(NuiLogger::instance().consoleLogger(), "Calculating polygon mesh...");
+
 	// Create search tree*
 	pcl::search::KdTree<pcl::PointXYZRGBNormal>::Ptr tree2(new pcl::search::KdTree<pcl::PointXYZRGBNormal>);
 	tree2->setInputCloud(cloud_with_normals);
@@ -47,25 +57,48 @@ void	NuiPolygonMesh::calculateMesh(pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr 
 	gp3.setSearchMethod(tree2);
 
 	gp3.reconstruct(m_mesh);
-}
-
-void	NuiPolygonMesh::getVertices(pcl::PointCloud<pcl::PointXYZRGBNormal>& cloud) const
-{
-	pcl::fromPCLPointCloud2(m_mesh.cloud, cloud);
-}
-
-void	NuiPolygonMesh::getIndices(std::vector<uint32_t>& indices) const
-{
-	int numTriangles = getTrianglesNum();
-	for (int i = 0; i < numTriangles; i++)
-	{
-		indices.insert(indices.end(), m_mesh.polygons.at(i).vertices.begin(), m_mesh.polygons.at(i).vertices.end());
-	}
+	setDirty();
+	LOG4CPLUS_INFO(NuiLogger::instance().consoleLogger(), "Calculate polygon mesh completed.");
 }
 
 void	NuiPolygonMesh::save(std::string file)
 {
+	LOG4CPLUS_INFO(NuiLogger::instance().consoleLogger(), "Saving polygon mesh...");
 	std::string filePLY = file;
 	filePLY.append(".ply");
 	pcl::io::savePLYFile(filePLY, m_mesh, 5);
+	LOG4CPLUS_INFO(NuiLogger::instance().consoleLogger(), "Save polygon mesh completed.");
+}
+
+void	NuiPolygonMesh::evaluateMesh()
+{
+	int numTriangles = getTrianglesNum();
+	if (m_numEvaluatedTriangles >= numTriangles)
+		return;
+	for (int i = m_numEvaluatedTriangles; i < numTriangles; i++)
+	{
+		m_indices.insert(m_indices.end(), m_mesh.polygons.at(i).vertices.begin(), m_mesh.polygons.at(i).vertices.end());
+	}
+	pcl::fromPCLPointCloud2(m_mesh.cloud, m_cloud);
+	m_numEvaluatedTriangles = numTriangles;
+}
+
+const pcl::PointXYZRGBNormal*		NuiPolygonMesh::getVerticesBuffer() const
+{
+	return m_cloud.points.data();
+}
+
+UINT		NuiPolygonMesh::getVerticesBufferSize() const
+{
+	return m_cloud.points.size() * sizeof(pcl::PointXYZRGBNormal);
+}
+
+const uint32_t*	NuiPolygonMesh::getIndicesBuffer() const
+{
+	return m_indices.empty() ? NULL : &m_indices[0];
+}
+
+UINT		NuiPolygonMesh::getIndicesBufferSize() const
+{
+	return m_indices.size() * sizeof(uint32_t);
 }

@@ -52,7 +52,7 @@ public:
 	void				SetCameraPos(const NuiCameraPos& cam) { m_camPos = cam; }
 	const NuiCameraPos&	GetCameraPos() const { return m_camPos; }
 
-	NuiPolygonMesh*		GetPolygonMesh() const { return m_pMesh; }
+	NuiPolygonMesh*		GetPolygonMesh() { return &m_mesh; }
 
 	void				SetBoundingBox(const SgVec3f& min, const SgVec3f& max) { m_boundingBoxMin = min; m_boundingBoxMax = max; }
 	const SgVec3f&		GetBoundingBoxMin() const { return m_boundingBoxMin; }
@@ -84,7 +84,7 @@ private:
 	SgVec3f				m_boundingBoxMin;
 	SgVec3f				m_boundingBoxMax;
 
-	NuiPolygonMesh*		m_pMesh;
+	NuiPolygonMesh		m_mesh;
 
 	bool				m_streamDirty;
 	bool				m_indexDirty;

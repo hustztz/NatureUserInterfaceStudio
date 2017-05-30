@@ -40,6 +40,7 @@ include_directories(${Boost_INCLUDE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${PCL_COMMON_INCLUDE_DIRS})
 include_directories(${FLANN_INCLUDE_DIRS})
+include_directories(${log4cplus_DIR}/../../../include)
 
 add_definitions(${PCL_DEFINITIONS})
 
@@ -47,9 +48,12 @@ add_library(libShape
 			${SHAPE_HEADERS}
 			${SHAPE_SOURCES}
 )
+
 target_link_libraries(libShape
-					 ${Boost_LIBRARIES}
+					 libFoundation
+					 libOpenCLUtilities
 					 ${PCL_COMMON_LIBRARIES}
 					 ${PCL_SURFACE_LIBRARIES}
 					 ${PCL_SEARCH_LIBRARIES}
+					 ${PCL_IO_LIBRARIES}
 )

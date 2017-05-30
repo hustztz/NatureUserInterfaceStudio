@@ -44,8 +44,8 @@ add_library(libFoundation
 )
 
 set(D_SUFF	D)
-
 target_link_libraries(libFoundation
 			${Boost_LIBRARIES}
+			${ZLIB_LIBRARY}
 			${log4cplus_DIR}/../../log4cplusU${D_SUFF}.lib
 )

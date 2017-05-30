@@ -1,5 +1,6 @@
 #include "NuiSLAMPointCloud.h"
 #include "SLAM/VisualOdometry/NuiKinfuXYZRGB.h"
+#include "Foundation/NuiLogger.h"
 
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/features/normal_3d.h>
@@ -20,6 +21,8 @@ bool	NuiSLAMPointCloud::estimateNormals(NuiKinfuXYZRGB* pXYZRGB, float filterLea
 
 	if (filterLeafSize <= 0.0f)
 		return false;
+
+	LOG4CPLUS_INFO(NuiLogger::instance().consoleLogger(), LOG4CPLUS_TEXT("Estimating normals..."));
 
 	pcl::VoxelGrid<pcl::PointXYZRGB> sor;
 	sor.setInputCloud(pXYZRGB->getPtr());

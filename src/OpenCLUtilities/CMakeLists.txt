@@ -40,9 +40,6 @@ add_library(libOpenCLUtilities
 			${OPENCL_UTILITIES_HEADERS}
 			${OPENCL_UTILITIES_SOURCES}
 )
-target_link_libraries(libOpenCLUtilities
-			libFoundation
-)
 
 set(MAYA_OPENCL_LIBRARY
 	$ENV{MAYA_RELEASE_BUILD}/runTime/lib/tbb_debug.lib

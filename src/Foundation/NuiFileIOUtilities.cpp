@@ -4,6 +4,7 @@
 #include "NuiLogger.h"
 
 #include <fstream>
+#include <string>
 #include <ctime>
 #include <zlib.h>
 
@@ -15,7 +16,7 @@ namespace NuiFileIOUtilities
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
 		if( !fpout.is_open() )
 		{
-			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), ("could not open file." + fileName).c_str());
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -79,7 +80,7 @@ namespace NuiFileIOUtilities
 		std::ifstream fpin (fileName.c_str(), std::ios::in | std::ios::binary);
 		if( !fpin.is_open() )
 		{
-			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), ("could not open file." + fileName).c_str());
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -116,7 +117,7 @@ namespace NuiFileIOUtilities
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
 		if( !fpout.is_open() )
 		{
-			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), ("could not open file." + fileName).c_str());
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -165,7 +166,7 @@ namespace NuiFileIOUtilities
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);
 		if( !fpout.is_open() )
 		{
-			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), ("could not open file." + fileName).c_str());
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}
@@ -190,7 +191,7 @@ namespace NuiFileIOUtilities
 		std::ofstream fpout (fileName.c_str(), std::ios::out | std::ios::app);
 		if( !fpout.is_open() )
 		{
-			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), "could not open file." + fileName);
+			LOG4CPLUS_FATAL(NuiLogger::instance().consoleLogger(), ("could not open file." + fileName).c_str());
 			//throw std::ios::failure(__FUNCTION__ + std::string(": could not open file ") + fileName);
 			return false;
 		}

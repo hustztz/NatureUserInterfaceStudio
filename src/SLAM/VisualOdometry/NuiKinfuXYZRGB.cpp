@@ -41,9 +41,9 @@ bool	NuiKinfuXYZRGB::incrementPoints(NuiKinfuVertexCache* pVertexCache)
 		iter->z = inputVertices[i][2];
 		if (inputColors)
 		{
-			iter->r = (unsigned char)(inputColors[i][0] * 255);
+			iter->b = (unsigned char)(inputColors[i][0] * 255);
 			iter->g = (unsigned char)(inputColors[i][1] * 255);
-			iter->b = (unsigned char)(inputColors[i][2] * 255);
+			iter->r = (unsigned char)(inputColors[i][2] * 255);
 			iter->a = 255;
 		}
 		else

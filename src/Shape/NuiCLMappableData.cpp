@@ -10,7 +10,6 @@ NuiCLMappableData::NuiCLMappableData()
 	, m_patchUVStream("UV")
 	, m_streamDirty(true)
 	, m_indexDirty(true)
-	, m_pMesh(NULL)
 {
 }
 
@@ -51,8 +50,6 @@ void NuiCLMappableData::Clear()
 
 	m_streamDirty = true;
 	m_indexDirty = true;
-
-	SafeDelete(m_pMesh);
 }
 
 //void NuiCLMappableData::DeepCopy (const NuiCLMappableData& other)

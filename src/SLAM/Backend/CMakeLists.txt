@@ -30,6 +30,9 @@ add_library(libSLAM
 			${SLAM_HEADERS}
 			${SLAM_SOURCES}
 )
+
 target_link_libraries(libSLAM
 					libVisualOdometry
+					${PCL_FILTERS_LIBRARIES}
+					${PCL_FEATURES_LIBRARIES}
 )

@@ -52,6 +52,7 @@ add_library(libDeviceManager
 			${FILE_LOADER_SOURCES}
 )
 target_link_libraries(libDeviceManager
+			libFrame
 			${Boost_LIBRARIES}
 			$ENV{KINECTSDK10_DIR}/lib/amd64/Kinect10.lib
 			$ENV{KINECT_TOOLKIT_DIR}/lib/amd64/FaceTrackLib.lib

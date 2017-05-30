@@ -78,9 +78,9 @@ __kernel void volume2vmapKernel(
 	}
 }
 
-inline static float3 getNodeCoo (uint x, uint y, uint z, float* cell_size, float half_x, float half_y, float half_z)
+inline static float3 getNodeCoo (uint x, uint y, uint z, float* cell_size, float half_x, float half_y)
 {
-	return (float3)((convert_float(x) + 0.5f - half_x) * cell_size[0], (-convert_float(y) - 0.5f + half_y) * cell_size[1], (convert_float(z) + 0.5f - half_z) * cell_size[2]);
+	return (float3)((convert_float(x) + 0.5f - half_x) * cell_size[0], (-convert_float(y) - 0.5f + half_y) * cell_size[1], (convert_float(z) + 0.5f) * cell_size[2]);
 }
 
 inline static float3 vertex_interp (float3 p0, float3 p1, float f0, float f1)
@@ -118,7 +118,6 @@ __kernel void marchingCubeKernel(
 	
 	const float half_x = convert_float(resolution_x >> 1);
 	const float half_y = convert_float(resolution_y >> 1);
-	const float half_z = convert_float(resolution_z >> 1);
 
 	const uint voxel_id0 = mul24((mul24(voxel_y, resolution_x) + voxel_x), resolution_z);
 	const uint voxel_id1 = voxel_id0 + resolution_z;
@@ -180,14 +179,14 @@ __kernel void marchingCubeKernel(
 
 		// calculate cell vertex positions
         float3 v[8];
-        v[0] = getNodeCoo (voxel_x,     voxel_y,     voxel_z,     l_params.cell_size, half_x, half_y, half_z);
-        v[1] = getNodeCoo (voxel_x + 1, voxel_y,     voxel_z,     l_params.cell_size, half_x, half_y, half_z);
-        v[2] = getNodeCoo (voxel_x + 1, voxel_y + 1, voxel_z,     l_params.cell_size, half_x, half_y, half_z);
-        v[3] = getNodeCoo (voxel_x,     voxel_y + 1, voxel_z,     l_params.cell_size, half_x, half_y, half_z);
-        v[4] = getNodeCoo (voxel_x,     voxel_y,     voxel_z + 1, l_params.cell_size, half_x, half_y, half_z);
-        v[5] = getNodeCoo (voxel_x + 1, voxel_y,     voxel_z + 1, l_params.cell_size, half_x, half_y, half_z);
-        v[6] = getNodeCoo (voxel_x + 1, voxel_y + 1, voxel_z + 1, l_params.cell_size, half_x, half_y, half_z);
-        v[7] = getNodeCoo (voxel_x,     voxel_y + 1, voxel_z + 1, l_params.cell_size, half_x, half_y, half_z);
+        v[0] = getNodeCoo (voxel_x,     voxel_y,     voxel_z,     l_params.cell_size, half_x, half_y);
+        v[1] = getNodeCoo (voxel_x + 1, voxel_y,     voxel_z,     l_params.cell_size, half_x, half_y);
+        v[2] = getNodeCoo (voxel_x + 1, voxel_y + 1, voxel_z,     l_params.cell_size, half_x, half_y);
+        v[3] = getNodeCoo (voxel_x,     voxel_y + 1, voxel_z,     l_params.cell_size, half_x, half_y);
+        v[4] = getNodeCoo (voxel_x,     voxel_y,     voxel_z + 1, l_params.cell_size, half_x, half_y);
+        v[5] = getNodeCoo (voxel_x + 1, voxel_y,     voxel_z + 1, l_params.cell_size, half_x, half_y);
+        v[6] = getNodeCoo (voxel_x + 1, voxel_y + 1, voxel_z + 1, l_params.cell_size, half_x, half_y);
+        v[7] = getNodeCoo (voxel_x,     voxel_y + 1, voxel_z + 1, l_params.cell_size, half_x, half_y);
 
 		float3 vertlist[12];
         vertlist[0] = vertex_interp (v[0], v[1], tsdf0, tsdf1);

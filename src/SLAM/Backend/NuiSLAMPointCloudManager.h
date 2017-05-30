@@ -7,6 +7,7 @@
 #include <boost/thread/mutex.hpp>
 
 class NuiKinfuVertexCache;
+class NuiCLMappableData;
 
 namespace NuiSLAMEngine
 {
@@ -18,6 +19,7 @@ namespace NuiSLAMEngine
 
 		virtual void	reset() override;
 
+		void	setCLData(NuiCLMappableData* pData) { m_pCLData = pData; }
 		void	setVertexCache(NuiKinfuVertexCache* pCache) { m_pVertexCache = pCache; }
 		void	setFilterLeafSize(float size) { m_filterLeafSize = size; }
 
@@ -26,8 +28,8 @@ namespace NuiSLAMEngine
 
 	private:
 		NuiKinfuVertexCache*			m_pVertexCache;
+		NuiCLMappableData*				m_pCLData;
 		NuiSLAMPointCloud				m_pointCloud;
-		NuiPolygonMesh					m_mesh;
 		float							m_filterLeafSize;
 	};
 }

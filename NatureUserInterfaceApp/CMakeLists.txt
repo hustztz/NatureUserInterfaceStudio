@@ -50,15 +50,8 @@ add_definitions(-D_UNICODE -DUNICODE)
 
 add_executable(NatureUserInterfaceDemo NatureUserInterfaceDemo.cpp ${GUI_HEADERS} ${GUI_SOURCES})
 
-set(D_SUFF	D)
-
 target_link_libraries(NatureUserInterfaceDemo
-                      libSLAM
-					  libDeviceManager
-					  ${Boost_LIBRARIES}
                       ${Pangolin_LIBRARIES}
-					  ${OpenCV_LIBS}
-					  ${ZLIB_LIBRARY}
-					  ${PCL_LIBRARIES}
-					  ${log4cplus_DIR}/../../log4cplus${D_SUFF}.lib
+					  libDeviceManager
+                      libSLAM
 )

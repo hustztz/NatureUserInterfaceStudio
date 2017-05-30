@@ -98,6 +98,7 @@ bool	NuiSLAMController::evaluateCLData(NuiCLMappableData* pCLData, int drawMode)
 			{
 				if (CachePointCloud(pCLData))
 				{
+					m_pointCloudProcesser.setCLData(pCLData);
 					m_pointCloudProcesser.setFilterLeafSize(m_pScene->getVoxelLeafSize());
 					m_pointCloudProcesser.startThread();
 				}

@@ -1,10 +1,12 @@
 #include "NuiSLAMPointCloudManager.h"
 #include "SLAM/VisualOdometry/NuiKinfuXYZRGB.h"
+#include "Shape/NuiCLMappableData.h"
 
 using namespace NuiSLAMEngine;
 
 NuiSLAMPointCloudManager::NuiSLAMPointCloudManager()
 	: m_pVertexCache(NULL)
+	, m_pCLData(NULL)
 	, m_filterLeafSize(0.0f)
 {
 }
@@ -24,10 +26,10 @@ void	NuiSLAMPointCloudManager::reset()
 /*virtual*/
 bool	NuiSLAMPointCloudManager::process ()
 {
-	if(!m_pVertexCache)
+	if(!m_pVertexCache || !m_pCLData)
 	{
 		//boost::this_thread::sleep (boost::posix_time::seconds (1));
-		return true;
+		return false;
 	}
 
 	NuiKinfuXYZRGB xyzrgb;
@@ -35,11 +37,15 @@ bool	NuiSLAMPointCloudManager::process ()
 	{
 		if (m_pointCloud.estimateNormals(&xyzrgb, m_filterLeafSize))
 		{
-			xyzrgb.readLock();
-			m_mesh.calculateMesh(m_pointCloud.getPtr(), m_filterLeafSize);
-			xyzrgb.readUnlock();
+			NuiPolygonMesh* pMesh = m_pCLData->GetPolygonMesh();
+			if (pMesh)
+			{
+				xyzrgb.readLock();
+				pMesh->calculateMesh(m_pointCloud.getPtr(), m_filterLeafSize);
+				xyzrgb.readUnlock();
+			}
 		}
 	}
 	
-	return true;
+	return false;
 }

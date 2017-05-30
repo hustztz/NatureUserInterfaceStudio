@@ -19,18 +19,21 @@ bool NuiPangoPolygonMeshShader::initializeBuffers(NuiPolygonMesh* pMesh)
 	if(!pMesh)
 		return false;
 
-	m_numTriangles = pMesh->getTrianglesNum();
-	std::vector<uint32_t> indices;
-	pMesh->getIndices(indices);
-	pcl::PointCloud<pcl::PointXYZRGBNormal> cloud;
-	pMesh->getVertices(cloud);
+	int currentNumTriangles = pMesh->getTrianglesNum();
+	if (abs(currentNumTriangles - m_numTriangles) > 100)
+	{
+		pMesh->evaluateMesh();
+		m_numTriangles = currentNumTriangles;
+	}
+	if (0 == m_numTriangles)
+		return false;
 
 	glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-	glBufferData(GL_ARRAY_BUFFER, cloud.points.size() * sizeof(pcl::PointXYZRGBNormal), cloud.points.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, pMesh->getVerticesBufferSize(), pMesh->getVerticesBuffer(), GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), &indices[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, pMesh->getIndicesBufferSize(), pMesh->getIndicesBuffer(), GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	return true;

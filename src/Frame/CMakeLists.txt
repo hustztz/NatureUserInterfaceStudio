@@ -70,9 +70,9 @@ add_library(libFrame
 			${FRAME_HEADS}
 			${FRAME_SOURCES}
 )
-target_link_libraries(libFrame ${Boost_LIBRARIES} ${OpenCV_LIBS})
+
 target_link_libraries(libFrame
-					libFoundation
 					libShape
 					libOpenCLUtilities
+					${OpenCV_LIBS}
 )

@@ -2,6 +2,7 @@
 
 #include <log4cplus/logger.h>
 #include <log4cplus/loggingmacros.h>
+#include <log4cplus/fileappender.h>
 
 // LOG4CPLUS_DEBUG
 // LOG4CPLUS_INFO
@@ -23,7 +24,7 @@ private:
 	log4cplus::Logger				m_consolelogger;
 	log4cplus::SharedAppenderPtr	m_consoleAppender;
 	log4cplus::Logger				m_filelogger;
-	log4cplus::SharedAppenderPtr	m_fileAppender;
+	log4cplus::SharedFileAppenderPtr	m_fileAppender;
 
 private:
 	NuiLogger();
