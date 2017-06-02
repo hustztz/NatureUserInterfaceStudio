@@ -17,6 +17,7 @@ SOURCE_GROUP("" FILES ${SLAM_HEADERS} ${SLAM_SOURCES})
 
 add_definitions(-DNOMINMAX)
 add_definitions(-DWITH_OPENMP)
+add_definitions(-D_UNICODE -DUNICODE)
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})

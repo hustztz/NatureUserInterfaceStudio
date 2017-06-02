@@ -64,6 +64,8 @@ include_directories($ENV{MAYA_RELEASE_BUILD}/include)
 include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${PCL_COMMON_INCLUDE_DIRS})
 
+add_definitions(-D_UNICODE -DUNICODE)
+
 add_library(libFrame
 			${FRAME_BUFFER_HEADS}
 			${FRAME_BUFFER_SOURCES}

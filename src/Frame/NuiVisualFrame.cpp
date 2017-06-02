@@ -30,12 +30,38 @@ void	NuiVisualFrame::acquireFromCompositeFrame(NuiCompositeFrame* pCompositeFram
 		return;
 	
 	UINT* pDepthDistortionLT = pCompositeFrame->m_depthDistortionFrame.GetBuffer();
-
 	const UINT nColorMapWidth = pCompositeFrame->m_colorMapFrame.GetWidth();
 	const UINT nColorMapHeight = pCompositeFrame->m_colorMapFrame.GetHeight();
 	const UINT nColorMapNum = nColorMapWidth * nColorMapHeight;
 	ColorSpacePoint* pDepthToColor = pCompositeFrame->m_colorMapFrame.GetBuffer();
 	//assert(nPointNum == nColorMapNum);
+
+	const int cVisibilityTestQuantShift = 2;
+	const UINT testMapWidth = UINT(nColorMapWidth >> cVisibilityTestQuantShift);
+	const UINT testMapHeight = UINT(nColorMapHeight >> cVisibilityTestQuantShift);
+	const UINT16         cDepthVisibilityTestThreshold = 50; //50 mm
+	UINT16* pDepthVisibilityTestMap = NULL;
+	if (pDepthDistortionLT)
+	{
+		pDepthVisibilityTestMap = new UINT16[testMapWidth * testMapHeight];
+		memset(pDepthVisibilityTestMap, 0, testMapWidth * testMapHeight * sizeof(UINT16));
+
+		for (UINT i = 0; i < nPointNum; ++i)
+		{
+			const UINT x = UINT(pDepthToColor[i].X + 0.5f) >> cVisibilityTestQuantShift;
+			const UINT y = UINT(pDepthToColor[i].Y + 0.5f) >> cVisibilityTestQuantShift;
+			if (x < testMapWidth && y < testMapHeight)
+			{
+				const UINT idx = y * testMapWidth + x;
+				const UINT16 oldDepth = pDepthVisibilityTestMap[idx];
+				const UINT16 newDepth = pDepthBuffer[i];
+				if (!oldDepth || oldDepth > newDepth)
+				{
+					pDepthVisibilityTestMap[idx] = newDepth;
+				}
+			}
+		}
+	}
 
 	const NuiColorImage& colorTex = pCompositeFrame->m_colorFrame.GetImage();
 	BGRQUAD* pImgSrc = colorTex.GetBuffer();
@@ -56,7 +82,21 @@ void	NuiVisualFrame::acquireFromCompositeFrame(NuiCompositeFrame* pCompositeFram
 
 				int colorX = (int)(pDepthToColor[mappedIndex].X + 0.5f);
 				int colorY = (int)(pDepthToColor[mappedIndex].Y + 0.5f);
-				if ((colorX >= 0 && colorX < (int)colorTex.GetWidth()) && (colorY >= 0 && colorY < (int)colorTex.GetHeight()))
+
+				bool bDepthVisible = true;
+				if (pDepthVisibilityTestMap)
+				{
+					const UINT16 rawDepthValue = pDepthBuffer[i];
+					const UINT testX = colorX >> cVisibilityTestQuantShift;
+					const UINT testY = colorY >> cVisibilityTestQuantShift;
+					const UINT testIdx = testY * testMapWidth + testX;
+					const UINT16 depthTestValue = pDepthVisibilityTestMap[testIdx];
+					_ASSERT(rawDepthValue >= depthTestValue);
+					bDepthVisible = (rawDepthValue - depthTestValue < cDepthVisibilityTestThreshold);
+				}
+				if (bDepthVisible &&
+					(colorX >= 0 && colorX < (int)colorTex.GetWidth()) &&
+					(colorY >= 0 && colorY < (int)colorTex.GetHeight()))
 				{
 					int color_id = colorY * (int)colorTex.GetWidth() + colorX;
 					pColors[i] = pImgSrc[color_id];
@@ -95,6 +135,8 @@ void	NuiVisualFrame::acquireFromCompositeFrame(NuiCompositeFrame* pCompositeFram
 			m_colorFrame = pCompositeFrame->m_colorFrame;
 		}
 	}
+
+	SafeDeleteArray(pDepthVisibilityTestMap);
 
 	m_cameraParams = pCompositeFrame->m_cameraParams;
 	m_cameraParams.m_sensorDepthMax = (float)(pCompositeFrame->m_depthFrame.GetMaxDepth()) / 1000.0f;

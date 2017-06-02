@@ -43,6 +43,7 @@ include_directories(${FLANN_INCLUDE_DIRS})
 include_directories(${log4cplus_DIR}/../../../include)
 
 add_definitions(${PCL_DEFINITIONS})
+add_definitions(-D_UNICODE -DUNICODE)
 
 add_library(libShape
 			${SHAPE_HEADERS}

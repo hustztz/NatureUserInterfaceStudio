@@ -38,6 +38,8 @@ include_directories(${log4cplus_DIR}/../../../include)
 include_directories(${EIGEN3_INCLUDE_DIR})
 INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
 
+add_definitions(-D_UNICODE -DUNICODE)
+
 add_library(libFoundation
 			${FOUNDATION_HEADERS}
 			${FOUNDATION_SOURCES}

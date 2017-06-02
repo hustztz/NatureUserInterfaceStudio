@@ -3,6 +3,7 @@
 #include "NuiFileIOUtilities.h"
 #include "Foundation/NuiLogger.h"
 
+#include <string>
 #include <iostream>
 
 #ifdef _WIN32
@@ -105,8 +106,9 @@ void	NuiTimeLog::print() const
 	TimeStampMap::const_iterator iter;
 	for(iter = m_timeMap.begin();iter != m_timeMap.end(); ++iter)
 	{
-		LOG4CPLUS_INFO(NuiLogger::instance().fileLogger(), iter->first << " fps:" << iter->second.m_count / (double(iter->second.m_sumTime) + 0.05)  << std::endl);
-		LOG4CPLUS_INFO(NuiLogger::instance().fileLogger(), iter->first << " count:" << iter->second.m_count  << std::endl);
+		const char* timeName = iter->first.c_str();
+		LOG4CPLUS_INFO(NuiLogger::instance().fileLogger(), timeName << " fps:" << iter->second.m_count / (double(iter->second.m_sumTime) + 0.05));
+		LOG4CPLUS_INFO(NuiLogger::instance().fileLogger(), timeName << " count:" << iter->second.m_count);
 	}
 }
 

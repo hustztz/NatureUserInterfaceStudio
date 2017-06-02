@@ -92,6 +92,7 @@ SOURCE_GROUP(DeviceSpecific\\OPENCL FILES ${VO_DEVICE_OPENCL_HEADERS} ${VO_DEVIC
 
 add_definitions(-DNOMINMAX)
 add_definitions(-DWITH_OPENMP)
+add_definitions(-D_UNICODE -DUNICODE)
 
 include_directories($ENV{NUI_LOCATION})
 include_directories(${Boost_INCLUDE_DIR})
