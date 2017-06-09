@@ -33,6 +33,7 @@ public:
 	void pauseDevice();
 	void stepInDevice();
 	void stopDevice();
+	bool isDeviceOn();
 
 	std::shared_ptr<NuiCompositeFrame>	popFrame();
 

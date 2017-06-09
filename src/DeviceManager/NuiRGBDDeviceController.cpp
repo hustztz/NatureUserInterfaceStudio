@@ -149,6 +149,11 @@ void NuiRGBDDeviceController::stopDevice()
 		m_pDevice->ShutdownDevice();
 }
 
+bool NuiRGBDDeviceController::isDeviceOn()
+{
+	return m_pDevice ? m_pDevice->IsDeviceOn() : false;
+}
+
 bool NuiRGBDDeviceController::UpdateNearMode(bool bNearMode)
 {
 	 return m_pDevice ?	m_pDevice->UpdateNearMode(bNearMode) : false;

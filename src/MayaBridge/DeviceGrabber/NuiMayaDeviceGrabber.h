@@ -10,8 +10,11 @@
 // Forwards
 class NuiRGBDDeviceController;
 class NuiFrameCacheImpl;
-class NuiKinfuTrackingManager;
 class NuiMeshShape;
+namespace NuiSLAMEngine
+{
+	class NuiSLAMController;
+}
 
 class NuiMayaDeviceGrabber : public MPxNode
 {
@@ -113,8 +116,8 @@ private:
 
 private:	
 	NuiRGBDDeviceController*	m_pDevice;
-	NuiFrameCacheImpl*		m_pCache;
+	NuiFrameCacheImpl*			m_pCache;
 	//NuiMayaCacheTimer*		m_pPreviewer;
 
-	NuiKinfuTrackingManager*		m_kinfu;
+	NuiSLAMEngine::NuiSLAMController*	m_pSLAM;
 };

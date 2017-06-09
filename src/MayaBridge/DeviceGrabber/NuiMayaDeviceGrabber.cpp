@@ -4,7 +4,7 @@
 #include "Frame/Buffer/NuiFrameCache.h"
 #include "Frame/Buffer/NuiFrameBuffer.h"
 #include "DeviceManager/NuiRGBDDeviceController.h"
-#include "SLAM/VisualOdometry//NuiKinfuTrackingManager.h"
+#include "SLAM/Backend/NuiSLAMController.h"
 #include "../SkeletonDriver/NuiMayaSkeletonData.h"
 #include "../SkeletonDriver/NuiMayaGestureData.h"
 #include "../SkeletonDriver/NuiMayaFacialModelData.h"
@@ -71,7 +71,7 @@ MObject		NuiMayaDeviceGrabber::aCameraTranslate;
 NuiMayaDeviceGrabber::NuiMayaDeviceGrabber()
 	: m_pDevice(NULL)
 	, m_pCache(NULL)
-	, m_kinfu(NULL)
+	, m_pSLAM(NULL)
 {
 }
 NuiMayaDeviceGrabber::~NuiMayaDeviceGrabber()
@@ -79,7 +79,7 @@ NuiMayaDeviceGrabber::~NuiMayaDeviceGrabber()
 	if(m_pDevice)
 		m_pDevice->stopDevice();
 	SafeDelete(m_pDevice);
-	SafeDelete(m_kinfu);
+	SafeDelete(m_pSLAM);
 
 	if(m_pCache)
 		m_pCache->clear();
@@ -557,9 +557,12 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 			pFrame->m_depthFrame.SetMinDepth(getShortValue(aMinDepth));
 			pFrame->m_depthFrame.SetMaxDepth(getShortValue(aMaxDepth));
 
-			if(m_kinfu && m_kinfu->isThreadOn())
+			if(m_pSLAM /*&& m_pSLAM->m_tracker.isThreadOn()*/)
 			{
-				m_kinfu->pushbackFrame(pFrame);
+				std::shared_ptr<NuiVisualFrame> pVisualFrame = std::make_shared<NuiVisualFrame>();
+				pVisualFrame->acquireFromCompositeFrame(pFrame.get());
+				m_pSLAM->m_tracker.pushbackFrame(pVisualFrame);
+				pVisualFrame.reset();
 			}
 			m_pCache->pushbackFrame(pFrame);
 			pFrame.reset();
@@ -598,8 +601,8 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 			clData = clmData->data();
 		}
 		int indexFlags = getBooleanValue(aShowMesh) ? (NuiCLMappableData::E_MappableData_Triangle | NuiCLMappableData::E_MappableData_Wireframe) : NuiCLMappableData::E_MappableData_Point;
-		bool bReceived = (m_kinfu && m_kinfu->isThreadOn()) ?
-			m_kinfu->m_engine.getCLData(clData.get(), getBooleanValue(aShowMesh)) :
+		bool bReceived = (m_pSLAM /*&& m_pSLAM->m_tracker.isThreadOn()*/) ?
+			m_pSLAM->evaluateCLData(clData.get(), getBooleanValue(aShowMesh) ? NuiSLAMEngine::NuiSLAMController::eDraw_RealtimeMesh : NuiSLAMEngine::NuiSLAMController::eDraw_PointCloud) :
 			NuiFrameUtilities::FrameToMappableData(pCurrentFrame.get(), clData.get(), indexFlags, getBooleanValue(aShowOnlyBody), 0.2f);
 			
 		datablock.setClean( plug );
@@ -607,8 +610,8 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 	else if ( plug == aOutputMesh )
 	{
 		NuiMeshShape mesh;
-		bool bReceived = (m_kinfu && m_kinfu->isThreadOn()) ?
-			m_kinfu->m_engine.getMesh(&mesh) :
+		bool bReceived = (m_pSLAM /*&& m_pSLAM->m_tracker.isThreadOn()*/) ?
+			m_pSLAM->getMesh(&mesh) :
 			NuiFrameUtilities::FrameToMesh(pCurrentFrame.get(), &mesh, getBooleanValue(aShowOnlyBody), 0.2f);
 		// Create some mesh data and access the
 		// geometry so we can set it
@@ -759,9 +762,9 @@ MStatus NuiMayaDeviceGrabber::compute( const MPlug& plug, MDataBlock& datablock 
 			//cam = pCurrentFrame->GetCameraParams();
 			received = true;
 		}
-		else if(m_kinfu)
+		else if(m_pSLAM)
 		{
-			m_kinfu->m_engine.getCameraPose(&cam);
+			cam = m_pSLAM->m_tracker.getLatestCameraPose();
 			received = true;
 		}
 		if(received)
@@ -823,7 +826,7 @@ bool NuiMayaDeviceGrabber::updateDevice()
 
 		if(bUseCache)
 		{
-			if( !m_pDevice->startFileLoader((DWORD)deviceMode, sTestDataFolder) )
+			if( !m_pDevice->initializeFileLoader(sTestDataFolder) )
 			{
 				MGlobal::displayError( " Failed to start the file Loader." );
 				return false;
@@ -831,7 +834,16 @@ bool NuiMayaDeviceGrabber::updateDevice()
 		}
 		else
 		{
-			if( !m_pDevice->startDevice((DWORD)deviceMode) )
+			bool bKinfuOn = false;
+			MDataHandle inputHandle = datablock.inputValue(aKinFuOn, &returnStatus);
+			if (returnStatus == MS::kSuccess)
+				bKinfuOn = inputHandle.asBool();
+			if (bKinfuOn)
+			{
+				deviceMode = NuiRGBDDeviceController::EDeviceMode_VertexColorCamera;
+			}
+
+			if( !m_pDevice->initializeDevice((DWORD)deviceMode) )
 			{
 				MGlobal::displayError( " Failed to setup the device." );
 				return false;
@@ -958,23 +970,23 @@ void NuiMayaDeviceGrabber::updateKinfu()
 
 	if(bKinfuOn)
 	{
-		if(!m_kinfu)
+		if(!m_pSLAM)
 		{
-			if(!m_kinfu)
-				m_kinfu = new NuiKinfuTrackingManager();
+			if(!m_pSLAM)
+				m_pSLAM = new NuiSLAMEngine::NuiSLAMController();
 
+			m_pSLAM->m_tracker.pauseThread();
 			float voxelSize = 0.01f;
 			inputHandle = datablock.inputValue( aVolumeVoxelSize, &returnStatus );
 			if(returnStatus == MS::kSuccess)
 				voxelSize = inputHandle.asFloat();
-			m_kinfu->m_engine.resetVolume();
-			m_kinfu->m_engine.setVolume(voxelSize, false);
-			m_kinfu->startThread();
+			m_pSLAM->setVolume(voxelSize, NuiSLAMEngine::NuiSLAMController::eScene_FusionVolume);
+			m_pSLAM->m_tracker.startThread();
 		}
 	}
 	else
 	{
-		SafeDelete(m_kinfu);
+		SafeDelete(m_pSLAM);
 	}
 }
 

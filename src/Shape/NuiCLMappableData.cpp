@@ -52,18 +52,29 @@ void NuiCLMappableData::Clear()
 	m_indexDirty = true;
 }
 
-//void NuiCLMappableData::DeepCopy (const NuiCLMappableData& other)
-//{
-//	m_nWidthStep = other.m_nWidthStep;
-//	m_colorImage = other.m_colorImage;
-//	m_pointIndices = other.m_pointIndices->clone();
-//	m_triangleIndices = other.m_triangleIndices->clone();
-//	m_wireframeIndices = other.m_wireframeIndices->clone();
-//	m_positionStream = other.m_positionStream->clone();
-//	m_colorStream = other.m_colorStream->clone();
-//	m_normalStream = other.m_normalStream->clone();
-//	m_patchUVStream = other.m_patchUVStream->clone();
-//}
+void NuiCLMappableData::DeepCopy (const NuiCLMappableData& other)
+{
+	m_nWidthStep = other.m_nWidthStep;
+	m_pointIndices = other.m_pointIndices;
+	m_triangleIndices = other.m_triangleIndices;
+	m_wireframeIndices = other.m_wireframeIndices;
+	m_positionStream = other.m_positionStream;
+	m_colorStream = other.m_colorStream;
+	m_normalStream = other.m_normalStream;
+	m_patchUVStream = other.m_patchUVStream;
+
+	m_colorTex = other.m_colorTex;
+	m_feedbackTex = other.m_feedbackTex;
+	m_camPos = other.m_camPos;
+
+	m_boundingBoxMin = other.m_boundingBoxMin;
+	m_boundingBoxMax = other.m_boundingBoxMax;
+
+	//m_mesh = other.m_mesh;
+
+	m_streamDirty = other.m_streamDirty;
+	m_indexDirty = other.m_indexDirty;
+}
 
 void		NuiCLMappableData::SetCameraParams(const NuiCameraParams& params)
 {

@@ -62,6 +62,13 @@ public:
         return static_cast<bool>(_impl);
     }
 
+	NuiMappableBase& operator=(const NuiMappableBase& other)
+	{
+		_name = other._name;
+		_impl = other._impl;
+		return *this;
+	}
+
 protected:
     friend struct NuiMappableAccessor;
     std::shared_ptr<NuiMappableImpl> _impl;
@@ -116,13 +123,6 @@ public:
     void unmap()
     {
         _impl->unmap();
-    }
-
-    NuiMappable& operator=(const NuiMappableBase& other)
-    {
-        _name = other._name;
-        _impl = other._impl;
-        return *this;
     }
 
     bool operator!=(const NuiMappable& other)

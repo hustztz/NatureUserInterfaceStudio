@@ -31,6 +31,7 @@ namespace NuiKinfuEngine
 		void	setIntegrationMetricThreshold(float threshold);
 		float	getTrackerError() const { return m_trackingEngine.getTrackerError(); }
 		int		getFrameID() const { return m_trackingEngine.getFrameID(); }
+		const NuiCameraPos&		getLatestCameraPose() const { return m_trackingEngine.getCameraPose();	}
 
 	private:
 		virtual bool process() override;

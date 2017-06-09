@@ -22,9 +22,9 @@ public:
 	~NuiCLMappableData();
 
 	void				Clear();
-	/*void			DeepCopy (const NuiCLMappableData& other);
-	NuiCLMappableData (const NuiCLMappableData& other){ DeepCopy(other); }
-	NuiCLMappableData& operator = (const NuiCLMappableData& other) {	DeepCopy(other); return *this; }*/
+	void			DeepCopy (const NuiCLMappableData& other);
+	//NuiCLMappableData (const NuiCLMappableData& other) { DeepCopy(other); }
+	NuiCLMappableData& operator = (const NuiCLMappableData& other) {	DeepCopy(other); return *this; }
 	
 	NuiMappableui&		PointIndices() { return m_pointIndices; }
 	NuiMappableui&		TriangleIndices() { return m_triangleIndices; }

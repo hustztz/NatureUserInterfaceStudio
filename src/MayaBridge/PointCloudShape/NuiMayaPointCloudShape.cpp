@@ -1039,7 +1039,7 @@ void NuiMayaPointCloudShape::updateCachedData( const NuiCLMappableData* geomPtr,
 	if ( NULL == cached ) {
 		cerr << "NULL cachedSurface data found\n";
 	}
-	else {
+	else if(geomPtr) {
 		*(cached->data().get()) = *geomPtr;
 	}
 
